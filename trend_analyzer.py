@@ -1,36 +1,35 @@
+import numpy as np
 from scipy.signal import find_peaks
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional
 
-SwingPoint = tuple[int, float, str] 
-# (index, price, 'H'/'L')
+# Import all constants and type definitions
+from constants import (
+    SwingPoint, TREND_BULLISH, TREND_BEARISH, TREND_NEUTRAL,
+    BREAK_BULLISH, BREAK_BEARISH, NO_BREAK
+)
 
-TREND_BULLISH: str = "bullish"
-TREND_BEARISH: str = "bearish"
-TREND_NEUTRAL: str = "neutral"
-
-# Constants for break types
-BREAK_BULLISH: str = "BULLISH_BREAK"
-BREAK_BEARISH: str = "BEARISH_BREAK"
-NO_BREAK: str = "NO_BREAK"
-
-def get_swing_points(prices, distance, prominence):
-    high_points, _ = find_peaks(prices, distance=distance, prominence=prominence)
-    low_points, _ = find_peaks(-prices, distance=distance, prominence=prominence)
-    swings = []
-    for idx in high_points:
-        swings.append((idx, prices[idx], 'H'))
-    for idx in low_points:
-        swings.append((idx, prices[idx], 'L'))
-        
-    # 4. Sort all swings by their index (i.e., by time)
-    # This gives us the chronological "snake-line"
-    swings.sort(key=lambda x: x[0])
+def get_swing_points(prices: np.ndarray, distance: int, prominence: float) -> List[SwingPoint]:
+    """
+    Finds all significant swing highs ('H') and lows ('L') from a price array.
+    """
+    high_indices, _ = find_peaks(prices, distance=distance, prominence=prominence)
+    low_indices, _ = find_peaks(-prices, distance=distance, prominence=prominence)
     
+    swings: List[SwingPoint] = []
+    for idx in high_indices:
+        swings.append((int(idx), prices[idx], 'H'))
+    for idx in low_indices:
+        swings.append((int(idx), prices[idx], 'L'))
+        
+    swings.sort(key=lambda x: x[0])  # Sort by index (chronologically)
     return swings
 
-def _find_initial_structure(all_swings: list[SwingPoint]):
-    initial_high = None
-    initial_low = None
+def _find_initial_structure(all_swings: List[SwingPoint]) -> Tuple[Optional[SwingPoint], Optional[SwingPoint]]:
+    """
+    Finds the first chronological High and Low to establish the initial structure.
+    """
+    initial_high: Optional[SwingPoint] = None
+    initial_low: Optional[SwingPoint] = None
     
     for swing in all_swings:
         swing_type = swing[2]
@@ -48,42 +47,50 @@ def _check_for_structure_break(
     struct_high: SwingPoint, 
     struct_low: SwingPoint
 ) -> str:
+    """
+    Checks if a new swing has broken the established market structure.
+    """
     price = current_swing[1]
     swing_type = current_swing[2]
     
     if swing_type == 'H' and price > struct_high[1]:
         return BREAK_BULLISH
-        
     elif swing_type == 'L' and price < struct_low[1]:
         return BREAK_BEARISH
-        
     return NO_BREAK
 
-def _find_swing_breaking_points(
+def _find_corresponding_structural_swing(
     break_type: str, 
     new_swing_index: int, 
-    all_swings: list[SwingPoint]
-):
+    all_swings: List[SwingPoint]
+) -> Optional[SwingPoint]:
+    """
+    After a break, searches backwards to find the corresponding
+    structural point (e.g., the new Higher Low or Lower High).
+    """
+    # If bullish break, we are looking for the last 'L' (Higher Low)
     search_for_type = 'L' if break_type == BREAK_BULLISH else 'H'
     
-    # Search backwards from the swing *before* the breaking one
     for j in range(new_swing_index - 1, -1, -1):
         if all_swings[j][2] == search_for_type:
-            return all_swings[j] # Found it
+            return all_swings[j]
             
-    return None # Should be rare, but possible
+    return None # Fallback
 
-def analyze_snake_trend(all_swings: list[SwingPoint]) -> tuple[str, SwingPoint, SwingPoint]:
+def analyze_snake_trend(all_swings: List[SwingPoint]) -> Tuple[str, Optional[SwingPoint], Optional[SwingPoint]]:
+    """
+    Orchestrates the analysis of swings to find the trend and structural points.
+    """
     if len(all_swings) < 2:
-        return TREND_NEUTRAL, None, None # Not enough data
+        return TREND_NEUTRAL, None, None
 
     initial_high, initial_low = _find_initial_structure(all_swings)
     
     if not initial_high or not initial_low:
-        return TREND_NEUTRAL, None, None # Failed to find initial H/L pair
+        return TREND_NEUTRAL, None, None
 
     current_trend: str = TREND_NEUTRAL
-    current_structure: dict[str, SwingPoint] = {"H": initial_high, "L": initial_low}
+    current_structure: Dict[str, SwingPoint] = {"H": initial_high, "L": initial_low}
 
     for i in range(len(all_swings)):
         current_swing = all_swings[i]
@@ -96,16 +103,14 @@ def analyze_snake_trend(all_swings: list[SwingPoint]) -> tuple[str, SwingPoint, 
 
         if break_type == BREAK_BULLISH:
             current_trend = TREND_BULLISH
-            # Find the Higher Low (HL) that formed before this new HH
-            new_low = _find_swing_breaking_points(BREAK_BULLISH, i, all_swings)
+            new_low = _find_corresponding_structural_swing(BREAK_BULLISH, i, all_swings)
             current_structure["H"] = current_swing
             if new_low:
                 current_structure["L"] = new_low
                 
         elif break_type == BREAK_BEARISH:
             current_trend = TREND_BEARISH
-            # Find the Lower High (LH) that formed before this new LL
-            new_high = _find_swing_breaking_points(BREAK_BEARISH, i, all_swings)
+            new_high = _find_corresponding_structural_swing(BREAK_BEARISH, i, all_swings)
             current_structure["L"] = current_swing
             if new_high:
                 current_structure["H"] = new_high
