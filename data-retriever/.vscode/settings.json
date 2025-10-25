@@ -1,0 +1,6 @@
+{
+  "python.analysis.extraPaths": [
+    "./logic",
+    "./logic/analyzers"
+  ]
+}
