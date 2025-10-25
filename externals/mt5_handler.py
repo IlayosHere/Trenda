@@ -8,5 +8,7 @@ def initialize_mt5():
     print("✅ MT5 initialized successfully.")
     return True
 
+
 def shutdown_mt5():
+    print("Shutting down MT5 connection...")
     mt5.shutdown()
