@@ -12,12 +12,38 @@ FOREX_PAIRS = [
     "EURJPY",
 ]
 
+# --- OANDA Specific Instrument Names ---
+# Maps your internal name to OANDA's format (usually XXX_YYY)
+OANDA_INSTRUMENTS = {
+    "EURUSD": "EUR_USD",
+    "GBPUSD": "GBP_USD",
+    "USDJPY": "USD_JPY",
+    "USDCHF": "USD_CHF",
+    "USDCAD": "USD_CAD",
+    "AUDUSD": "AUD_USD",
+    "NZDUSD": "NZD_USD",
+    "GBPCAD": "GBP_CAD",
+    "EURJPY": "EUR_JPY",
+}
+
 # 2. Define the timeframes you want to analyze
 TIMEFRAMES = {
     "1W": mt5.TIMEFRAME_W1,
     "1D": mt5.TIMEFRAME_D1,
     "4H": mt5.TIMEFRAME_H4,
     "1H": mt5.TIMEFRAME_H1,
+}
+
+# --- OANDA Specific Granularity Strings ---
+# Maps your internal timeframe representation to OANDA API granularity codes
+OANDA_GRANULARITIES = {
+    "1W": "W",   # Weekly
+    "1D": "D",   # Daily
+    "4H": "H4",  # 4 Hour
+    "1H": "H1",  # 1 Hour
+    # Add others as needed
+    # "30min": "M30", # 30 Minute
+    # "15min": "M15", # 15 Minute
 }
 
 # 3. !! CRITICAL TUNING !!

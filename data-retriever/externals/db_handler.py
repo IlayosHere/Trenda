@@ -3,6 +3,7 @@ from typing import Optional
 from configuration import POSTGRES_DB
 import utils.display as display
 
+
 def get_db_connection():
     try:
         conn = psycopg2.connect(**POSTGRES_DB)
@@ -13,6 +14,7 @@ def get_db_connection():
     except psycopg2.OperationalError as e:
         display.print_error(f"DATABASE CONNECTION FAILED: {e}")
         return None
+
 
 def update_trend_data(
     symbol: str, timeframe: str, trend: str, high: Optional[float], low: Optional[float]
