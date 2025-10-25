@@ -1,9 +1,9 @@
 import psycopg2
 from typing import Optional
 from configuration import POSTGRES_DB
-import display
+import utils.display as display
 
-def _get_db_connection():
+def get_db_connection():
     try:
         conn = psycopg2.connect(**POSTGRES_DB)
         cur = conn.cursor()
@@ -31,7 +31,7 @@ def update_trend_data(
         low = excluded.low,
         last_updated = CURRENT_TIMESTAMP
     """
-    conn = _get_db_connection()
+    conn = get_db_connection()
     if not conn:
         display.print_error(
             f"Could not update trend for {symbol}/{timeframe}, DB connection failed."

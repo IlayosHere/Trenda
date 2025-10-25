@@ -1,8 +1,8 @@
 from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from constants import DATA_ERROR_MSG
-from data_fetcher import fetch_data
-import display
-import db_handler
+from externals.data_fetcher import fetch_data
+import utils.display as display
+import externals.db_handler as db_handler
 from .trend_analyzer import analyze_snake_trend, get_swing_points
 
 def analyze_by_timeframe(timeframe: str) -> None:

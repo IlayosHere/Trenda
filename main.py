@@ -1,14 +1,14 @@
 import time
 from scheduler import scheduler
-from logic import mt5_connector
+from externals import mt5_handler
 from scheduler import start_scheduler
-import display
+import utils.display as display
 
 
 def main():
     display.print_status("--- 🚀 Starting Trend Analyzer Bot ---")
 
-    if not mt5_connector.initialize_mt5():
+    if not mt5_handler.initialize_mt5():
         return  # Exit if MT5 can't start
 
     try:
@@ -26,7 +26,7 @@ def main():
         # 4. Always shut down MT5 and scheduler
         if scheduler.running:
             scheduler.shutdown()
-        mt5_connector.shutdown_mt5()
+        mt5_handler.shutdown_mt5()
 
 
 # --- Run the bot ---

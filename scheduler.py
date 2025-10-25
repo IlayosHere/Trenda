@@ -2,7 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from configuration import SCHEDULE_CONFIG
 from datetime import datetime, timezone
 from analyzers import analyze_by_timeframe
-import display
+import utils.display as display
 
 # Create a single, global scheduler instance
 scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
