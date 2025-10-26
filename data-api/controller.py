@@ -54,26 +54,6 @@ app.add_middleware(
     allow_headers=["*"],       # Allow all standard headers
 )
 
-# Request Timing Middleware (Optional: Logs processing time for each request)
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = f"{process_time:.4f}" # Add custom header
-    # Log request details including processing time and status code
-    log.info(f"Request: {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.4f}s")
-    return response
-
-
-# --- API Endpoints (Routes / Controllers) ---
-
-@app.get("/", tags=["General"], summary="Root Endpoint")
-async def read_root():
-    """ Basic root endpoint to confirm the API is responsive. """
-    log.debug("Root endpoint '/' accessed.") # Use debug for high-frequency/low-importance logs
-    return {"message": "Welcome to the Trenda API. Access data at /trends"}
-
 
 # Define response model using generic List[Dict] for simplicity
 # For more robustness, define a Pydantic model representing the Trend data structure
