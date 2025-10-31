@@ -4,6 +4,7 @@ from externals.data_fetcher import fetch_data
 import utils.display as display
 import externals.db_handler as db_handler
 from .trend_analyzer import analyze_snake_trend, get_swing_points
+from .aoi_analyzer import find_and_store_aois
 
 def analyze_by_timeframe(timeframe: str) -> None:
     display.print_status(f"\n--- 🔄 Running scheduled job for {timeframe} ---")
@@ -18,8 +19,24 @@ def analyze_by_timeframe(timeframe: str) -> None:
             high_price = struct_high[1] if struct_high else None
             low_price = struct_low[1] if struct_low else None
             db_handler.update_trend_data(
-                symbol, timeframe, trend, float(high_price), float(low_price)
+                symbol,
+                timeframe,
+                trend,
+                float(high_price) if high_price is not None else None,
+                float(low_price) if low_price is not None else None,
             )
+
+            if (
+                timeframe == "4H"
+                and high_price is not None
+                and low_price is not None
+            ):
+                try:
+                    find_and_store_aois(symbol, high_price, low_price)
+                except Exception as aoi_error:
+                    display.print_error(
+                        f"  -> Failed to compute AOI for {symbol}: {aoi_error}"
+                    )
 
         except Exception as e:
             display.print_error(f"Failed to analyze {symbol}/{timeframe}: {e}")
