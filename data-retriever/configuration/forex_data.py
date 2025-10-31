@@ -32,5 +32,5 @@ ANALYSIS_PARAMS = {
     "1D": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 year
     "4H": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1.5 months
     "1H": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 week
-    "30min": {"lookback": 200, "distance": 2, "prominence": 0.0003},
+    "30min": {"lookback": 110, "distance": 1, "prominence": 0.0003},
 }

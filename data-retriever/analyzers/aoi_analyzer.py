@@ -44,7 +44,6 @@ def find_and_store_aois(symbol: str, base_high: float, base_low: float) -> None:
 
     prices = _load_close_prices(symbol, context)
     if prices is None:
-        db_handler.store_aois(symbol, AOI_TIMEFRAME, [])
         return
 
     swings = _extract_swings(prices, context)

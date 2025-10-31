@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.signal import find_peaks
-from externals.data_fetcher import fetch_data
 from typing import List, Dict, Tuple, Optional
 
 # Import all constants and type definitions
