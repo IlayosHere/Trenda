@@ -60,22 +60,7 @@ def store_aois(
 ) -> None:
     """Sync AOI zones for a forex pair/timeframe combination."""
 
-    existing_sql = """
-    SELECT id, lower_bound, upper_bound
-    FROM trenda.area_of_interest
-    WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
-      AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
-    """
-
-    update_sql = """
-    UPDATE trenda.area_of_interest
-    SET lower_bound = %s,
-        upper_bound = %s,
-        last_updated = CURRENT_TIMESTAMP
-    WHERE id = %s
-    """
-
-    insert_sql = """
+    upsert_sql = """
     INSERT INTO trenda.area_of_interest
         (forex_id, timeframe_id, lower_bound, upper_bound, last_updated)
     VALUES (
@@ -83,7 +68,16 @@ def store_aois(
         (SELECT id FROM timeframes WHERE type = %s),
         %s, %s, CURRENT_TIMESTAMP
     )
-    RETURNING id
+    ON CONFLICT (forex_id, timeframe_id, lower_bound, upper_bound) DO UPDATE SET
+        lower_bound = EXCLUDED.lower_bound,
+        upper_bound = EXCLUDED.upper_bound,
+        last_updated = CURRENT_TIMESTAMP
+    """
+
+    delete_all_sql = """
+    DELETE FROM trenda.area_of_interest
+    WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
+      AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
     """
 
     conn = get_db_connection()
@@ -96,59 +90,39 @@ def store_aois(
     with conn:
         try:
             with conn.cursor() as cursor:
-                cursor.execute(existing_sql, (symbol, timeframe))
-                existing_rows = cursor.fetchall()
+                if not aois:
+                    cursor.execute(delete_all_sql, (symbol, timeframe))
+                    return
 
-                def _key(lower: Optional[float], upper: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
-                    if lower is None and upper is None:
-                        return (None, None)
-                    return (
-                        round(lower, 8) if lower is not None else None,
-                        round(upper, 8) if upper is not None else None,
-                    )
-
-                existing_map = {
-                    _key(row[1], row[2]): row[0] for row in existing_rows
-                }
-                seen_ids = set()
+                bounds: List[Tuple[Optional[float], Optional[float]]] = []
 
                 for aoi in aois:
                     lower = aoi.get("lower_bound")
                     upper = aoi.get("upper_bound")
-                    key = _key(lower, upper)
+                    cursor.execute(
+                        upsert_sql,
+                        (
+                            symbol,
+                            timeframe,
+                            lower,
+                            upper,
+                        ),
+                    )
+                    bounds.append((lower, upper))
 
-                    existing_id = existing_map.get(key)
-                    if existing_id:
-                        cursor.execute(
-                            update_sql,
-                            (
-                                lower,
-                                upper,
-                                existing_id,
-                            ),
-                        )
-                        seen_ids.add(existing_id)
-                    else:
-                        cursor.execute(
-                            insert_sql,
-                            (
-                                symbol,
-                                timeframe,
-                                lower,
-                                upper,
-                            ),
-                        )
-                        new_id = cursor.fetchone()[0]
-                        seen_ids.add(new_id)
+                placeholders = ", ".join(["(%s, %s)"] * len(bounds))
+                delete_sql = f"""
+                DELETE FROM trenda.area_of_interest
+                WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
+                  AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
+                  AND (lower_bound, upper_bound) NOT IN ({placeholders})
+                """
 
-                if existing_rows:
-                    delete_sql = """
-                    DELETE FROM trenda.area_of_interest
-                    WHERE id = ANY(%s)
-                    """
-                    leftover_ids = [row[0] for row in existing_rows if row[0] not in seen_ids]
-                    if leftover_ids:
-                        cursor.execute(delete_sql, (leftover_ids,))
+                params: List[object] = [symbol, timeframe]
+                for lower, upper in bounds:
+                    params.extend([lower, upper])
+
+                cursor.execute(delete_sql, params)
 
             conn.commit()
         except Exception as e:
