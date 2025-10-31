@@ -134,12 +134,4 @@ def analyze_snake_trend(
             if new_high:
                 current_structure["H"] = new_high
 
-        # else:
-        #     swing_type = current_swing[2]
-        #     if current_trend == TREND_BEARISH and swing_type == "L":
-        #         current_structure["L"] = current_swing
-        #     elif current_trend == TREND_BULLISH and swing_type == "L":
-        #         current_structure["L"] = current_swing
-        #         current_structure["H"] = None
-
     return current_trend, current_structure["H"], current_structure["L"]
