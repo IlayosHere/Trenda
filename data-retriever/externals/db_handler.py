@@ -1,5 +1,5 @@
 import psycopg2
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from configuration import POSTGRES_DB
 import utils.display as display
@@ -108,5 +108,43 @@ def store_aois(
                 f"Error while storing AOIs for {symbol}/{timeframe}: {e}"
             )
             conn.rollback()
+
+
+def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Optional[float]]:
+    """Retrieve the stored high/low levels for a symbol/timeframe combination."""
+
+    sql = """
+    SELECT high, low
+    FROM trenda.trend_data
+    WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
+      AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
+    """
+
+    conn = get_db_connection()
+    if not conn:
+        display.print_error(
+            f"Could not fetch trend levels for {symbol}/{timeframe}, DB connection failed."
+        )
+        return None, None
+
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (symbol, timeframe))
+                row = cursor.fetchone()
+
+        if not row:
+            return None, None
+
+        high, low = row
+        return (
+            float(high) if high is not None else None,
+            float(low) if low is not None else None,
+        )
+    except Exception as e:
+        display.print_error(
+            f"Error while fetching trend levels for {symbol}/{timeframe}: {e}"
+        )
+        return None, None
 
 
