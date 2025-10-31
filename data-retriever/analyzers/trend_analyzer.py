@@ -126,4 +126,16 @@ def analyze_snake_trend(
             if new_high:
                 current_structure["H"] = new_high
 
+        else:
+            # When the trend continues without a formal structure break we still
+            # want to keep the latest swing that aligns with the active trend.
+            # This ensures that, for example, in a bearish trend the "current"
+            # lower low reflects the most recent low, preventing future
+            # calculations from referencing an outdated structural point.
+            swing_type = current_swing[2]
+            if current_trend == TREND_BEARISH and swing_type == "L":
+                current_structure["L"] = current_swing
+            elif current_trend == TREND_BULLISH and swing_type == "H":
+                current_structure["H"] = current_swing
+
     return current_trend, current_structure["H"], current_structure["L"]
