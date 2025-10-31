@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import find_peaks
+from externals.data_fetcher import fetch_data
 from typing import List, Dict, Tuple, Optional
 
 # Import all constants and type definitions
@@ -29,8 +30,15 @@ def get_swing_points(
         swings.append((int(idx), prices[idx], "L"))
 
     swings.sort(key=lambda x: x[0])  # Sort by index (chronologically)
+    swings.append(find_last_point(prices, swings[-1]))
     return swings
 
+
+def find_last_point(prices: np.ndarray, last_swing_point: SwingPoint) -> SwingPoint:
+    if last_swing_point[2] == "L":
+        return (last_swing_point[0] + 1, prices[-1], "H")
+    else:
+        return (last_swing_point[0] + 1, prices[-1], "L")
 
 def _find_initial_structure(
     all_swings: List[SwingPoint],
@@ -126,16 +134,12 @@ def analyze_snake_trend(
             if new_high:
                 current_structure["H"] = new_high
 
-        else:
-            # When the trend continues without a formal structure break we still
-            # want to keep the latest swing that aligns with the active trend.
-            # This ensures that, for example, in a bearish trend the "current"
-            # lower low reflects the most recent low, preventing future
-            # calculations from referencing an outdated structural point.
-            swing_type = current_swing[2]
-            if current_trend == TREND_BEARISH and swing_type == "L":
-                current_structure["L"] = current_swing
-            elif current_trend == TREND_BULLISH and swing_type == "H":
-                current_structure["H"] = current_swing
+        # else:
+        #     swing_type = current_swing[2]
+        #     if current_trend == TREND_BEARISH and swing_type == "L":
+        #         current_structure["L"] = current_swing
+        #     elif current_trend == TREND_BULLISH and swing_type == "L":
+        #         current_structure["L"] = current_swing
+        #         current_structure["H"] = None
 
     return current_trend, current_structure["H"], current_structure["L"]
