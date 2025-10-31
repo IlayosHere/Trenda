@@ -59,22 +59,35 @@ def store_aois(
     aois: List[Dict[str, float]],
     source_range_pips: float,
 ) -> None:
-    """Replace AOI zones for a forex pair/timeframe combination."""
+    """Sync AOI zones for a forex pair/timeframe combination."""
 
-    delete_sql = """
-    DELETE FROM trenda.areas_of_interest
+    existing_sql = """
+    SELECT id, lower_bound, upper_bound
+    FROM trenda.area_of_interest
     WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
       AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
     """
 
+    update_sql = """
+    UPDATE trenda.area_of_interest
+    SET lower_bound = %s,
+        upper_bound = %s,
+        touches = %s,
+        height_pips = %s,
+        source_range_pips = %s,
+        last_updated = CURRENT_TIMESTAMP
+    WHERE id = %s
+    """
+
     insert_sql = """
-    INSERT INTO trenda.areas_of_interest
+    INSERT INTO trenda.area_of_interest
         (forex_id, timeframe_id, lower_bound, upper_bound, touches, height_pips, source_range_pips, last_updated)
     VALUES (
         (SELECT id FROM forex WHERE name = %s),
         (SELECT id FROM timeframes WHERE type = %s),
         %s, %s, %s, %s, %s, CURRENT_TIMESTAMP
     )
+    RETURNING id
     """
 
     conn = get_db_connection()
@@ -87,21 +100,68 @@ def store_aois(
     with conn:
         try:
             with conn.cursor() as cursor:
-                cursor.execute(delete_sql, (symbol, timeframe))
+                cursor.execute(existing_sql, (symbol, timeframe))
+                existing_rows = cursor.fetchall()
+
+                def _key(lower: Optional[float], upper: Optional[float]) -> Tuple[Optional[float], Optional[float]]:
+                    if lower is None and upper is None:
+                        return (None, None)
+                    return (
+                        round(lower, 8) if lower is not None else None,
+                        round(upper, 8) if upper is not None else None,
+                    )
+
+                existing_map = {
+                    _key(row[1], row[2]): row[0] for row in existing_rows
+                }
+                seen_ids = set()
 
                 for aoi in aois:
-                    cursor.execute(
-                        insert_sql,
-                        (
-                            symbol,
-                            timeframe,
-                            aoi.get("lower_bound"),
-                            aoi.get("upper_bound"),
-                            aoi.get("touches"),
-                            aoi.get("height_pips"),
-                            source_range_pips,
-                        ),
-                    )
+                    lower = aoi.get("lower_bound")
+                    upper = aoi.get("upper_bound")
+                    touches = aoi.get("touches")
+                    height_pips = aoi.get("height_pips")
+                    key = _key(lower, upper)
+
+                    existing_id = existing_map.get(key)
+                    if existing_id:
+                        cursor.execute(
+                            update_sql,
+                            (
+                                lower,
+                                upper,
+                                touches,
+                                height_pips,
+                                source_range_pips,
+                                existing_id,
+                            ),
+                        )
+                        seen_ids.add(existing_id)
+                    else:
+                        cursor.execute(
+                            insert_sql,
+                            (
+                                symbol,
+                                timeframe,
+                                lower,
+                                upper,
+                                touches,
+                                height_pips,
+                                source_range_pips,
+                            ),
+                        )
+                        new_id = cursor.fetchone()[0]
+                        seen_ids.add(new_id)
+
+                if existing_rows:
+                    delete_sql = """
+                    DELETE FROM trenda.area_of_interest
+                    WHERE id = ANY(%s)
+                    """
+                    leftover_ids = [row[0] for row in existing_rows if row[0] not in seen_ids]
+                    if leftover_ids:
+                        cursor.execute(delete_sql, (leftover_ids,))
+
             conn.commit()
         except Exception as e:
             display.print_error(
