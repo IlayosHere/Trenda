@@ -42,7 +42,7 @@ app = FastAPI(
 # CORS Middleware (Cross-Origin Resource Sharing)
 # Allows frontend applications hosted on different domains/ports to access this API.
 # Read allowed origins from environment variable, default to common dev origins.
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:8000")
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080")
 origins = [origin.strip() for origin in allowed_origins_str.split(',') if origin.strip()]
 log.info(f"Configuring CORS middleware for allowed origins: {origins}")
 

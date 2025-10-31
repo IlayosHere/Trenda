@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import find_peaks
+from externals.data_fetcher import fetch_data
 from typing import List, Dict, Tuple, Optional
 
 # Import all constants and type definitions
@@ -29,8 +30,15 @@ def get_swing_points(
         swings.append((int(idx), prices[idx], "L"))
 
     swings.sort(key=lambda x: x[0])  # Sort by index (chronologically)
+    swings.append(find_last_point(prices, swings[-1]))
     return swings
 
+
+def find_last_point(prices: np.ndarray, last_swing_point: SwingPoint) -> SwingPoint:
+    if last_swing_point[2] == "L":
+        return (last_swing_point[0] + 1, prices[-1], "H")
+    else:
+        return (last_swing_point[0] + 1, prices[-1], "L")
 
 def _find_initial_structure(
     all_swings: List[SwingPoint],
