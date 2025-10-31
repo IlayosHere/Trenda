@@ -44,13 +44,13 @@ def find_and_store_aois(symbol: str, base_high: float, base_low: float) -> None:
 
     prices = _load_close_prices(symbol, context)
     if prices is None:
-        db_handler.store_aois(symbol, AOI_TIMEFRAME, [], context.base_range_pips)
+        db_handler.store_aois(symbol, AOI_TIMEFRAME, [])
         return
 
     swings = _extract_swings(prices, context)
     zones = _detect_aois_from_swings(swings, context)
 
-    db_handler.store_aois(symbol, AOI_TIMEFRAME, zones, context.base_range_pips)
+    db_handler.store_aois(symbol, AOI_TIMEFRAME, zones)
 
     display.print_status(
         f"  -> {symbol}: Detected {len(zones)} AOI zone(s) on {AOI_TIMEFRAME}."
@@ -152,15 +152,7 @@ def _detect_aois_from_swings(
                 aois[key] = {
                     "lower_bound": lower_bound,
                     "upper_bound": upper_bound,
-                    "touches": float(len(cluster)),
-                    "height_pips": price_to_pips(
-                        cluster_height, context.pip_size
-                    ),
                 }
-            else:
-                aois[key]["touches"] = max(
-                    aois[key]["touches"], float(len(cluster))
-                )
 
     return list(aois.values())
 

@@ -57,7 +57,6 @@ def store_aois(
     symbol: str,
     timeframe: str,
     aois: List[Dict[str, float]],
-    source_range_pips: float,
 ) -> None:
     """Sync AOI zones for a forex pair/timeframe combination."""
 
@@ -72,20 +71,17 @@ def store_aois(
     UPDATE trenda.area_of_interest
     SET lower_bound = %s,
         upper_bound = %s,
-        touches = %s,
-        height_pips = %s,
-        source_range_pips = %s,
         last_updated = CURRENT_TIMESTAMP
     WHERE id = %s
     """
 
     insert_sql = """
     INSERT INTO trenda.area_of_interest
-        (forex_id, timeframe_id, lower_bound, upper_bound, touches, height_pips, source_range_pips, last_updated)
+        (forex_id, timeframe_id, lower_bound, upper_bound, last_updated)
     VALUES (
         (SELECT id FROM forex WHERE name = %s),
         (SELECT id FROM timeframes WHERE type = %s),
-        %s, %s, %s, %s, %s, CURRENT_TIMESTAMP
+        %s, %s, CURRENT_TIMESTAMP
     )
     RETURNING id
     """
@@ -119,8 +115,6 @@ def store_aois(
                 for aoi in aois:
                     lower = aoi.get("lower_bound")
                     upper = aoi.get("upper_bound")
-                    touches = aoi.get("touches")
-                    height_pips = aoi.get("height_pips")
                     key = _key(lower, upper)
 
                     existing_id = existing_map.get(key)
@@ -130,9 +124,6 @@ def store_aois(
                             (
                                 lower,
                                 upper,
-                                touches,
-                                height_pips,
-                                source_range_pips,
                                 existing_id,
                             ),
                         )
@@ -145,9 +136,6 @@ def store_aois(
                                 timeframe,
                                 lower,
                                 upper,
-                                touches,
-                                height_pips,
-                                source_range_pips,
                             ),
                         )
                         new_id = cursor.fetchone()[0]
