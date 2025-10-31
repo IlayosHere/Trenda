@@ -19,3 +19,13 @@ CREATE TABLE IF NOT EXISTS trend_data (
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(forex_id, timeframe_id)
 );
+
+CREATE TABLE IF NOT EXISTS area_of_interest (
+    id SERIAL,
+    forex_id INTEGER NOT NULL REFERENCES forex(id) ON DELETE CASCADE,    
+    timeframe_id INTEGER NOT NULL REFERENCES timeframes(id) ON DELETE CASCADE,    
+    lower_bound REAL,
+    upper_bound REAL,    
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(forex_id, timeframe_id)
+);
