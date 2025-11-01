@@ -4,11 +4,6 @@ from externals.data_fetcher import fetch_data
 import utils.display as display
 import externals.db_handler as db_handler
 from .trend_analyzer import analyze_snake_trend, get_swing_points
-from .aoi_analyzer import (
-    AOI_SOURCE_TIMEFRAME,
-    AOI_TIMEFRAME,
-    find_and_store_aois,
-)
 
 def analyze_by_timeframe(timeframe: str) -> None:
     display.print_status(f"\n--- 🔄 Running scheduled job for {timeframe} ---")
@@ -29,9 +24,6 @@ def analyze_by_timeframe(timeframe: str) -> None:
                 float(high_price) if high_price is not None else None,
                 float(low_price) if low_price is not None else None,
             )
-
-            if timeframe == AOI_TIMEFRAME:
-                _run_aoi_update(symbol)
 
         except Exception as e:
             display.print_error(f"Failed to analyze {symbol}/{timeframe}: {e}")
@@ -70,22 +62,3 @@ def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
         prices, analysis_params["distance"], analysis_params["prominence"]
     )
     return analyze_snake_trend(swings)
-
-
-def _run_aoi_update(symbol: str) -> None:
-    try:
-        high_price, low_price = db_handler.fetch_trend_levels(
-            symbol, AOI_SOURCE_TIMEFRAME
-        )
-
-        if high_price is None or low_price is None:
-            display.print_status(
-                f"  -> Skipping AOI for {symbol}: missing {AOI_SOURCE_TIMEFRAME} levels."
-            )
-            return
-
-        find_and_store_aois(symbol, high_price, low_price)
-    except Exception as aoi_error:
-        display.print_error(
-            f"  -> Failed to compute AOI for {symbol}: {aoi_error}"
-        )

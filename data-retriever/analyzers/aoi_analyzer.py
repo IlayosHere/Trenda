@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from configuration import ANALYSIS_PARAMS, TIMEFRAMES
+from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from externals.data_fetcher import fetch_data
 import externals.db_handler as db_handler
 import utils.display as display
@@ -15,12 +15,10 @@ from utils.forex import (
     pips_to_price,
 )
 
-
-AOI_TIMEFRAME = "30min"
 AOI_SOURCE_TIMEFRAME = "4H"
 AOI_MIN_TOUCHES = 3
 AOI_MIN_HEIGHT_RATIO = 0.05
-AOI_MAX_HEIGHT_RATIO = 0.10
+AOI_MAX_HEIGHT_RATIO = 0.20
 
 
 @dataclass
@@ -43,55 +41,48 @@ class AOIZoneCandidate:
     touches: int
 
 
-def find_and_store_aois(symbol: str, base_high: float, base_low: float) -> None:
+def analyze_aoi_by_timeframe(timeframe: str) -> None:
+    display.print_status(f"\n--- 🔄 Running scheduled job for {timeframe} ---")
+
+    for symbol in FOREX_PAIRS:
+        display.print_status(f"  -> Updating {symbol} for {timeframe}...")
+        
+        try:
+            high_price, low_price = db_handler.fetch_trend_levels(symbol, AOI_SOURCE_TIMEFRAME)
+            find_and_store_aois(timeframe, symbol, high_price, low_price)
+            
+        except Exception as aoi_error:
+            display.print_error(f"  -> Failed to compute AOI for {symbol}: {aoi_error}")
+
+def find_and_store_aois(timeframe, symbol: str, base_high: float, base_low: float) -> None:
     """Detect and persist areas of interest for a symbol."""
 
-    context = _build_context(symbol, base_high, base_low)
+    context = _build_context(timeframe, symbol, base_high, base_low)
     if context is None:
         return
 
-    prices = _load_close_prices(symbol, context)
+    prices = _load_close_prices(timeframe, symbol, context)
     if prices is None:
-        db_handler.store_aois(symbol, AOI_TIMEFRAME, [])
+        db_handler.store_aois(symbol, timeframe, [])
         return
 
     swings = _extract_swings(prices, context)
     zones = _detect_aois_from_swings(swings, context)
 
-    db_handler.store_aois(symbol, AOI_TIMEFRAME, zones)
-
-    display.print_status(
-        f"  -> {symbol}: Detected {len(zones)} AOI zone(s) on {AOI_TIMEFRAME}."
-    )
+    db_handler.store_aois(symbol, timeframe, zones)
+    
+    display.print_status(f"Stored AOI for {symbol}.")
 
 
-def _build_context(symbol: str, base_high: float, base_low: float) -> Optional[AOIContext]:
-    if AOI_TIMEFRAME not in ANALYSIS_PARAMS or AOI_TIMEFRAME not in TIMEFRAMES:
-        display.print_error(
-            f"AOI timeframe '{AOI_TIMEFRAME}' missing from configuration. Skipping AOI detection."
-        )
-        return None
-
+def _build_context(timeframe: str, symbol: str, base_high: float, base_low: float) -> Optional[AOIContext]:
     lower, upper = normalize_price_range(base_low, base_high)
     price_range = upper - lower
-    if price_range <= 0:
-        display.print_error(
-            f"AOI base range invalid for {symbol}. High ({base_high}) must be greater than low ({base_low})."
-        )
-        return None
-
     pip_size = get_pip_size(symbol)
     base_range_pips = price_to_pips(price_range, pip_size)
-    params = ANALYSIS_PARAMS[AOI_TIMEFRAME]
+    params = ANALYSIS_PARAMS[timeframe]
 
     min_height_price = pips_to_price(base_range_pips * AOI_MIN_HEIGHT_RATIO, pip_size)
     max_height_price = pips_to_price(base_range_pips * AOI_MAX_HEIGHT_RATIO, pip_size)
-
-    if min_height_price <= 0 or pip_size <= 0:
-        display.print_error(
-            f"AOI configuration invalid for {symbol}. Computed minimum height is non-positive."
-        )
-        return None
 
     return AOIContext(
         symbol=symbol,
@@ -105,16 +96,9 @@ def _build_context(symbol: str, base_high: float, base_low: float) -> Optional[A
     )
 
 
-def _load_close_prices(symbol: str, context: AOIContext) -> Optional[np.ndarray]:
-    timeframe_mt5 = TIMEFRAMES[AOI_TIMEFRAME]
+def _load_close_prices(timeframe, symbol: str, context: AOIContext) -> Optional[np.ndarray]:
+    timeframe_mt5 = TIMEFRAMES[timeframe]
     data = fetch_data(symbol, timeframe_mt5, context.params["lookback"])
-
-    if data is None or data.empty:
-        display.print_error(
-            f"  -> {symbol}: No data returned for AOI timeframe {AOI_TIMEFRAME}."
-        )
-        return None
-
     return np.asarray(data["close"].values)
 
 
@@ -141,6 +125,9 @@ def _detect_aois_from_swings(
             upper_price = price_sorted[end_index]
             height = upper_price - lower_price
 
+            if lower_price < context.base_low or upper_price > context.base_high:
+                break
+            
             if height > context.max_height_price:
                 break
 
@@ -167,7 +154,7 @@ def _detect_aois_from_swings(
 
     filtered = _filter_overlapping_zones(list(zone_candidates.values()))
     return [
-        {"lower_bound": zone.lower_bound, "upper_bound": zone.upper_bound}
+        {"lower_bound": float(zone.lower_bound), "upper_bound": float(zone.upper_bound)}
         for zone in filtered
     ]
 

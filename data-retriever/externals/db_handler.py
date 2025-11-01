@@ -24,8 +24,8 @@ def update_trend_data(
     sql = """
     INSERT INTO trenda.trend_data (forex_id, timeframe_id, trend, high, low, last_updated)
     VALUES (
-        (SELECT id FROM forex WHERE name = %s),
-        (SELECT id FROM timeframes WHERE type = %s),
+        (SELECT id FROM trenda.forex WHERE name = %s),
+        (SELECT id FROM trenda.timeframes WHERE type = %s),
         %s, %s, %s, CURRENT_TIMESTAMP
     )
     ON CONFLICT (forex_id, timeframe_id) DO UPDATE SET
@@ -64,20 +64,16 @@ def store_aois(
     INSERT INTO trenda.area_of_interest
         (forex_id, timeframe_id, lower_bound, upper_bound, last_updated)
     VALUES (
-        (SELECT id FROM forex WHERE name = %s),
-        (SELECT id FROM timeframes WHERE type = %s),
+        (SELECT id FROM trenda.forex WHERE name = %s),
+        (SELECT id FROM trenda.timeframes WHERE type = %s),
         %s, %s, CURRENT_TIMESTAMP
     )
-    ON CONFLICT (forex_id, timeframe_id, lower_bound, upper_bound) DO UPDATE SET
-        lower_bound = EXCLUDED.lower_bound,
-        upper_bound = EXCLUDED.upper_bound,
-        last_updated = CURRENT_TIMESTAMP
     """
 
     delete_all_sql = """
     DELETE FROM trenda.area_of_interest
-    WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
-      AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
+    WHERE forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
+      AND timeframe_id = (SELECT id FROM trenda.timeframes WHERE type = %s)
     """
 
     conn = get_db_connection()
@@ -90,10 +86,7 @@ def store_aois(
     with conn:
         try:
             with conn.cursor() as cursor:
-                if not aois:
-                    cursor.execute(delete_all_sql, (symbol, timeframe))
-                    return
-
+                cursor.execute(delete_all_sql, (symbol, timeframe))
                 bounds: List[Tuple[Optional[float], Optional[float]]] = []
 
                 for aoi in aois:
@@ -108,21 +101,7 @@ def store_aois(
                             upper,
                         ),
                     )
-                    bounds.append((lower, upper))
-
-                placeholders = ", ".join(["(%s, %s)"] * len(bounds))
-                delete_sql = f"""
-                DELETE FROM trenda.area_of_interest
-                WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
-                  AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
-                  AND (lower_bound, upper_bound) NOT IN ({placeholders})
-                """
-
-                params: List[object] = [symbol, timeframe]
-                for lower, upper in bounds:
-                    params.extend([lower, upper])
-
-                cursor.execute(delete_sql, params)
+                    bounds.append((lower, upper))                
 
             conn.commit()
         except Exception as e:
