@@ -18,7 +18,11 @@ def analyze_by_timeframe(timeframe: str) -> None:
             high_price = struct_high[1] if struct_high else None
             low_price = struct_low[1] if struct_low else None
             db_handler.update_trend_data(
-                symbol, timeframe, trend, float(high_price), float(low_price)
+                symbol,
+                timeframe,
+                trend,
+                float(high_price) if high_price is not None else None,
+                float(low_price) if low_price is not None else None,
             )
 
         except Exception as e:

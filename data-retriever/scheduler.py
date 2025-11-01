@@ -1,7 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from configuration import SCHEDULE_CONFIG
 from datetime import datetime, timezone
-from analyzers import analyze_by_timeframe
 import utils.display as display
 
 # Create a single, global scheduler instance
@@ -15,10 +14,11 @@ def start_scheduler() -> None:
     for job_name, config  in SCHEDULE_CONFIG.items():
         timeframe = config["timeframe"]
         interval_minutes = config["interval_minutes"]
+        job = config["job"]
         display.print_status(
             f"  -> Scheduling job for '{timeframe}': running every {interval_minutes} mins"
         )
-        add_job(scheduler, timeframe, interval_minutes)
+        add_job(scheduler, timeframe, interval_minutes, job)
 
     try:
         scheduler.start()
@@ -27,14 +27,14 @@ def start_scheduler() -> None:
         display.print_error(f"Failed to start scheduler: {e}")
 
 
-def add_job(scheduler, timeframe, interval_minutes):
+def add_job(scheduler, timeframe, interval_minutes, job):
     scheduler.add_job(
-        analyze_by_timeframe,  # The function to call
+        job,  # The function to call
         "interval",  # The trigger type
         minutes=interval_minutes,
         args=timeframe,  # Arguments to pass to the function
         id=f"job_{timeframe}_{datetime.now()}",  # A unique ID for the job
         replace_existing=True,
         misfire_grace_time=60 * 5,  # Allow job to be 5 mins late
-       next_run_time=datetime.now(timezone.utc)
+        next_run_time=datetime.now(timezone.utc)
     )
