@@ -7,7 +7,7 @@ and constructs appropriate HTTP responses based on service outcomes.
 Loads configuration from environment variables (via .env file).
 """
 import os
-from service import fetch_all_trend_data
+from service import get_trend_data_service, get_aoi_data_service
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status # Import status codes
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,7 +65,14 @@ TrendResponseModel = Optional[List[Dict[str, Any]]]
 async def get_trends():
     log.info("Handling incoming request for /trends endpoint.")
     try:
-        return fetch_all_trend_data()
+        data = get_trend_data_service()
+        if data is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No trend data available.",
+            )
+
+        return data
 
     except HTTPException as http_exc:
         # Re-raise exceptions already formatted for HTTP (e.g., from potential input validation later)
@@ -77,6 +84,46 @@ async def get_trends():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected internal server error occurred."
+        )
+
+
+@app.get(
+    "/aoi/{symbol}",
+    response_model=Dict[str, Any],
+    tags=["Areas of Interest"],
+)
+async def get_aoi(symbol: str):
+    """Retrieve area of interest details for the requested forex symbol."""
+
+    log.info("Handling incoming request for /aoi/%s endpoint.", symbol)
+    try:
+        data = get_aoi_data_service(symbol)
+        if data is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No AOI data found for symbol '{symbol}'.",
+            )
+
+        return data
+
+    except HTTPException as http_exc:
+        log.warning(
+            "HTTP exception during /aoi/%s request: %s (Status: %s)",
+            symbol,
+            http_exc.detail,
+            http_exc.status_code,
+        )
+        raise http_exc
+    except Exception as e:
+        log.error(
+            "Unexpected error in /aoi/%s endpoint handler: %s",
+            symbol,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected internal server error occurred.",
         )
 
 # --- How to Run the API Server (Development) ---

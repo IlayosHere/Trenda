@@ -104,3 +104,84 @@ def fetch_all_trend_data() -> Optional[List[Dict[str, Any]]]:
         return None # Indicate other failure
     finally:
         close_db_connection(conn)
+
+
+def fetch_aoi_for_symbol(
+    symbol: str,
+    timeframe: str,
+) -> Optional[Dict[str, Any]]:
+    """Fetch AOI data along with trend levels for a specific symbol/timeframe."""
+
+    trend_sql = """
+        SELECT
+            td.high,
+            td.low
+        FROM trend_data td
+        JOIN forex fp ON td.forex_id = fp.id
+        JOIN timeframes tf ON td.timeframe_id = tf.id
+        WHERE fp.name = %s AND tf.type = %s
+    """
+
+    aoi_sql = """
+        SELECT
+            lower_bound,
+            upper_bound
+        FROM area_of_interest
+        WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
+          AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
+        ORDER BY lower_bound ASC
+    """
+
+    conn = get_db_connection()
+    if not conn:
+        log.error("API Fetch AOI: Database connection failed.")
+        return None
+
+    response: Dict[str, Any] = {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "low": None,
+        "high": None,
+        "aois": [],
+    }
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(trend_sql, (symbol, timeframe))
+            trend_row = cursor.fetchone()
+
+            if trend_row:
+                high = trend_row.get("high")
+                low = trend_row.get("low")
+                response["high"] = float(high) if high is not None else None
+                response["low"] = float(low) if low is not None else None
+
+            cursor.execute(aoi_sql, (symbol, timeframe))
+            aoi_rows = cursor.fetchall()
+            response["aois"] = [
+                {
+                    "lower_bound": float(row["lower_bound"]) if row["lower_bound"] is not None else None,
+                    "upper_bound": float(row["upper_bound"]) if row["upper_bound"] is not None else None,
+                }
+                for row in aoi_rows
+            ]
+
+        if response["high"] is None and response["low"] is None and not response["aois"]:
+            # Nothing found for this symbol/timeframe
+            log.info(
+                "API Fetch AOI: No data found for symbol '%s' and timeframe '%s'",
+                symbol,
+                timeframe,
+            )
+            return None
+
+        return response
+
+    except psycopg2.Error as db_err:
+        log.error(f"API Repo: Database query error while fetching AOI: {db_err}", exc_info=True)
+        return None
+    except Exception as e:
+        log.error(f"API Repo: Unexpected error during AOI fetch: {e}", exc_info=True)
+        return None
+    finally:
+        close_db_connection(conn)
