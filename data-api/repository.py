@@ -116,7 +116,7 @@ def fetch_aoi_for_symbol(
         SELECT
             td.high,
             td.low
-        FROM trend_data td
+        FROM trenda.trend_data td
         JOIN forex fp ON td.forex_id = fp.id
         JOIN timeframes tf ON td.timeframe_id = tf.id
         WHERE fp.name = %s AND tf.type = %s
@@ -126,9 +126,9 @@ def fetch_aoi_for_symbol(
         SELECT
             lower_bound,
             upper_bound
-        FROM area_of_interest
-        WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
-          AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
+        FROM trenda.area_of_interest
+        WHERE forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
+          AND timeframe_id = (SELECT id FROM trenda.timeframes WHERE type = %s)
         ORDER BY lower_bound ASC
     """
 
@@ -157,23 +157,14 @@ def fetch_aoi_for_symbol(
                 response["low"] = float(low) if low is not None else None
 
             cursor.execute(aoi_sql, (symbol, timeframe))
+            print(cursor.query.decode("utf-8"))
             aoi_rows = cursor.fetchall()
-            response["aois"] = [
-                {
+            response["aois"] = []
+            for row in aoi_rows:
+               response["aois"].append({
                     "lower_bound": float(row["lower_bound"]) if row["lower_bound"] is not None else None,
                     "upper_bound": float(row["upper_bound"]) if row["upper_bound"] is not None else None,
-                }
-                for row in aoi_rows
-            ]
-
-        if response["high"] is None and response["low"] is None and not response["aois"]:
-            # Nothing found for this symbol/timeframe
-            log.info(
-                "API Fetch AOI: No data found for symbol '%s' and timeframe '%s'",
-                symbol,
-                timeframe,
-            )
-            return None
+                })
 
         return response
 

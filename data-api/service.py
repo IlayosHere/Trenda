@@ -10,7 +10,7 @@ if not log.handlers:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] API_Service: %(message)s')
 
 
-FOUR_HOUR_TIMEFRAME = "4H"
+AOI_HOUR_TIMEFRAME = "1H"
 
 
 def get_trend_data_service() -> Optional[List[Dict[str, Any]]]:
@@ -27,17 +27,17 @@ def get_trend_data_service() -> Optional[List[Dict[str, Any]]]:
 def get_aoi_data_service(symbol: str) -> Optional[Dict[str, Any]]:
     """Retrieve AOI information for the requested symbol using the 4H timeframe."""
 
-    log.info("Fetching AOI data for symbol '%s' on timeframe '%s'", symbol, FOUR_HOUR_TIMEFRAME)
-    data = fetch_aoi_for_symbol(symbol, FOUR_HOUR_TIMEFRAME)
+    log.info("Fetching AOI data for symbol '%s' on timeframe '%s'", symbol, AOI_HOUR_TIMEFRAME)
+    data = fetch_aoi_for_symbol(symbol, AOI_HOUR_TIMEFRAME)
 
     if data is None:
-        log.info("No AOI data found for symbol '%s' on timeframe '%s'", symbol, FOUR_HOUR_TIMEFRAME)
+        log.info("No AOI data found for symbol '%s' on timeframe '%s'", symbol, AOI_HOUR_TIMEFRAME)
         return None
 
     log.info(
         "Successfully retrieved %d AOI entries for symbol '%s' on timeframe '%s'",
         len(data.get("aois", [])),
         symbol,
-        FOUR_HOUR_TIMEFRAME,
+        AOI_HOUR_TIMEFRAME,
     )
     return data
