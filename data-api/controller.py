@@ -13,7 +13,6 @@ from fastapi import FastAPI, HTTPException, Request, status # Import status code
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any, Optional
 import logging
-import time # For request timing
 
 # --- Load Environment Variables ---
 # Ensures .env is loaded BEFORE other modules that might need env vars
