@@ -1,5 +1,3 @@
-import MetaTrader5 as mt5
-
 FOREX_PAIRS = [
     "EURUSD",
     "GBPUSD",
@@ -13,10 +11,12 @@ FOREX_PAIRS = [
 ]
 
 # 2. Define the timeframes you want to analyze
+# Each timeframe maps to the Finnhub resolution code and
+# the candle size in seconds (used to compute lookback windows)
 TIMEFRAMES = {
-    "1D": mt5.TIMEFRAME_D1,
-    "4H": mt5.TIMEFRAME_H4,
-    "1H": mt5.TIMEFRAME_H1,
+    "1D": {"resolution": "D", "seconds": 24 * 60 * 60},
+    "4H": {"resolution": "240", "seconds": 4 * 60 * 60},
+    "1H": {"resolution": "60", "seconds": 60 * 60},
 }
 
 # 3. !! CRITICAL TUNING !!

@@ -97,8 +97,8 @@ def _build_context(timeframe: str, symbol: str, base_high: float, base_low: floa
 
 
 def _load_close_prices(timeframe, symbol: str, context: AOIContext) -> Optional[np.ndarray]:
-    timeframe_mt5 = TIMEFRAMES[timeframe]
-    data = fetch_data(symbol, timeframe_mt5, context.params["lookback"])
+    timeframe_config = TIMEFRAMES[timeframe]
+    data = fetch_data(symbol, timeframe_config, context.params["lookback"])
     return np.asarray(data["close"].values)
 
 

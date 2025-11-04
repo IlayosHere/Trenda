@@ -41,11 +41,11 @@ def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
         display.print_error(f"Unknown symbol {symbol} in analysis.")
         return DATA_ERROR_MSG, None, None
 
-    formmated_timeframe = TIMEFRAMES[timeframe]
+    timeframe_config = TIMEFRAMES[timeframe]
     analysis_params = ANALYSIS_PARAMS[timeframe]
 
     symbol_data_by_timeframe = fetch_data(
-        symbol, formmated_timeframe, analysis_params["lookback"]
+        symbol, timeframe_config, analysis_params["lookback"]
     )
 
     if symbol_data_by_timeframe is None:

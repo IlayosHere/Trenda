@@ -1,45 +1,49 @@
-import MetaTrader5 as mt5
-import pandas as pd
-from typing import Optional
+from typing import Any, Dict, Optional
 
-# Import the error message constant
+import pandas as pd
+
 from constants import DATA_ERROR_MSG
+from externals.finnhub_client import FinnhubAPIError, fetch_forex_candles
 
 
 def fetch_data(
-    symbol: str, timeframe_mt5: int, lookback: int
+    symbol: str, timeframe_config: Dict[str, Any], lookback: int
 ) -> Optional[pd.DataFrame]:
-    """
-    Fetches OHLC data from MT5 and converts it.
+    """Fetch OHLC data from Finnhub and convert it into a pandas DataFrame."""
 
-    Args:
-        symbol (str): The financial instrument (e.g., "EURUSD").
-        timeframe_mt5 (int): The MT5 timeframe constant.
-        lookback (int): The number of candles to fetch.
+    resolution = timeframe_config["resolution"]
+    seconds_per_candle = timeframe_config["seconds"]
 
-    Returns:
-        Optional[pd.DataFrame]: A time-indexed DataFrame, or None if fetching fails.
-    """
-    rates = mt5.copy_rates_from_pos(symbol, timeframe_mt5, 0, lookback)
-
-    if rates is None or len(rates) == 0:
-        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {timeframe_mt5}")
+    try:
+        candles = fetch_forex_candles(symbol, resolution, lookback, seconds_per_candle)
+    except FinnhubAPIError as api_error:
+        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} ({api_error})")
         return None
 
-    return _convert_to_dataframe(rates)
+    if not candles:
+        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {resolution} (no data returned)")
+        return None
+
+    return _convert_to_dataframe(candles)
 
 
-def _convert_to_dataframe(rates: tuple) -> pd.DataFrame:
-    """
-    Converts the raw MT5 rates tuple into a time-indexed pandas DataFrame.
+def _convert_to_dataframe(candles: Dict[str, list]) -> pd.DataFrame:
+    """Convert Finnhub candle arrays into a time-indexed DataFrame."""
 
-    Args:
-        rates (tuple): Raw data from mt5.copy_rates_from_pos.
+    df = pd.DataFrame(
+        {
+            "time": candles.get("t", []),
+            "open": candles.get("o", []),
+            "high": candles.get("h", []),
+            "low": candles.get("l", []),
+            "close": candles.get("c", []),
+            "volume": candles.get("v", []),
+        }
+    )
 
-    Returns:
-        pd.DataFrame: A clean, time-indexed DataFrame.
-    """
-    df = pd.DataFrame(rates)
+    if df.empty:
+        return df
+
     df["time"] = pd.to_datetime(df["time"], unit="s")
     df.set_index("time", inplace=True)
     return df
