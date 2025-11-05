@@ -11,12 +11,12 @@ FOREX_PAIRS = [
 ]
 
 # 2. Define the timeframes you want to analyze
-# Each timeframe maps to the Finnhub resolution code and
+# Each timeframe maps to the Twelve Data interval code and
 # the candle size in seconds (used to compute lookback windows)
 TIMEFRAMES = {
-    "1D": {"resolution": "D", "seconds": 24 * 60 * 60},
-    "4H": {"resolution": "240", "seconds": 4 * 60 * 60},
-    "1H": {"resolution": "60", "seconds": 60 * 60},
+    "1D": {"interval": "1day", "seconds": 24 * 60 * 60},
+    "4H": {"interval": "4h", "seconds": 4 * 60 * 60},
+    "1H": {"interval": "1h", "seconds": 60 * 60},
 }
 
 # 3. !! CRITICAL TUNING !!

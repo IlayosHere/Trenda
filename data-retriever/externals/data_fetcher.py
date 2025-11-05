@@ -1,49 +1,49 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 from constants import DATA_ERROR_MSG
-from externals.finnhub_client import FinnhubAPIError, fetch_forex_candles
+from externals.twelvedata_client import TwelveDataAPIError, fetch_forex_candles
 
 
 def fetch_data(
     symbol: str, timeframe_config: Dict[str, Any], lookback: int
 ) -> Optional[pd.DataFrame]:
-    """Fetch OHLC data from Finnhub and convert it into a pandas DataFrame."""
+    """Fetch OHLC data from Twelve Data and convert it into a pandas DataFrame."""
 
-    resolution = timeframe_config["resolution"]
-    seconds_per_candle = timeframe_config["seconds"]
+    interval = timeframe_config["interval"]
 
     try:
-        candles = fetch_forex_candles(symbol, resolution, lookback, seconds_per_candle)
-    except FinnhubAPIError as api_error:
+        candles = fetch_forex_candles(symbol, interval, lookback)
+    except TwelveDataAPIError as api_error:
         print(f"  ❌ {DATA_ERROR_MSG} for {symbol} ({api_error})")
         return None
 
     if not candles:
-        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {resolution} (no data returned)")
+        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {interval} (no data returned)")
         return None
 
     return _convert_to_dataframe(candles)
 
 
-def _convert_to_dataframe(candles: Dict[str, list]) -> pd.DataFrame:
-    """Convert Finnhub candle arrays into a time-indexed DataFrame."""
+def _convert_to_dataframe(candles: List[Dict[str, Any]]) -> pd.DataFrame:
+    """Convert Twelve Data candle payload into a time-indexed DataFrame."""
 
-    df = pd.DataFrame(
-        {
-            "time": candles.get("t", []),
-            "open": candles.get("o", []),
-            "high": candles.get("h", []),
-            "low": candles.get("l", []),
-            "close": candles.get("c", []),
-            "volume": candles.get("v", []),
-        }
-    )
+    df = pd.DataFrame.from_records(candles)
 
     if df.empty:
         return df
 
-    df["time"] = pd.to_datetime(df["time"], unit="s")
+    df.rename(columns={"datetime": "time"}, inplace=True)
+
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+
+    for column in ("open", "high", "low", "close", "volume"):
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+        else:
+            df[column] = pd.NA
+
     df.set_index("time", inplace=True)
+    df.sort_index(inplace=True)
     return df
