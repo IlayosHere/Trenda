@@ -1,16 +1,16 @@
 import MetaTrader5 as mt5
 
 FOREX_PAIRS = [
-    "EURUSD",
-    "GBPUSD",
-    "USDJPY",
-    "USDCHF",
-    "USDCAD",
+    # "EURUSD",
+    # "GBPUSD",
+    # "USDJPY",
+    # "USDCHF",
+    # "USDCAD",
     "AUDUSD",
-    "NZDUSD",
-    "GBPCAD",
-    "EURJPY",
-]
+    # "NZDUSD",
+    # "GBPCAD",
+    # "EURJPY"
+    ]
 
 # 2. Define the timeframes you want to analyze
 TIMEFRAMES = {
@@ -27,6 +27,6 @@ ANALYSIS_PARAMS = {
     # timeframe: {lookback_candles, distance_filter, prominence_filter_in_pips}
     # (Note: prominence is in price units, e.g., 0.0010 for EURUSD)
     "1D": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 year
-    "4H": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1.5 months
-    "1H": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 week
+    "4H": {"lookback": 100, "aoi_lookback": 150, "distance": 1, "prominence": 0.0004},  # ~1.5 months
+    "1H": {"lookback": 100, "aoi_lookback": 200, "distance": 1, "prominence": 0.0004},  # ~1 week
 }

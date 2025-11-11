@@ -111,6 +111,38 @@ def store_aois(
             conn.rollback()
 
 
+def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
+    sql = """
+    SELECT trend
+    FROM trenda.trend_data
+    WHERE forex_id = (SELECT id FROM forex WHERE name = %s)
+      AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
+    """
+
+    conn = get_db_connection()
+    if not conn:
+        display.print_error(
+            f"Could not fetch trend levels for {symbol}/{timeframe}, DB connection failed."
+        )
+        return None, None
+
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (symbol, timeframe))
+                row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        htrend = row
+        return htrend
+    except Exception as e:
+        display.print_error(
+            f"Error while fetching trend for {symbol}/{timeframe}: {e}"
+        )
+        return None
+
 def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Optional[float]]:
     """Retrieve the stored high/low levels for a symbol/timeframe combination."""
 
