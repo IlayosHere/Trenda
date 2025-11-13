@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, status
 
-from .config import get_api_config
-from .logging_config import get_logger
-from .models import AreaOfInterestResponse, TrendResponse
-from .services.trends import get_aoi, get_trends
+from data_api.config import get_api_config
+from data_api.logging_config import get_logger
+from data_api.models import AreaOfInterestResponse, TrendResponse
+from data_api.services.trends import get_aoi, get_trends
 from fastapi.middleware.cors import CORSMiddleware
 
 log = get_logger(__name__)
