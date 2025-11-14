@@ -13,8 +13,15 @@ ON CONFLICT (name) DO NOTHING;
 
 -- DML for populating the 'timeframes' table
 INSERT INTO fordash.timeframes (type) VALUES
+('1W')
 ('1D'),
 ('4H'),
 ('1H'),
 ('15min')
+ON CONFLICT (type) DO NOTHING;
+
+
+INSERT INTO fordash.aoi_type (type) VALUES
+('tradable'),
+('reference')
 ON CONFLICT (type) DO NOTHING;
