@@ -26,6 +26,10 @@ class AOIContext:
     min_height_price: float
     max_height_price: float
     tolerance_price: float
+    core_lower: float
+    core_upper: float
+    extended_lower: float
+    extended_upper: float
     params: Dict[str, float]
     settings: AOISettings
 
@@ -64,6 +68,16 @@ def build_context(
     tolerance_price = pips_to_price(
         base_range_pips * settings.bound_tolerance_ratio, pip_size
     )
+    extension_pips = max(
+        settings.directional_extension_pips,
+        base_range_pips * settings.directional_extension_ratio,
+    )
+    extension_price = pips_to_price(extension_pips, pip_size)
+
+    core_lower = lower - tolerance_price
+    core_upper = upper + tolerance_price
+    extended_lower = core_lower - extension_price
+    extended_upper = core_upper + extension_price
 
     return AOIContext(
         timeframe=settings.timeframe,
@@ -75,6 +89,10 @@ def build_context(
         min_height_price=min_height_price,
         max_height_price=max_height_price,
         tolerance_price=tolerance_price,
+        core_lower=core_lower,
+        core_upper=core_upper,
+        extended_lower=extended_lower,
+        extended_upper=extended_upper,
         params=params,
         settings=settings,
     )

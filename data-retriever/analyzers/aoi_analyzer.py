@@ -56,6 +56,8 @@ def _process_symbol(settings: AOISettings, symbol: str, base_high: float, base_l
         return
 
     context = build_context(settings, symbol, base_high, base_low)
+    if context is None:
+        return
 
     mt5_timeframe = TIMEFRAMES.get(settings.timeframe)
     timeframe_params = ANALYSIS_PARAMS.get(settings.timeframe, {})
@@ -71,7 +73,7 @@ def _process_symbol(settings: AOISettings, symbol: str, base_high: float, base_l
     current_price = float(prices[-1])
 
     swings = extract_swings(prices, context)
-    zones = generate_aoi_zones(swings, last_bar_idx, context)
+    zones = generate_aoi_zones(swings, last_bar_idx, trend_direction, context)
 
     zones_scored = apply_directional_weighting_and_classify(
         zones, current_price, last_bar_idx, trend_direction, context
