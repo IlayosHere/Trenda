@@ -6,8 +6,7 @@ from typing import Dict, Tuple
 class AOISettings:
     """Container for AOI rules tied to a specific timeframe."""
 
-    target_timeframe: str
-    source_timeframe: str
+    timeframe: str
     timeframe_hours: int
     min_touches: int
     min_range_pips: float
@@ -34,8 +33,7 @@ class AOISettings:
 
 AOI_CONFIGS: Dict[str, AOISettings] = {
     "4H": AOISettings(
-        target_timeframe="4H",
-        source_timeframe="4H",
+        timeframe="4H",
         timeframe_hours=4,
         min_touches=3,
         min_range_pips=30,
@@ -46,10 +44,28 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         min_height_ratio=0.05,
         min_height_pips_floor=8,
         max_height_ratio=0.15,
-        max_height_min_pips=10,
-        max_height_max_pips=20,
-        bound_tolerance_ratio=0.05,
+        max_height_min_pips=20,
+        max_height_max_pips=40,
+        bound_tolerance_ratio=0.8,
         alignment_weight=1.25,
-        trend_alignment_timeframes=("4H", "1D"),
+        trend_alignment_timeframes=("4H", "1D", "1W"),
     ),
+    "1D": AOISettings(
+        timeframe="1D",
+        timeframe_hours=24,
+        min_touches=3,
+        min_range_pips=60,
+        min_swing_gap_bars=1,
+        overlap_tolerance_pips=4.0,
+        max_age_days=8,
+        max_zones_per_symbol=3,
+        min_height_ratio=0.05,
+        min_height_pips_floor=8,
+        max_height_ratio=0.10,
+        max_height_min_pips=30,
+        max_height_max_pips=60,
+        bound_tolerance_ratio=0.8,
+        alignment_weight=1.25,
+        trend_alignment_timeframes=("4H", "1D", "1W"),
+    )
 }

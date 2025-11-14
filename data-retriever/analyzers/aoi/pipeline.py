@@ -68,15 +68,15 @@ def _find_zone_candidates(
                 break
 
             if height < context.min_height_price or height > context.max_height_price:
-                continue
+                break
 
             mid_indices = [
                 idx for (idx, price) in pairs if lower_price <= price <= upper_price
             ]
             if len(mid_indices) < settings.min_touches:
-                continue
+                break
             if not _has_sufficient_spacing(mid_indices, settings.min_swing_gap_bars):
-                continue
+                break
 
             last_idx = max(mid_indices)
             base_score = _calculate_base_zone_score(

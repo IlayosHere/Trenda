@@ -19,8 +19,8 @@ def apply_directional_weighting_and_classify(
     out: List[Dict[str, float]] = []
     for z in zones:
         lower, upper = z["lower_bound"], z["upper_bound"]
-        zone_above_price = lower > current_price
-        zone_below_price = upper < current_price
+        zone_above_price = upper > current_price
+        zone_below_price = lower < current_price
 
         if trend_direction == "bearish":
             is_tradable = zone_above_price

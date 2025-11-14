@@ -5,7 +5,7 @@ import numpy as np
 
 import utils.display as display
 from configuration import ANALYSIS_PARAMS
-from configuration.aoi import AOISettings
+from .aoi import AOISettings
 from utils.forex import (
     get_pip_size,
     normalize_price_range,
@@ -35,18 +35,7 @@ def build_context(
 ) -> Optional["AOIContext"]:
     """Prepare the AOI analysis context for a symbol and timeframe."""
 
-    if base_low is None or base_high is None:
-        display.print_status(
-            f"  ⚠️ Skipping {symbol}: missing structure levels for AOI context."
-        )
-        return None
-
-    params = ANALYSIS_PARAMS.get(settings.target_timeframe)
-    if not params:
-        display.print_error(
-            f"  ❌ Missing analysis params for timeframe {settings.target_timeframe}."
-        )
-        return None
+    params = ANALYSIS_PARAMS.get(settings.timeframe)
 
     lower, upper = normalize_price_range(base_low, base_high)
     pip_size = get_pip_size(symbol)
@@ -77,7 +66,7 @@ def build_context(
     )
 
     return AOIContext(
-        timeframe=settings.target_timeframe,
+        timeframe=settings.timeframe,
         symbol=symbol,
         base_low=lower,
         base_high=upper,
