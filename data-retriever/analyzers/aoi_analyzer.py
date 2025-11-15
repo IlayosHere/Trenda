@@ -7,7 +7,8 @@ helpers in ``analyzers.aoi`` so the entrypoint stays focused on control flow.
 from typing import List, Optional, Tuple
 
 import numpy as np
-import talib
+import pandas as pd
+import pandas_ta as ta
 
 from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from externals.data_fetcher import fetch_data
@@ -119,33 +120,21 @@ def _calculate_atr_window_bounds(
 ) -> Optional[Tuple[float, float]]:
     """Derive the price window to scan for AOIs using ATR multiples."""
 
-    required_cols = {"high", "low", "close"}
-    if not required_cols.issubset(data.columns):
-        display.print_error(
-            f"  ❌ Missing columns {required_cols - set(data.columns)} for ATR calculation."
-        )
-        return None
-
     highs = data["high"].values
     lows = data["low"].values
     closes = data["close"].values
 
-    atr_values = talib.ATR(
-        highs,
-        lows,
-        closes,
-        timeperiod=settings.atr_period,
-    )
+    df = pd.DataFrame({
+    "high": highs,
+    "low": lows,
+    "close": closes,
+    })
 
-    if atr_values is None or len(atr_values) == 0:
-        return None
-
-    latest_atr = float(atr_values[-1])
-    if np.isnan(latest_atr) or latest_atr <= 0:
-        return None
-
+    df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
+    current_atr = df["atr"].iloc[-1]
+    
     pip_size = get_pip_size(symbol)
-    atr_pips = price_to_pips(latest_atr, pip_size)
+    atr_pips = price_to_pips(current_atr, pip_size)
     window_pips = atr_pips * settings.atr_window_multiplier
 
     if window_pips <= 0:
