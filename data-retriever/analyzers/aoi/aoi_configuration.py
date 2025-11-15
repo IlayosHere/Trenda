@@ -23,6 +23,8 @@ class AOISettings:
     directional_extension_ratio: float
     alignment_weight: float
     trend_alignment_timeframes: Tuple[str, ...]
+    atr_period: int
+    atr_window_multiplier: float
 
     @property
     def max_age_bars(self) -> int:
@@ -51,6 +53,8 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         directional_extension_ratio=0.35,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W"),
+        atr_period=14,
+        atr_window_multiplier=5.0,
     ),
     "1D": AOISettings(
         timeframe="1D",
@@ -70,5 +74,7 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         directional_extension_ratio=0.35,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W"),
+        atr_period=14,
+        atr_window_multiplier=5.0,
     )
 }
