@@ -4,12 +4,14 @@ This module delegates context building, zone generation, and scoring to
 helpers in ``analyzers.aoi`` so the entrypoint stays focused on control flow.
 """
 
+from typing import List
 import numpy as np
 
 from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from externals.data_fetcher import fetch_data
 import externals.db_handler as db_handler
 import utils.display as display
+from constants import SwingPoint
 from .aoi import (
     apply_directional_weighting_and_classify,
     build_context,
@@ -17,7 +19,8 @@ from .aoi import (
     extract_swings,
     generate_aoi_zones,
     AOI_CONFIGS, 
-    AOISettings
+    AOISettings,
+    AOIContext
 )
 
 
@@ -73,7 +76,8 @@ def _process_symbol(settings: AOISettings, symbol: str, base_high: float, base_l
     current_price = float(prices[-1])
 
     swings = extract_swings(prices, context)
-    zones = generate_aoi_zones(swings, last_bar_idx, trend_direction, context)
+    relevant_swings = filter_irrelvant_swings(swings, context)
+    zones = generate_aoi_zones(relevant_swings, last_bar_idx, trend_direction, context)
 
     zones_scored = apply_directional_weighting_and_classify(
         zones, current_price, last_bar_idx, trend_direction, context
@@ -86,4 +90,11 @@ def _process_symbol(settings: AOISettings, symbol: str, base_high: float, base_l
     db_handler.store_aois(symbol, settings.timeframe, top_zones)
     display.print_status(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
-    )
+    ) 
+    
+def filter_irrelvant_swings(swings: List[SwingPoint], context: AOIContext):
+    relevant_swings = []
+    for swing in swings:
+        if (swing[1] <= context.extended_upper and swing[1] >= context.extended_lower):
+            relevant_swings.append(swing)
+    return relevant_swings

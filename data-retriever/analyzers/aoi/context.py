@@ -5,7 +5,7 @@ import numpy as np
 
 import utils.display as display
 from configuration import ANALYSIS_PARAMS
-from .aoi import AOISettings
+from .aoi_configuration import AOISettings
 from utils.forex import (
     get_pip_size,
     normalize_price_range,
@@ -68,10 +68,8 @@ def build_context(
     tolerance_price = pips_to_price(
         base_range_pips * settings.bound_tolerance_ratio, pip_size
     )
-    extension_pips = max(
-        settings.directional_extension_pips,
-        base_range_pips * settings.directional_extension_ratio,
-    )
+    extension_pips = base_range_pips * settings.directional_extension_ratio
+    
     extension_price = pips_to_price(extension_pips, pip_size)
 
     core_lower = lower - tolerance_price

@@ -27,11 +27,9 @@ def get_trend_data_service() -> Optional[List[Dict[str, Any]]]:
 def get_aoi_data_service(symbol: str) -> Optional[Dict[str, Any]]:
     """Retrieve AOI information for the requested symbol using the 4H timeframe."""
 
-    log.info("Fetching AOI data for symbol '%s' on timeframe '%s'", symbol, AOI_HOUR_TIMEFRAME)
-    data = fetch_aoi_for_symbol(symbol, AOI_HOUR_TIMEFRAME)
+    data = fetch_aoi_for_symbol(symbol)
 
     if data is None:
-        log.info("No AOI data found for symbol '%s' on timeframe '%s'", symbol, AOI_HOUR_TIMEFRAME)
         return None
 
     log.info(

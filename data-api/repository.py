@@ -106,10 +106,7 @@ def fetch_all_trend_data() -> Optional[List[Dict[str, Any]]]:
         close_db_connection(conn)
 
 
-def fetch_aoi_for_symbol(
-    symbol: str,
-    timeframe: str,
-) -> Optional[Dict[str, Any]]:
+def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch AOI data along with trend levels for a specific symbol/timeframe."""
 
     trend_sql = """
@@ -128,7 +125,6 @@ def fetch_aoi_for_symbol(
             upper_bound
         FROM trenda.area_of_interest
         WHERE forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
-          AND timeframe_id = (SELECT id FROM trenda.timeframes WHERE type = %s)
         ORDER BY lower_bound ASC
     """
 
@@ -139,7 +135,6 @@ def fetch_aoi_for_symbol(
 
     response: Dict[str, Any] = {
         "symbol": symbol,
-        "timeframe": timeframe,
         "low": None,
         "high": None,
         "aois": [],
@@ -147,7 +142,7 @@ def fetch_aoi_for_symbol(
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(trend_sql, (symbol, timeframe))
+            cursor.execute(trend_sql, (symbol, "4H"))
             trend_row = cursor.fetchone()
 
             if trend_row:
@@ -156,7 +151,7 @@ def fetch_aoi_for_symbol(
                 response["high"] = float(high) if high is not None else None
                 response["low"] = float(low) if low is not None else None
 
-            cursor.execute(aoi_sql, (symbol, timeframe))
+            cursor.execute(aoi_sql, (symbol))
             print(cursor.query.decode("utf-8"))
             aoi_rows = cursor.fetchall()
             response["aois"] = []

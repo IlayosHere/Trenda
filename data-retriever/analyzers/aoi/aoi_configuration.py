@@ -21,7 +21,6 @@ class AOISettings:
     max_height_max_pips: float
     bound_tolerance_ratio: float
     directional_extension_ratio: float
-    directional_extension_pips: float
     alignment_weight: float
     trend_alignment_timeframes: Tuple[str, ...]
 
@@ -50,7 +49,6 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         max_height_max_pips=40,
         bound_tolerance_ratio=0.8,
         directional_extension_ratio=0.35,
-        directional_extension_pips=0.0,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W"),
     ),
@@ -60,17 +58,16 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         min_touches=3,
         min_range_pips=60,
         min_swing_gap_bars=1,
-        overlap_tolerance_pips=4.0,
+        overlap_tolerance_pips=8.0,
         max_age_days=8,
         max_zones_per_symbol=3,
-        min_height_ratio=0.05,
-        min_height_pips_floor=8,
-        max_height_ratio=0.10,
+        min_height_ratio=0.1,
+        min_height_pips_floor=16,
+        max_height_ratio=0.35,
         max_height_min_pips=30,
-        max_height_max_pips=60,
-        bound_tolerance_ratio=0.8,
+        max_height_max_pips=100,
+        bound_tolerance_ratio=0.35,
         directional_extension_ratio=0.35,
-        directional_extension_pips=0.0,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W"),
     )
