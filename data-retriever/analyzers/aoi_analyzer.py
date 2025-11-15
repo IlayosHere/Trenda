@@ -81,9 +81,9 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
         )
         return
 
-    base_low, base_high = bounds
+    search_lower, search_upper = bounds
 
-    context = build_context(settings, symbol, base_high, base_low)
+    context = build_context(settings, symbol, search_lower, search_upper)
     if context is None:
         return
 
@@ -107,7 +107,7 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
 def filter_irrelvant_swings(swings: List[SwingPoint], context: AOIContext):
     relevant_swings = []
     for swing in swings:
-        if (swing[1] <= context.extended_upper and swing[1] >= context.extended_lower):
+        if (swing[1] <= context.search_upper and swing[1] >= context.search_lower):
             relevant_swings.append(swing)
     return relevant_swings
 

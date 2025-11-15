@@ -19,29 +19,24 @@ from ..trend_analyzer import get_swing_points
 class AOIContext:
     symbol: str
     timeframe: str
-    base_low: float
-    base_high: float
+    search_lower: float
+    search_upper: float
     pip_size: float
     base_range_pips: float
     min_height_price: float
     max_height_price: float
-    tolerance_price: float
-    core_lower: float
-    core_upper: float
-    extended_lower: float
-    extended_upper: float
     params: Dict[str, float]
     settings: AOISettings
 
 
 def build_context(
-    settings: AOISettings, symbol: str, base_high: float, base_low: float
+    settings: AOISettings, symbol: str, lower_bound: float, upper_bound: float
 ) -> Optional["AOIContext"]:
     """Prepare the AOI analysis context for a symbol and timeframe."""
 
     params = ANALYSIS_PARAMS.get(settings.timeframe)
 
-    lower, upper = normalize_price_range(base_low, base_high)
+    lower, upper = normalize_price_range(lower_bound, upper_bound)
     pip_size = get_pip_size(symbol)
     price_range = upper - lower
     base_range_pips = price_to_pips(price_range, pip_size)
@@ -65,32 +60,15 @@ def build_context(
 
     min_height_price = pips_to_price(min_height_pips, pip_size)
     max_height_price = pips_to_price(max_height_pips, pip_size)
-    tolerance_price = pips_to_price(
-        base_range_pips * settings.bound_tolerance_ratio, pip_size
-    )
-    extension_pips = base_range_pips * settings.directional_extension_ratio
-    
-    extension_price = pips_to_price(extension_pips, pip_size)
-
-    core_lower = lower - tolerance_price
-    core_upper = upper + tolerance_price
-    extended_lower = core_lower - extension_price
-    extended_upper = core_upper + extension_price
-
     return AOIContext(
         timeframe=settings.timeframe,
         symbol=symbol,
-        base_low=lower,
-        base_high=upper,
+        search_lower=lower,
+        search_upper=upper,
         pip_size=pip_size,
         base_range_pips=base_range_pips,
         min_height_price=min_height_price,
         max_height_price=max_height_price,
-        tolerance_price=tolerance_price,
-        core_lower=core_lower,
-        core_upper=core_upper,
-        extended_lower=extended_lower,
-        extended_upper=extended_upper,
         params=params,
         settings=settings,
     )
