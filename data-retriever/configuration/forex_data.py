@@ -3,12 +3,12 @@ import MetaTrader5 as mt5
 FOREX_PAIRS = [
     # "EURUSD",
     # "GBPUSD",
-    "USDJPY",
+    # "USDJPY",
     # "USDCHF",
     # "USDCAD",
     # "AUDUSD",
     # "NZDUSD",
-    # "GBPCAD",
+    "GBPCAD",
     # "EURJPY"
     ]
 
