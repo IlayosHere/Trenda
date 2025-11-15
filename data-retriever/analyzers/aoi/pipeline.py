@@ -41,19 +41,7 @@ def _determine_bounds_to_process(
 ) -> List[Tuple[float, float]]:
     """Return the bounds (core + optional directional) that should be processed."""
 
-    bounds = [(context.core_lower, context.core_upper)]
-
-    if trend_direction == "bullish":
-        directional = (context.extended_lower, context.core_upper)
-    elif trend_direction == "bearish":
-        directional = (context.core_lower, context.extended_upper)
-    else:
-        directional = None
-
-    if directional and directional != bounds[0]:
-        bounds.append(directional)
-
-    return bounds
+    return [(context.search_lower, context.search_upper)]
 
 
 def _deduplicate_zones(
@@ -190,8 +178,8 @@ def _calculate_base_zone_score(
     recency_factor = 1 / (1 + (bars_since_last / 100.0))
 
     zone_mid = (upper + lower) / 2.0
-    range_mid = (context.base_high + context.base_low) / 2.0
-    range_half = max((context.base_high - context.base_low) / 2.0, 1e-9)
+    range_mid = (context.search_upper + context.search_lower) / 2.0
+    range_half = max((context.search_upper - context.search_lower) / 2.0, 1e-9)
     distance_from_mid = abs(zone_mid - range_mid)
     extremity_factor = 1 + (distance_from_mid / range_half) * 0.2
 
