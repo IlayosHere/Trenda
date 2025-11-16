@@ -28,7 +28,7 @@ ANALYSIS_PARAMS = {
     # timeframe: {lookback_candles, distance_filter, prominence_filter_in_pips}
     # (Note: prominence is in price units, e.g., 0.0010 for EURUSD)
     "1W": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 year
-    "1D": {"lookback": 100, "aoi_lookback": 350, "distance": 1, "prominence": 0.0004},  # ~1 year
-    "4H": {"lookback": 100, "aoi_lookback": 350, "distance": 1, "prominence": 0.0004},  # ~1.5 months
-    "1H": {"lookback": 100, "aoi_lookback": 200, "distance": 1, "prominence": 0.0004},  # ~1 week
+    "1D": {"lookback": 100, "aoi_lookback": 130, "distance": 1, "prominence": 0.0004},  # ~1 year
+    "4H": {"lookback": 100, "aoi_lookback": 180, "distance": 1, "prominence": 0.0004},  # ~1.5 months
+    "1H": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 week
 }

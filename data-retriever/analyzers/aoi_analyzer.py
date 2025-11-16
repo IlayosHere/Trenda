@@ -72,24 +72,16 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
     last_bar_idx = len(prices) - 1
     current_price = float(prices[-1])
 
-    bounds = _calculate_atr_window_bounds(
-        data, symbol, current_price, settings
+    atr_window = _calculate_atr_window(
+        data, symbol, settings
     )
-    if bounds is None:
-        display.print_error(
-            f"  ⚠️ Skipping {symbol}: unable to determine ATR-based bounds."
-        )
-        return
 
-    search_lower, search_upper = bounds
-
-    context = build_context(settings, symbol, search_lower, search_upper)
+    context = build_context(settings, symbol, atr_window)
     if context is None:
         return
 
     swings = extract_swings(prices, context)
-    relevant_swings = filter_irrelvant_swings(swings, context)
-    zones = generate_aoi_zones(relevant_swings, last_bar_idx, trend_direction, context)
+    zones = generate_aoi_zones(swings, last_bar_idx, context)
 
     zones_scored = apply_directional_weighting_and_classify(
         zones, current_price, last_bar_idx, trend_direction, context
@@ -103,21 +95,12 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
     display.print_status(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
     ) 
-    
-def filter_irrelvant_swings(swings: List[SwingPoint], context: AOIContext):
-    relevant_swings = []
-    for swing in swings:
-        if (swing[1] <= context.search_upper and swing[1] >= context.search_lower):
-            relevant_swings.append(swing)
-    return relevant_swings
 
-
-def _calculate_atr_window_bounds(
+def _calculate_atr_window(
     data,
     symbol: str,
-    current_price: float,
     settings: AOISettings,
-) -> Optional[Tuple[float, float]]:
+) -> Optional[float]:
     """Derive the price window to scan for AOIs using ATR multiples."""
 
     highs = data["high"].values
@@ -140,5 +123,4 @@ def _calculate_atr_window_bounds(
     if window_pips <= 0:
         return None
 
-    window_price = pips_to_price(window_pips, pip_size)
-    return current_price - window_price, current_price + window_price
+    return pips_to_price(window_pips, pip_size)

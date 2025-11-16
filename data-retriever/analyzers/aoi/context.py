@@ -8,7 +8,6 @@ from configuration import ANALYSIS_PARAMS
 from .aoi_configuration import AOISettings
 from utils.forex import (
     get_pip_size,
-    normalize_price_range,
     price_to_pips,
     pips_to_price,
 )
@@ -19,10 +18,7 @@ from ..trend_analyzer import get_swing_points
 class AOIContext:
     symbol: str
     timeframe: str
-    search_lower: float
-    search_upper: float
     pip_size: float
-    base_range_pips: float
     min_height_price: float
     max_height_price: float
     params: Dict[str, float]
@@ -30,32 +26,20 @@ class AOIContext:
 
 
 def build_context(
-    settings: AOISettings, symbol: str, lower_bound: float, upper_bound: float
-) -> Optional["AOIContext"]:
+    settings: AOISettings, symbol: str, atr_window: float) -> Optional["AOIContext"]:
     """Prepare the AOI analysis context for a symbol and timeframe."""
 
     params = ANALYSIS_PARAMS.get(settings.timeframe)
 
-    lower, upper = normalize_price_range(lower_bound, upper_bound)
     pip_size = get_pip_size(symbol)
-    price_range = upper - lower
-    base_range_pips = price_to_pips(price_range, pip_size)
-
-    # Skip if base range too small for configured timeframe
-    if base_range_pips < settings.min_range_pips:
-        display.print_status(
-            f"  ⚠️ Skipping {symbol}: range too small ({base_range_pips:.1f} pips)."
-        )
-        return None
 
     # --- Dynamic AOI height limits ---
     min_height_pips = max(
-        settings.min_height_pips_floor, base_range_pips * settings.min_height_ratio
+        settings.min_height_pips_floor, atr_window * settings.min_height_ratio
     )
-    max_height_pips = np.clip(
-        base_range_pips * settings.max_height_ratio,
-        settings.max_height_min_pips,
-        settings.max_height_max_pips,
+    max_height_pips = max(
+        atr_window * settings.max_height_ratio,
+        settings.max_heihgt_pips_floor
     )
 
     min_height_price = pips_to_price(min_height_pips, pip_size)
@@ -63,10 +47,7 @@ def build_context(
     return AOIContext(
         timeframe=settings.timeframe,
         symbol=symbol,
-        search_lower=lower,
-        search_upper=upper,
         pip_size=pip_size,
-        base_range_pips=base_range_pips,
         min_height_price=min_height_price,
         max_height_price=max_height_price,
         params=params,
