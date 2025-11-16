@@ -7,8 +7,8 @@ FOREX_PAIRS = [
     # "USDCHF",
     # "USDCAD",
     # "AUDUSD",
-    # "NZDUSD",
-    "GBPCAD",
+    "NZDUSD",
+    # "GBPCAD",
     # "EURJPY"
     ]
 

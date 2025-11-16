@@ -14,10 +14,10 @@ class AOISettings:
     overlap_tolerance_pips: float
     max_age_days: int
     max_zones_per_symbol: int
-    min_height_ratio: float
+    min_height_atr_multiplier: float
     min_height_pips_floor: float
     max_heihgt_pips_floor: float
-    max_height_ratio: float
+    max_height_atr_multiplier: float
     alignment_weight: float
     trend_alignment_timeframes: Tuple[str, ...]
     atr_period: int
@@ -41,14 +41,14 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         overlap_tolerance_pips=4.0,
         max_age_days=14,
         max_zones_per_symbol=3,
-        min_height_ratio=0.1,
-        min_height_pips_floor=15,
-        max_heihgt_pips_floor=50,
-        max_height_ratio=0.2,
+        min_height_atr_multiplier=0.8,
+        min_height_pips_floor=10,
+        max_heihgt_pips_floor=100,
+        max_height_atr_multiplier=2,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W"),
         atr_period=14,
-        atr_window_multiplier=3,
+        atr_window_multiplier=2,
     ),
     "1D": AOISettings(
         timeframe="1D",
@@ -59,10 +59,10 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         overlap_tolerance_pips=15.0,
         max_age_days=42,
         max_zones_per_symbol=3,
-        min_height_ratio=0.1,
-        min_height_pips_floor=30,
-        max_heihgt_pips_floor=110,
-        max_height_ratio=0.25,
+        min_height_atr_multiplier=0.8,
+        min_height_pips_floor=20,
+        max_heihgt_pips_floor=200,
+        max_height_atr_multiplier=2,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W"),
         atr_period=14,

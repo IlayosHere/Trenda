@@ -21,19 +21,6 @@ def generate_aoi_zones(
     last_bar_idx: int,
     context: AOIContext,
 ) -> List[Dict[str, float]]:
-    """Full AOI generation pipeline that supports directional extensions."""
-
-    if not swings:
-        return []
-
-    return _run_zone_pipeline(swings, last_bar_idx, context)
-
-
-def _run_zone_pipeline(
-    swings: List,
-    last_bar_idx: int,
-    context: AOIContext,
-) -> List[Dict[str, float]]:
     candidates = _find_zone_candidates(swings, last_bar_idx, context)
     merged = _merge_nearby_zones(candidates, context)
     recent = _filter_old_zones_by_bars(merged, last_bar_idx, context)
@@ -51,14 +38,11 @@ def _run_zone_pipeline(
         for z in non_overlapping
     ]
 
-
 def _find_zone_candidates(
     swings: List,
     last_bar_idx: int,
     context: AOIContext,
 ) -> List[AOIZoneCandidate]:
-    """Identify AOI candidates from swing clustering."""
-
     pairs: List[tuple[int, float]] = [(int(s[0]), float(s[1])) for s in swings]
     price_sorted: List[tuple[int, float]] = sorted(pairs, key=lambda x: x[1])
 
@@ -71,21 +55,28 @@ def _find_zone_candidates(
 
         for j in range(i + settings.min_touches - 1, total):
             upper_idx, upper_price = price_sorted[j]
-            height = upper_price - lower_price
-
+            
             mid_indices = [
                 idx for (idx, price) in pairs if lower_price <= price <= upper_price
             ]
+            
             if len(mid_indices) < settings.min_touches:
-                break
+                continue
             if not _has_sufficient_spacing(mid_indices, settings.min_swing_gap_bars):
+                continue
+                        
+            height = upper_price - lower_price 
+            
+            if (height < context.min_height_price):
+                continue
+            
+            if (height > context.max_height_price):
                 break
-
-            last_idx = max(mid_indices)
+            
             base_score = _calculate_base_zone_score(
                 height,
                 len(mid_indices),
-                last_idx,
+                upper_idx,
                 last_bar_idx
             )
 
@@ -101,7 +92,7 @@ def _find_zone_candidates(
                     height=height,
                     touches=len(mid_indices),
                     score=base_score,
-                    last_swing_idx=last_idx,
+                    last_swing_idx=upper_idx,
                 )
 
     return list(candidates.values())

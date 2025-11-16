@@ -29,7 +29,6 @@ from .aoi import (
 
 
 def analyze_aoi_by_timeframe(timeframe: str) -> None:
-    """Main scheduled AOI computation driven by timeframe-specific configuration."""
     settings = AOI_CONFIGS.get(timeframe)
     if settings is None:
         display.print_status(
@@ -49,8 +48,6 @@ def analyze_aoi_by_timeframe(timeframe: str) -> None:
 
 
 def _process_symbol(settings: AOISettings, symbol: str) -> None:
-    """Execute the AOI pipeline for a single symbol."""
-
     trend_direction = get_overall_trend(settings.trend_alignment_timeframes, symbol)
 
     if (trend_direction == None):
@@ -71,22 +68,14 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
     prices = np.asarray(data["close"].values)
     last_bar_idx = len(prices) - 1
     current_price = float(prices[-1])
-
-    atr_window = _calculate_atr_window(
-        data, symbol, settings
-    )
-
-    context = build_context(settings, symbol, atr_window)
-    if context is None:
-        return
-
+    atr = _calculate_atr(data, symbol)
+    context = build_context(settings, symbol, atr)
+    
     swings = extract_swings(prices, context)
     zones = generate_aoi_zones(swings, last_bar_idx, context)
-
     zones_scored = apply_directional_weighting_and_classify(
         zones, current_price, last_bar_idx, trend_direction, context
     )
-
     top_zones = sorted(zones_scored, key=lambda z: z["score"], reverse=True)[
         : settings.max_zones_per_symbol
     ]
@@ -96,10 +85,9 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
     ) 
 
-def _calculate_atr_window(
+def _calculate_atr(
     data,
-    symbol: str,
-    settings: AOISettings,
+    symbol: str
 ) -> Optional[float]:
     """Derive the price window to scan for AOIs using ATR multiples."""
 
@@ -115,12 +103,5 @@ def _calculate_atr_window(
 
     df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
     current_atr = df["atr"].iloc[-1]
-    
     pip_size = get_pip_size(symbol)
-    atr_pips = price_to_pips(current_atr, pip_size)
-    window_pips = atr_pips * settings.atr_window_multiplier
-
-    if window_pips <= 0:
-        return None
-
-    return pips_to_price(window_pips, pip_size)
+    return price_to_pips(current_atr, pip_size)

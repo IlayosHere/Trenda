@@ -26,7 +26,7 @@ class AOIContext:
 
 
 def build_context(
-    settings: AOISettings, symbol: str, atr_window: float) -> Optional["AOIContext"]:
+    settings: AOISettings, symbol: str, atr: float) -> Optional["AOIContext"]:
     """Prepare the AOI analysis context for a symbol and timeframe."""
 
     params = ANALYSIS_PARAMS.get(settings.timeframe)
@@ -35,10 +35,10 @@ def build_context(
 
     # --- Dynamic AOI height limits ---
     min_height_pips = max(
-        settings.min_height_pips_floor, atr_window * settings.min_height_ratio
+        settings.min_height_pips_floor, atr * settings.min_height_atr_multiplier
     )
-    max_height_pips = max(
-        atr_window * settings.max_height_ratio,
+    max_height_pips = min(
+        atr * settings.max_height_atr_multiplier,
         settings.max_heihgt_pips_floor
     )
 
