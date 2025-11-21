@@ -8,7 +8,20 @@ INSERT INTO fordash.forex (name) VALUES
 ('NZDUSD'),
 ('GBPCAD'),
 ('EURJPY'),
-('XAUUSD')
+('GBPJPY'),
+('AUDJPY'),
+('CADJPY'),
+('NZDJPY'),
+('CHFJPY'),
+('EURAUD'),
+('EURNZD'),
+('EURGBP'),
+('EURCHF'),
+('GBPAUD'),
+('GBPNZD'),
+('AUDNZD'),
+('AUDCAD'),
+('NZDCAD')
 ON CONFLICT (name) DO NOTHING;
 
 -- DML for populating the 'timeframes' table

@@ -1,0 +1,7 @@
+numpy
+pandas
+pandas_ta
+psycopg2
+scipy
+MetaTrader5
+APScheduler

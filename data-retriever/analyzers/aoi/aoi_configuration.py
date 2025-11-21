@@ -9,18 +9,14 @@ class AOISettings:
     timeframe: str
     timeframe_hours: int
     min_touches: int
-    min_range_pips: float
     min_swing_gap_bars: int
     overlap_tolerance_pips: float
     max_age_days: int
     max_zones_per_symbol: int
-    min_height_ratio: float
+    min_height_atr_multiplier: float
     min_height_pips_floor: float
-    max_height_ratio: float
-    max_height_min_pips: float
-    max_height_max_pips: float
-    bound_tolerance_ratio: float
-    directional_extension_ratio: float
+    max_heihgt_pips_floor: float
+    max_height_atr_multiplier: float
     alignment_weight: float
     trend_alignment_timeframes: Tuple[str, ...]
 
@@ -37,38 +33,45 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         timeframe="4H",
         timeframe_hours=4,
         min_touches=3,
-        min_range_pips=30,
-        min_swing_gap_bars=3,
+        min_swing_gap_bars=6,
         overlap_tolerance_pips=2.0,
-        max_age_days=2,
+        max_age_days=5,
         max_zones_per_symbol=3,
-        min_height_ratio=0.05,
-        min_height_pips_floor=8,
-        max_height_ratio=0.15,
-        max_height_min_pips=20,
-        max_height_max_pips=40,
-        bound_tolerance_ratio=0.8,
-        directional_extension_ratio=0.35,
-        alignment_weight=1.25,
-        trend_alignment_timeframes=("4H", "1D", "1W"),
+        min_height_atr_multiplier=0.2,
+        min_height_pips_floor=10,
+        max_heihgt_pips_floor=100,
+        max_height_atr_multiplier=0.7,
+        alignment_weight=1.5,
+        trend_alignment_timeframes=("4H", "1D", "1W")
     ),
     "1D": AOISettings(
         timeframe="1D",
         timeframe_hours=24,
         min_touches=3,
-        min_range_pips=60,
-        min_swing_gap_bars=1,
-        overlap_tolerance_pips=8.0,
-        max_age_days=8,
-        max_zones_per_symbol=3,
-        min_height_ratio=0.1,
-        min_height_pips_floor=16,
-        max_height_ratio=0.35,
-        max_height_min_pips=30,
-        max_height_max_pips=100,
-        bound_tolerance_ratio=0.35,
-        directional_extension_ratio=0.35,
+        min_swing_gap_bars=3,
+        overlap_tolerance_pips=4.0,
+        max_age_days=25,
+        max_zones_per_symbol=2,
+        min_height_atr_multiplier=0.25,
+        min_height_pips_floor=20,
+        max_heihgt_pips_floor=150,
+        max_height_atr_multiplier=0.8,
         alignment_weight=1.25,
-        trend_alignment_timeframes=("4H", "1D", "1W"),
+        trend_alignment_timeframes=("4H", "1D", "1W")
+    ),
+    "1W": AOISettings(
+        timeframe="1W",
+        timeframe_hours=168,
+        min_touches=2,
+        min_swing_gap_bars=2,
+        overlap_tolerance_pips=10.0,
+        max_age_days=120,
+        max_zones_per_symbol=2,
+        min_height_atr_multiplier=0.15,
+        min_height_pips_floor=20,
+        max_heihgt_pips_floor=150,
+        max_height_atr_multiplier=0.5,
+        alignment_weight=1.10,
+        trend_alignment_timeframes=("4H", "1D", "1W")
     )
 }
