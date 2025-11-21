@@ -135,5 +135,3 @@ def analyze_snake_trend(
                 current_structure["H"] = new_high
 
     return current_trend, current_structure["H"], current_structure["L"]
-
-#new branch
