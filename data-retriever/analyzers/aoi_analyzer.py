@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
+from .trend_analyzer import _check_for_structure_break, _find_corresponding_structural_swing, _find_initial_structure
 from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from externals.data_fetcher import fetch_data
 import externals.db_handler as db_handler
 import utils.display as display
-from constants import SwingPoint
+from constants import BREAK_BEARISH, BREAK_BULLISH, NO_BREAK, SwingPoint
 from utils.forex import get_pip_size, price_to_pips, pips_to_price
 from .aoi import (
     apply_directional_weighting_and_classify,
@@ -72,7 +73,8 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
     context = build_context(settings, symbol, atr)
     
     swings = extract_swings(prices, context)
-    zones = generate_aoi_zones(swings, last_bar_idx, context)
+    important_swings = filter_noisy_points(swings)
+    zones = generate_aoi_zones(important_swings, last_bar_idx, context)
     zones_scored = apply_directional_weighting_and_classify(
         zones, current_price, last_bar_idx, trend_direction, context
     )
@@ -105,3 +107,23 @@ def _calculate_atr(
     current_atr = df["atr"].iloc[-1]
     pip_size = get_pip_size(symbol)
     return price_to_pips(current_atr, pip_size)
+
+def filter_noisy_points(swings: List[SwingPoint]) -> List[SwingPoint]:
+    structual_swing_points = []
+    current_high, current_low = _find_initial_structure(swings)
+    for index, swing in enumerate(swings):
+        strcutual_break = _check_for_structure_break(swing, current_high, current_low)
+        if (strcutual_break == BREAK_BULLISH):
+            current_low = _find_corresponding_structural_swing(BREAK_BULLISH, index, swings)
+            current_high = swing
+            structual_swing_points.append(swing)
+            if (current_low not in structual_swing_points):
+                structual_swing_points.append(current_low)
+        elif (strcutual_break == BREAK_BEARISH):
+            current_high = _find_corresponding_structural_swing(BREAK_BEARISH, index, swings)
+            current_low = swing
+            structual_swing_points.append(swing)
+            if (current_high not in structual_swing_points):
+                structual_swing_points.append(current_high)
+           
+    return structual_swing_points

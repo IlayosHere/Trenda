@@ -73,9 +73,11 @@ def _find_zone_candidates(
             if (height > context.max_height_price):
                 break
             
+            touches = calculate_valid_touches(mid_indices, settings.min_swing_gap_bars)
+            
             base_score = _calculate_base_zone_score(
                 height,
-                len(mid_indices),
+                touches,
                 upper_idx,
                 last_bar_idx
             )
@@ -90,13 +92,19 @@ def _find_zone_candidates(
                     lower_bound=lower_price,
                     upper_bound=upper_price,
                     height=height,
-                    touches=len(mid_indices),
+                    touches=touches,
                     score=base_score,
                     last_swing_idx=upper_idx,
                 )
 
     return list(candidates.values())
 
+def calculate_valid_touches(zone_points_indexes: List[int], min_gap_bars: int) -> int:
+    valid_touches = 0
+    for i in range(0, len(zone_points_indexes) - 1):
+        if (zone_points_indexes[i+1] - zone_points_indexes[i] >= min_gap_bars):
+            valid_touches = valid_touches + 1
+    return valid_touches
 
 def _calculate_base_zone_score(
     height: float,
