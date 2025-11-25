@@ -17,6 +17,6 @@ def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[str]:
 
     result = db_handler.fetch_trend_bias(symbol, timeframe)
     return {
-       "trend": result[0],
+       "trend": result,
        "timeframe": timeframe
     }

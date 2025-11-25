@@ -9,6 +9,11 @@ from typing import Any, List, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 
+from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+import externals.db_handler as db_handler
+from externals.data_fetcher import fetch_data
+import utils.display as display
+
 
 class TrendDirection(Enum):
     BULLISH = "bullish"
@@ -231,3 +236,73 @@ def scan_1h_for_entry(
         "confidence": evaluation.get("confidence"),
         "reason": evaluation.get("reason"),
     }
+
+
+def _normalize_direction(raw: Optional[Union[str, Mapping[str, Any]]]) -> Optional[TrendDirection]:
+    if raw is None:
+        return None
+    if isinstance(raw, Mapping):
+        raw = raw.get("trend")
+    if isinstance(raw, str):
+        try:
+            return TrendDirection(raw.lower())
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_timeframe(timeframe: Union[str, Sequence[str]]) -> str:
+    if isinstance(timeframe, str):
+        return timeframe
+    timeframe_seq = list(timeframe)
+    return timeframe_seq[0] if timeframe_seq else "1H"
+
+
+def run_1h_entry_scan_job(timeframe: Union[str, Sequence[str]] = "1H") -> List[dict]:
+    """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
+
+    tf = _normalize_timeframe(timeframe)
+    mt5_timeframe = TIMEFRAMES.get(tf)
+    lookback = ANALYSIS_PARAMS.get(tf, {}).get("lookback", 300)
+    results: List[dict] = []
+
+    if mt5_timeframe is None:
+        display.print_error(f"Unknown timeframe provided to entry scan job: {tf}")
+        return results
+
+    display.print_status(f"\n--- 🔍 Running {tf} entry scan across symbols ---")
+
+    for symbol in FOREX_PAIRS:
+        display.print_status(f"  -> Checking {symbol}...")
+        candles = fetch_data(symbol, mt5_timeframe, int(lookback))
+        if candles is None:
+            display.print_error(f"    ❌ No price data for {symbol} on {tf}.")
+            continue
+
+        direction = _normalize_direction(db_handler.fetch_trend_bias(symbol, tf))
+        if direction is None:
+            display.print_status(f"    ⚠️ Skipping {symbol}: no stored trend for {tf}.")
+            continue
+
+        aois = db_handler.fetch_tradable_aois(symbol, tf)
+        if not aois:
+            display.print_status(f"    ℹ️ No tradable AOIs for {symbol} on {tf}.")
+            continue
+
+        for aoi_data in aois:
+            lower = aoi_data.get("lower_bound")
+            upper = aoi_data.get("upper_bound")
+            if lower is None or upper is None:
+                display.print_status(
+                    f"    ⚠️ Skipping AOI with missing bounds for {symbol} on {tf}."
+                )
+                continue
+
+            aoi = AOIZone(lower=lower, upper=upper)
+            signal = scan_1h_for_entry(symbol, direction, aoi, candles)
+            if signal:
+                results.append(signal)
+                display.print_status(
+                    f"    ✅ Entry signal found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                )
+    return results
