@@ -13,6 +13,7 @@ from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 import externals.db_handler as db_handler
 from externals.data_fetcher import fetch_data
 import utils.display as display
+from analyzers.trend import get_overall_trend
 
 
 class TrendDirection(Enum):
@@ -59,6 +60,9 @@ class EntryPattern:
 
 
 LLMEvaluation = Mapping[str, Any]
+
+
+DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
 
 
 def _is_fully_below_aoi(candle: Candle, aoi: AOIZone) -> bool:
@@ -258,7 +262,10 @@ def _normalize_timeframe(timeframe: Union[str, Sequence[str]]) -> str:
     return timeframe_seq[0] if timeframe_seq else "1H"
 
 
-def run_1h_entry_scan_job(timeframe: Union[str, Sequence[str]] = "1H") -> List[dict]:
+def run_1h_entry_scan_job(
+    timeframe: Union[str, Sequence[str]] = "1H",
+    trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
+) -> List[dict]:
     """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
 
     tf = _normalize_timeframe(timeframe)
@@ -279,7 +286,7 @@ def run_1h_entry_scan_job(timeframe: Union[str, Sequence[str]] = "1H") -> List[d
             display.print_error(f"    ❌ No price data for {symbol} on {tf}.")
             continue
 
-        direction = _normalize_direction(db_handler.fetch_trend_bias(symbol, tf))
+        direction = _normalize_direction(get_overall_trend(trend_alignment_timeframes, symbol))
         if direction is None:
             display.print_status(f"    ⚠️ Skipping {symbol}: no stored trend for {tf}.")
             continue
