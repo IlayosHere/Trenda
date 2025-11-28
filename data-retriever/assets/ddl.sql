@@ -38,11 +38,18 @@ CREATE TABLE IF NOT EXISTS trenda.area_of_interest (
 );
 
 -- Entry signal storage
+CREATE TABLE IF NOT EXISTS trenda.signal_trend (
+    id SERIAL PRIMARY KEY,
+    trend_4h TEXT NOT NULL,
+    trend_1d TEXT NOT NULL,
+    trend_1w TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS trenda.entry_signal (
     id SERIAL PRIMARY KEY,
     symbol TEXT NOT NULL,
     signal_time TIMESTAMPTZ NOT NULL,
-    trend TEXT NOT NULL,
+    signal_trend_id INTEGER NOT NULL REFERENCES trenda.signal_trend(id) ON DELETE CASCADE,
     aoi_high REAL NOT NULL,
     aoi_low REAL NOT NULL,
     is_success BOOLEAN

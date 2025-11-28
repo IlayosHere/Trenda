@@ -11,7 +11,7 @@ from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 import externals.db_handler as db_handler
 from externals.data_fetcher import fetch_data
 import utils.display as display
-from analyzers.trend import get_overall_trend
+from analyzers.trend import get_trend_by_timeframe
 
 
 class TrendDirection(Enum):
@@ -79,7 +79,10 @@ def run_1h_entry_scan_job(
         display.print_status(f"  -> Checking {symbol}...")
         candles = fetch_data(symbol, mt5_timeframe, int(lookback))
 
-        direction = _normalize_direction(get_overall_trend(trend_alignment_timeframes, symbol))
+        trend_snapshot = _collect_trend_snapshot(trend_alignment_timeframes, symbol)
+        direction = _normalize_direction(
+            _resolve_overall_trend(trend_alignment_timeframes, trend_snapshot)
+        )
         if direction is None:
             continue
 
@@ -133,7 +136,7 @@ def scan_1h_for_entry(
 
     entry_id = db_handler.store_entry_signal(
         symbol=symbol,
-        trend=direction.value,
+        trend_snapshot=trend_snapshot,
         aoi_high=aoi.upper,
         aoi_low=aoi.lower,
         signal_time=break_candle.time,
@@ -162,6 +165,36 @@ def find_entry_pattern(
     if direction == TrendDirection.BEARISH:
         return _find_bearish_pattern(prepared_candles, aoi)
     return _find_bullish_pattern(prepared_candles, aoi)
+
+
+def _collect_trend_snapshot(
+    timeframes: Sequence[str], symbol: str
+) -> Mapping[str, Optional[str]]:
+    return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
+
+
+def _resolve_overall_trend(
+    timeframes: Sequence[str], trend_snapshot: Mapping[str, Optional[str]]
+) -> Optional[str]:
+    trend_values = [
+        {"trend": trend_snapshot.get(tf), "timeframe": tf} for tf in timeframes
+    ]
+
+    if not trend_values or any(tv["trend"] is None for tv in trend_values):
+        return None
+
+    if len(trend_values) >= 3:
+        if (
+            trend_values[0]["trend"] == trend_values[1]["trend"]
+            or trend_values[1]["trend"] == trend_values[2]["trend"]
+        ):
+            return trend_values[1]["trend"]
+        return None
+
+    if len(trend_values) >= 2 and trend_values[0]["trend"] == trend_values[1]["trend"]:
+        return trend_values[0]["trend"]
+
+    return None
 
 def _prepare_candles(
     candles: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]]

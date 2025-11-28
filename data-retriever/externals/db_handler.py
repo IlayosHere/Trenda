@@ -1,5 +1,5 @@
 import psycopg2
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from configuration import POSTGRES_DB
 import utils.display as display
@@ -240,7 +240,7 @@ def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Op
 
 def store_entry_signal(
     symbol: str,
-    trend: str,
+    trend_snapshot: Mapping[str, Optional[str]],
     aoi_high: float,
     aoi_low: float,
     signal_time,
@@ -248,8 +248,14 @@ def store_entry_signal(
 ) -> Optional[int]:
     """Persist an entry signal and its supporting candles."""
 
+    insert_trend_sql = """
+    INSERT INTO trenda.signal_trend (trend_4h, trend_1d, trend_1w)
+    VALUES (%s, %s, %s)
+    RETURNING id
+    """
+
     insert_signal_sql = """
-    INSERT INTO trenda.entry_signal (symbol, signal_time, trend, aoi_high, aoi_low, is_success)
+    INSERT INTO trenda.entry_signal (symbol, signal_time, signal_trend_id, aoi_high, aoi_low, is_success)
     VALUES (%s, %s, %s, %s, %s, NULL)
     RETURNING id
     """
@@ -259,6 +265,12 @@ def store_entry_signal(
         (entry_signal_id, cnalde_number, high, low, open, close)
     VALUES (%s, %s, %s, %s, %s, %s)
     """
+
+    def _required_trend(timeframe: str) -> str:
+        value = trend_snapshot.get(timeframe)
+        if value is None:
+            raise ValueError(f"Missing trend for timeframe {timeframe}")
+        return value
 
     def _value_from_candle(candle: Any, key: str):
         if hasattr(candle, key):
@@ -278,7 +290,18 @@ def store_entry_signal(
         with conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    insert_signal_sql, (symbol, signal_time, trend, aoi_high, aoi_low)
+                    insert_trend_sql,
+                    (
+                        _required_trend("4H"),
+                        _required_trend("1D"),
+                        _required_trend("1W"),
+                    ),
+                )
+                signal_trend_id = cursor.fetchone()[0]
+
+                cursor.execute(
+                    insert_signal_sql,
+                    (symbol, signal_time, signal_trend_id, aoi_high, aoi_low),
                 )
                 signal_id = cursor.fetchone()[0]
 
