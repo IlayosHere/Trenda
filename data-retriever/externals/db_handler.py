@@ -158,13 +158,47 @@ def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
         if not row:
             return None
 
-        htrend = row
-        return htrend
+        trend_value = row[0]
+        return trend_value
     except Exception as e:
         display.print_error(
             f"Error while fetching trend for {symbol}/{timeframe}: {e}"
         )
         return None
+
+
+def fetch_tradable_aois(symbol: str) -> List[Dict[str, Optional[float]]]:
+    sql = """
+    SELECT lower_bound, upper_bound
+    FROM trenda.area_of_interest
+    WHERE forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
+    AND type_id = (SELECT id FROM trenda.aoi_type WHERE type = 'tradable')
+    ORDER BY lower_bound ASC
+    """
+
+    conn = get_db_connection()
+    if not conn:
+        display.print_error(
+            f"Could not fetch AOIs for {symbol}, DB connection failed."
+        )
+        return []
+  
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (symbol,))
+                rows = cursor.fetchall()
+
+        return [
+            {"lower_bound": float(row[0]) if row[0] is not None else None,
+             "upper_bound": float(row[1]) if row[1] is not None else None}
+            for row in rows
+        ]
+    except Exception as e:
+        display.print_error(
+            f"Error while fetching AOIs for {symbol}: {e}"
+        )
+        return []
 
 def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Optional[float]]:
     """Retrieve the stored high/low levels for a symbol/timeframe combination."""
