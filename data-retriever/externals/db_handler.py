@@ -1,5 +1,5 @@
 import psycopg2
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from configuration import POSTGRES_DB
 import utils.display as display
@@ -236,5 +236,74 @@ def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Op
             f"Error while fetching trend levels for {symbol}/{timeframe}: {e}"
         )
         return None, None
+
+
+def store_entry_signal(
+    symbol: str,
+    trend: str,
+    aoi_high: float,
+    aoi_low: float,
+    signal_time,
+    candles: Sequence[Any],
+) -> Optional[int]:
+    """Persist an entry signal and its supporting candles."""
+
+    insert_signal_sql = """
+    INSERT INTO trenda.entry_signal (symbol, signal_time, trend, aoi_high, aoi_low, is_success)
+    VALUES (%s, %s, %s, %s, %s, NULL)
+    RETURNING id
+    """
+
+    insert_candle_sql = """
+    INSERT INTO trenda.entry_signal_cnadles
+        (entry_signal_id, cnalde_number, high, low, open, close)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    """
+
+    def _value_from_candle(candle: Any, key: str):
+        if hasattr(candle, key):
+            return getattr(candle, key)
+        if isinstance(candle, dict):
+            return candle.get(key)
+        raise TypeError("Unsupported candle type for storage")
+
+    conn = get_db_connection()
+    if not conn:
+        display.print_error(
+            f"Could not store entry signal for {symbol}, DB connection failed."
+        )
+        return None
+
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    insert_signal_sql, (symbol, signal_time, trend, aoi_high, aoi_low)
+                )
+                signal_id = cursor.fetchone()[0]
+
+                candle_rows = []
+                for idx, candle in enumerate(candles, start=1):
+                    candle_rows.append(
+                        (
+                            signal_id,
+                            idx,
+                            _value_from_candle(candle, "high"),
+                            _value_from_candle(candle, "low"),
+                            _value_from_candle(candle, "open"),
+                            _value_from_candle(candle, "close"),
+                        )
+                    )
+
+                cursor.executemany(insert_candle_sql, candle_rows)
+
+            conn.commit()
+            return signal_id
+    except Exception as e:
+        display.print_error(
+            f"Error while storing entry signal for {symbol}: {e}"
+        )
+        conn.rollback()
+        return None
 
 

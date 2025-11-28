@@ -131,7 +131,17 @@ def scan_1h_for_entry(
     break_candle = pattern.candles[relative_break_idx]
     retest_candle = pattern.candles[0]
 
+    entry_id = db_handler.store_entry_signal(
+        symbol=symbol,
+        trend=direction.value,
+        aoi_high=aoi.upper,
+        aoi_low=aoi.lower,
+        signal_time=break_candle.time,
+        candles=pattern.candles,
+    )
+
     return {
+        "entry_id": entry_id,
         "symbol": symbol,
         "direction": direction.value,
         "aoi": {"lower": aoi.lower, "upper": aoi.upper},
