@@ -167,29 +167,26 @@ def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
         return None
 
 
-def fetch_tradable_aois(symbol: str, timeframe: str) -> List[Dict[str, Optional[float]]]:
-    """Fetch AOI zones marked as tradable for a symbol/timeframe."""
-
+def fetch_tradable_aois(symbol: str) -> List[Dict[str, Optional[float]]]:
     sql = """
     SELECT lower_bound, upper_bound
     FROM trenda.area_of_interest
     WHERE forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
-      AND timeframe_id = (SELECT id FROM trenda.timeframes WHERE type = %s)
-      AND type_id = (SELECT id FROM trenda.aoi_type WHERE type = 'tradable')
+    AND type_id = (SELECT id FROM trenda.aoi_type WHERE type = 'tradable')
     ORDER BY lower_bound ASC
     """
 
     conn = get_db_connection()
     if not conn:
         display.print_error(
-            f"Could not fetch AOIs for {symbol}/{timeframe}, DB connection failed."
+            f"Could not fetch AOIs for {symbol}, DB connection failed."
         )
         return []
-
+  
     try:
         with conn:
             with conn.cursor() as cursor:
-                cursor.execute(sql, (symbol, timeframe))
+                cursor.execute(sql, (symbol,))
                 rows = cursor.fetchall()
 
         return [
@@ -199,7 +196,7 @@ def fetch_tradable_aois(symbol: str, timeframe: str) -> List[Dict[str, Optional[
         ]
     except Exception as e:
         display.print_error(
-            f"Error while fetching AOIs for {symbol}/{timeframe}: {e}"
+            f"Error while fetching AOIs for {symbol}: {e}"
         )
         return []
 

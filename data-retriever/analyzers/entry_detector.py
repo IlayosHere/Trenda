@@ -1,5 +1,3 @@
-"""Entry pattern detection for 1H break-and-retest setups."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -65,151 +63,53 @@ LLMEvaluation = Mapping[str, Any]
 DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
 
 
-def _is_fully_below_aoi(candle: Candle, aoi: AOIZone) -> bool:
-    return max(candle.open, candle.high, candle.low, candle.close) < aoi.lower
-
-
-def _is_fully_above_aoi(candle: Candle, aoi: AOIZone) -> bool:
-    return min(candle.open, candle.high, candle.low, candle.close) > aoi.upper
-
-
-def _is_intersecting_aoi(candle: Candle, aoi: AOIZone) -> bool:
-    return not (_is_fully_above_aoi(candle, aoi) or _is_fully_below_aoi(candle, aoi))
-
-
-def _is_bearish_break(candle: Candle, aoi: AOIZone) -> bool:
-    return candle.close < aoi.lower and aoi.lower <= candle.high <= aoi.upper
-
-
-def _is_bullish_break(candle: Candle, aoi: AOIZone) -> bool:
-    return candle.close > aoi.upper and aoi.lower <= candle.low <= aoi.upper
-
-
-def _opens_inside_aoi(candle: Candle, aoi: AOIZone) -> bool:
-    return aoi.lower <= candle.open <= aoi.upper
-
-
-def _closes_above_aoi(candle: Candle, aoi: AOIZone) -> bool:
-    return candle.close > aoi.upper
-
-
-def _closes_below_aoi(candle: Candle, aoi: AOIZone) -> bool:
-    return candle.close < aoi.lower
-
-
-def _prepare_candles(
-    candles: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]]
-) -> List[Candle]:
-    if isinstance(candles, pd.DataFrame):
-        df = candles
-        if "time" in df.columns:
-            df = df.sort_values("time")
-        source = df.tail(15).to_dict(orient="records")
-    else:
-        source = list(candles)[-15:]
-    prepared: List[Candle] = []
-    for entry in source:
-        if isinstance(entry, Candle):
-            prepared.append(entry)
-        elif isinstance(entry, Mapping):
-            prepared.append(Candle.from_mapping(entry))
-        else:
-            raise TypeError("Unsupported candle input type")
-    return prepared
-
-
-def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[EntryPattern]:
-    if len(candles) < 2:
-        return None
-
-    last_candle = candles[-1]
-    if not (_is_fully_below_aoi(last_candle, aoi) or _is_bearish_break(last_candle, aoi)):
-        return None
-
-    if _is_bearish_break(last_candle, aoi):
-        break_idx = len(candles) - 1
-    else:
-        if not _is_fully_below_aoi(last_candle, aoi):
-            return None
-        potential_break_idx = len(candles) - 2
-        if potential_break_idx < 0 or not _is_bearish_break(candles[potential_break_idx], aoi):
-            return None
-        break_idx = potential_break_idx
-
-    for idx in range(break_idx - 1, -1, -1):
-        candle = candles[idx]
-        if _opens_inside_aoi(candle, aoi) and _closes_above_aoi(candle, aoi):
-            return None
-        if candle.open < aoi.lower and candle.close >= aoi.lower:
-            return EntryPattern(
-                direction=TrendDirection.BEARISH,
-                aoi=aoi,
-                retest_index=idx,
-                break_index=break_idx,
-                candles=candles[idx : break_idx + 1],
-            )
-    return None
-
-
-def _find_bullish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[EntryPattern]:
-    if len(candles) < 2:
-        return None
-
-    last_candle = candles[-1]
-    if not (_is_fully_above_aoi(last_candle, aoi) or _is_bullish_break(last_candle, aoi)):
-        return None
-
-    if _is_bullish_break(last_candle, aoi):
-        break_idx = len(candles) - 1
-    else:
-        if not _is_fully_above_aoi(last_candle, aoi):
-            return None
-        potential_break_idx = len(candles) - 2
-        if potential_break_idx < 0 or not _is_bullish_break(candles[potential_break_idx], aoi):
-            return None
-        break_idx = potential_break_idx
-
-    for idx in range(break_idx - 1, -1, -1):
-        candle = candles[idx]
-        if _opens_inside_aoi(candle, aoi) and _closes_below_aoi(candle, aoi):
-            return None
-        if candle.open > aoi.upper and candle.close <= aoi.upper:
-            return EntryPattern(
-                direction=TrendDirection.BULLISH,
-                aoi=aoi,
-                retest_index=idx,
-                break_index=break_idx,
-                candles=candles[idx : break_idx + 1],
-            )
-    return None
-
-
-def find_entry_pattern(
-    candles: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]],
-    aoi: AOIZone,
-    direction: TrendDirection,
-) -> Optional[EntryPattern]:
-    if isinstance(direction, str):
-        direction = TrendDirection(direction.lower())
-    prepared_candles = _prepare_candles(candles)
-    if direction == TrendDirection.BEARISH:
-        return _find_bearish_pattern(prepared_candles, aoi)
-    return _find_bullish_pattern(prepared_candles, aoi)
-
-
-def evaluate_entry_with_llm(
-    symbol: str,
+def run_1h_entry_scan_job(
     timeframe: str,
-    direction: TrendDirection,
-    aoi: AOIZone,
-    pattern: EntryPattern,
-) -> LLMEvaluation:
-    return {
-        "take_trade": True,
-        "confidence": 1.0,
-        "reason": "LLM stub approved the trade by default.",
-    }
+    trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
+) -> List[dict]:
+    """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
 
+    mt5_timeframe = TIMEFRAMES.get(timeframe)
+    lookback = ANALYSIS_PARAMS[timeframe].get("lookback")
+    results: List[dict] = []
+
+    display.print_status(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
+
+    for symbol in FOREX_PAIRS:
+        display.print_status(f"  -> Checking {symbol}...")
+        candles = fetch_data(symbol, mt5_timeframe, int(lookback))
+
+        direction = _normalize_direction(get_overall_trend(trend_alignment_timeframes, symbol))
+        if direction is None:
+            continue
+
+        aois = db_handler.fetch_tradable_aois(symbol)
+        if not aois:
+            continue
+
+        for aoi_data in aois:
+            lower = aoi_data.get("lower_bound")
+            upper = aoi_data.get("upper_bound")
+            aoi = AOIZone(lower=lower, upper=upper)
+            signal = scan_1h_for_entry(symbol, direction, aoi, candles)
+            if signal:
+                results.append(signal)
+                display.print_status(
+                    f"    ✅ Entry signal found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                )
+    return results
+
+def _normalize_direction(raw: Optional[Union[str, Mapping[str, Any]]]) -> Optional[TrendDirection]:
+    if raw is None:
+        return None
+    if isinstance(raw, Mapping):
+        raw = raw.get("trend")
+    if isinstance(raw, str):
+        try:
+            return TrendDirection(raw.lower())
+        except ValueError:
+            return None
+    return None
 
 def scan_1h_for_entry(
     symbol: str,
@@ -240,76 +140,131 @@ def scan_1h_for_entry(
         "confidence": evaluation.get("confidence"),
         "reason": evaluation.get("reason"),
     }
+    
+def find_entry_pattern(
+    candles: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]],
+    aoi: AOIZone,
+    direction: TrendDirection,
+) -> Optional[EntryPattern]:
+    if isinstance(direction, str):
+        direction = TrendDirection(direction.lower())
+    prepared_candles = _prepare_candles(candles)
+    if direction == TrendDirection.BEARISH:
+        return _find_bearish_pattern(prepared_candles, aoi)
+    return _find_bullish_pattern(prepared_candles, aoi)
+
+def _prepare_candles(
+    candles: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]]
+) -> List[Candle]:
+    if isinstance(candles, pd.DataFrame):
+        df = candles
+        if "time" in df.columns:
+            df = df.sort_values("time")
+        source = df.tail(15).to_dict(orient="records")
+    else:
+        source = list(candles)[-15:]
+    prepared: List[Candle] = []
+    for entry in source:
+        if isinstance(entry, Candle):
+            prepared.append(entry)
+        elif isinstance(entry, Mapping):
+            prepared.append(Candle.from_mapping(entry))
+        else:
+            raise TypeError("Unsupported candle input type")
+    return prepared
 
 
-def _normalize_direction(raw: Optional[Union[str, Mapping[str, Any]]]) -> Optional[TrendDirection]:
-    if raw is None:
-        return None
-    if isinstance(raw, Mapping):
-        raw = raw.get("trend")
-    if isinstance(raw, str):
-        try:
-            return TrendDirection(raw.lower())
-        except ValueError:
+def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[EntryPattern]:
+    last_candle = candles[-1]
+    
+    if _is_bearish_break(last_candle, aoi):
+        break_idx = len(candles) - 1
+    elif _is_fully_below_aoi(last_candle, aoi):
+        break_idx = len(candles) - 2
+        if break_idx < 0 or not _is_bearish_break(candles[break_idx], aoi):
             return None
+    else:
+        return None
+
+    for idx in range(break_idx - 1, -1, -1):
+        candle = candles[idx]
+        if _opens_inside_aoi(candle, aoi) and _closes_above_aoi(candle, aoi):
+            return None
+        if candle.open < aoi.lower and candle.close >= aoi.lower:
+            return EntryPattern(
+                direction=TrendDirection.BEARISH,
+                aoi=aoi,
+                retest_index=idx,
+                break_index=break_idx,
+                candles=candles[idx : break_idx + 1],
+            )
     return None
 
 
-def _normalize_timeframe(timeframe: Union[str, Sequence[str]]) -> str:
-    if isinstance(timeframe, str):
-        return timeframe
-    timeframe_seq = list(timeframe)
-    return timeframe_seq[0] if timeframe_seq else "1H"
+def _find_bullish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[EntryPattern]:
+    last_candle = candles[-1]
+
+    if _is_bullish_break(last_candle, aoi):
+        break_idx = len(candles) - 1
+    elif _is_fully_above_aoi(last_candle, aoi):
+        break_idx = len(candles) - 2
+        if break_idx < 0 or not _is_bullish_break(candles[break_idx], aoi):
+            return None
+    else:
+        return None
+
+    for idx in range(break_idx - 1, -1, -1):
+        candle = candles[idx]
+        if _opens_inside_aoi(candle, aoi) and _closes_below_aoi(candle, aoi):
+            return None
+        if candle.open > aoi.upper and candle.close <= aoi.upper:
+            return EntryPattern(
+                direction=TrendDirection.BULLISH,
+                aoi=aoi,
+                retest_index=idx,
+                break_index=break_idx,
+                candles=candles[idx : break_idx + 1],
+            )
+    return None
 
 
-def run_1h_entry_scan_job(
-    timeframe: Union[str, Sequence[str]] = "1H",
-    trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
-) -> List[dict]:
-    """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
+def evaluate_entry_with_llm(
+    symbol: str,
+    timeframe: str,
+    direction: TrendDirection,
+    aoi: AOIZone,
+    pattern: EntryPattern,
+) -> LLMEvaluation:
+    return {
+        "take_trade": True,
+        "confidence": 1.0,
+        "reason": "LLM stub approved the trade by default.",
+    }
 
-    tf = _normalize_timeframe(timeframe)
-    mt5_timeframe = TIMEFRAMES.get(tf)
-    lookback = ANALYSIS_PARAMS.get(tf, {}).get("lookback", 300)
-    results: List[dict] = []
 
-    if mt5_timeframe is None:
-        display.print_error(f"Unknown timeframe provided to entry scan job: {tf}")
-        return results
+def _is_fully_below_aoi(candle: Candle, aoi: AOIZone) -> bool:
+    return candle.high < aoi.lower
 
-    display.print_status(f"\n--- 🔍 Running {tf} entry scan across symbols ---")
 
-    for symbol in FOREX_PAIRS:
-        display.print_status(f"  -> Checking {symbol}...")
-        candles = fetch_data(symbol, mt5_timeframe, int(lookback))
-        if candles is None:
-            display.print_error(f"    ❌ No price data for {symbol} on {tf}.")
-            continue
+def _is_fully_above_aoi(candle: Candle, aoi: AOIZone) -> bool:
+    return min(candle.open, candle.high, candle.low, candle.close) > aoi.upper
 
-        direction = _normalize_direction(get_overall_trend(trend_alignment_timeframes, symbol))
-        if direction is None:
-            display.print_status(f"    ⚠️ Skipping {symbol}: no stored trend for {tf}.")
-            continue
 
-        aois = db_handler.fetch_tradable_aois(symbol, tf)
-        if not aois:
-            display.print_status(f"    ℹ️ No tradable AOIs for {symbol} on {tf}.")
-            continue
+def _is_bearish_break(candle: Candle, aoi: AOIZone) -> bool:
+    return candle.close < aoi.lower and aoi.lower <= candle.open <= aoi.upper
 
-        for aoi_data in aois:
-            lower = aoi_data.get("lower_bound")
-            upper = aoi_data.get("upper_bound")
-            if lower is None or upper is None:
-                display.print_status(
-                    f"    ⚠️ Skipping AOI with missing bounds for {symbol} on {tf}."
-                )
-                continue
 
-            aoi = AOIZone(lower=lower, upper=upper)
-            signal = scan_1h_for_entry(symbol, direction, aoi, candles)
-            if signal:
-                results.append(signal)
-                display.print_status(
-                    f"    ✅ Entry signal found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
-                )
-    return results
+def _is_bullish_break(candle: Candle, aoi: AOIZone) -> bool:
+    return candle.close > aoi.upper and aoi.lower <= candle.open <= aoi.upper
+
+
+def _opens_inside_aoi(candle: Candle, aoi: AOIZone) -> bool:
+    return aoi.lower <= candle.open <= aoi.upper
+
+
+def _closes_above_aoi(candle: Candle, aoi: AOIZone) -> bool:
+    return candle.close > aoi.upper
+
+
+def _closes_below_aoi(candle: Candle, aoi: AOIZone) -> bool:
+    return candle.close < aoi.lower

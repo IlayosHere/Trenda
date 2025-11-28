@@ -13,7 +13,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     symbol, formmated_timeframe, analysis_params["lookback"])
     indexed_data = index_dataframes(data)
     time = input("Enter the time of the price: ")
-    #Date format: EURUSD: 2025-11-19 15:00:00 
+    #Date format: EURUSD: 2025-11-19 15:00:00 2025-11-18 15:00:00 
     # USDJPY: 2025-11-13 17:00:00 
     last_index = find_candles_by_time(indexed_data, time)
     print(last_index)
@@ -21,11 +21,11 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     selected_data = select_candles(indexed_data, nums)
     # EURUSD: bearish USDJPY: bullish
     trend = input("enter the trend: ")
-    # EURUSD: 1.15997 USDJPY: 154.392
+    # EURUSD: 1.15997 1.16095 USDJPY: 154.392
     aoi_high = float(input("Enter the aoi high: "))
-    # EURUSD: 1.15829 USDJPY: 153.874
+    # EURUSD: 1.15829 1.15965 USDJPY: 153.874
     aoi_low = float(input("Enter the aoi low: "))
-    prompt = build_full_prompt(selected_data, trend, aoi_high, aoi_low)
+    prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
     print(prompt)
     
 def find_candles_by_time(df: pd.DataFrame, time_value, time_col="time"):
@@ -66,7 +66,7 @@ def index_dataframes(dataframes):
     dataframes = dataframes.reset_index().rename(columns={"index": "id"})
     return dataframes
 
-def build_full_prompt(selected_candles_df, trend, aoi_high, aoi_low):
+def build_full_prompt(symbol, selected_candles_df, trend, aoi_high, aoi_low):
     # Build candle lines
     # selected_candles_df = selected_candles_df.iloc[::-1]
     candle_lines = []
@@ -78,48 +78,102 @@ def build_full_prompt(selected_candles_df, trend, aoi_high, aoi_low):
 
     # Full final prompt (exactly as you wrote it)
     output_text = f"""
-ROLE:
-You are an institutional-grade forex market-structure analyst. Your task is to evaluate whether the current market conditions provide a valid entry strictly in the direction of the given trend.
+You are a senior price action analyst at a professional forex trading firm. Your evaluation directly affects real capital allocation, so your analysis must be strict, objective, rule-based, and consistent with zero randomness.
+The analysis must never reinterpret candle intent (buyers/sellers). All evaluations must be based strictly on numerical geometry only.
+For every candle, body and wick sizes must be calculated first before making any judgment.
+Analyze ONLY the data and ONLY the rules provided below. No assumptions. No creativity. No external knowledge.
 
-OBJECTIVE:
-Return a single deterministic probability value between 0 and 1 (no text, no labels, no explanation) representing whether the current candle provides a valid entry in the direction of the trend.
+RULESET FOR AOI REJECTION EVALUATION
 
-DETERMINISM REQUIREMENT:
-Your evaluation must be fully deterministic.
-Given identical input, you must always return the exact same numerical output with no randomness.
+1. Trend determines expected rejection direction
+* If the trend is bullish, the AOI is a demand zone. Price should dip into the zone and then reject upward (buy bias).
+* If the trend is bearish, the AOI is a supply zone. Price should rise into the zone and then reject downward (sell bias).
+Rejection must always align with the given trend.
 
-ALLOWED INFORMATION:
+2. Zone rules
+You are given the AOI boundaries: high_end and low_end.
+Valid rejection requires that at least one candle in the sequence enters the zone (touches or penetrates it).
+Penetration deeper into the zone increases potential rejection strength, but deep penetration alone does NOT signal quality.
+Penetration less than 25% of all candles of the zone height is considered weak, , meaning that if at least one candle penetrated more than 25% of the area, this increases confidence, even if it surpasses the zone in a bit but if not, it shows wakness.
 
-Only the data provided in this prompt (TREND, AOI, CANDLES).
+3. Candle geometry definitions
+For every candle:
+* body_size = abs(close - open)
+* upper_wick = high - max(open, close)
+* lower_wick = min(open, close) - low
+A wick is “significantly larger than the body” if wick_size >= 1.3 * body_size.
+For bearish trend: the relevant wick is the UPPER wick.
+For bullish trend: the relevant wick is the LOWER wick.
 
-No indicators.
+4. Candle sequence rules (candles are in chronological order)
+You receive all candles from the retest candle - the first candle entering the AOI, up to the breaking candle or the confirmation candle after the break.
 
-No invented data or assumptions.
+Evaluate:
 
-INPUT FORMAT:
-TREND: “Bullish” or “Bearish”
-AOI: {{ "high_end": number, "low_end": number }}
-CANDLES: array of candles ordered from the first candle that retested the AOI to the most recent candle.
-Each candle: {{ "Open": number, "High": number, "Low": number, "Close": number }}
+A. Retest Quality
+* Deeper wick penetration into the AOI increases rejection potential.
+* Wick reaching at least the 25% zone depth increases confidence.
+* Very deep retests require stronger momentum to confirm the trend shift. If deep retest is followed by weak break, lower the score.
 
-EVALUATION RULES:
-Evaluate the full structure from the AOI retest to the current candle using deterministic logic:
+B. Momentum Shift (general)
+The move OUT of the zone must show clear trend-aligned momentum.
+The move OUT of the zone should be stronger than the move INTO the zone.
 
-The output may never be 1.0 unless ALL structural criteria score at their maximum
+C. Break Confirmation (close relative to the AOI)
+If breaking candle (the candle that starts the move away from the zone in the trend direction) meets this condition, confidence increases:
+Bullish: breaking_candle_close >= AOI_high_end * 1.0006
+Bearish: breaking_candle_close <= AOI_low_end * 0.9994
+* The break cannot be marginal. It must show clear distance beyond the AOI.
+* Break candle must be strong: either a strong directional wick or engulfing, or a momentum-driven body.  
+* Weak breaks should reduce the score.
 
-Confirm price interacted with the AOI.
+D. Confirmation Candle After Break
+If the last candle is AFTER the breaking candle:
+* It must close significantly outside the AOI:
+  - Bullish: breaking_candle_close >= AOI high_end * 1.0007
+  - Bearish: breaking_candle_close <= AOI low_end * 0.9993
+* The confirmation candle must show at least one of:
+  1. Momentum continuation (strong body in trend direction)
+  2. Wick retest into the AOI followed by rejection in trend direction
+  3. Combination of strong break + wick confirmation candle
+* If breaking candle is weak OR confirmation candle is weak, reduce the score.
 
-Confirm whether the candles after the AOI show continuation, rejection, or invalidation in the direction of the trend.
+5. Scoring rules (0 to 1)
+Output a single score reflecting the strength of executing an order after the last candle closes:
+0.0–0.2: no rejection or unclear
+0.2–0.4: weak rejection
+0.4–0.6: moderate or borderline
+0.6–0.8: good quality rejection
+0.8–1.0: strong, clean, trend-aligned rejection with clear momentum shift
 
-Assess current candle behavior relative to structure.
+The score must be strict, deterministic, and repeatable. Same input must always produce the same output.  
 
-Convert your structural evaluation into a probability score between 0 and 1 using a consistent, deterministic method.
+OUTPUT RULE
+Output ONLY the final score as a number between 0 and 1. No explanations.
 
-OUTPUT FORMAT:
-Output only one number between 0 and 1 with no additional text, no formatting, no labels.
+DATA FORMAT (structure you will receive)
+Trend: <bullish|bearish>
+
+AOI:
+  high_end: <number>
+  low_end: <number>
+
+Candles:
+  - open: <number>
+    high: <number>
+    low: <number>
+    close: <number>
+  - open: <number>
+    high: <number>
+    low: <number>
+    close: <number>
+  ...
+(all candles from retest to break/confirmation)
+
+When you receive data in this structure, follow ALL rules and output only the rejection score (0 to 1).   
+
 
 DATA:
-
 TREND: {trend}
 AOI: {{ "high_end": {aoi_high}, "low_end": {aoi_low} }}
 CANDLES: [
