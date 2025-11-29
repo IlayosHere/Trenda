@@ -28,8 +28,8 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     aoi_high = float(input("Enter the aoi high: "))
     # EURUSD: 1.15829 1.15965 USDJPY: 153.874
     aoi_low = float(input("Enter the aoi low: "))
-    prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
-    print(prompt)
+    # prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
+    # print(prompt)
 
     evaluate_selected_entry(selected_data, trend, aoi_low, aoi_high)
 

@@ -78,7 +78,6 @@ def _average(values: Iterable[float]) -> float:
         count += 1
     return total / count if count else 0.0
 
-
 def evaluate_entry_quality(
     candles: list,
     aoi_low: float,
@@ -101,8 +100,7 @@ def evaluate_entry_quality(
         candle = candles[idx]
         if _is_close_inside_aoi(candle, aoi_low, aoi_high):
             penetration = penetration_depth(candle, aoi_low, aoi_high)
-            penetration_ratio = penetration / aoi_height
-            penetration_ratios.append(penetration_ratio)
+            penetration_ratios.append(penetration)
 
     S1 = _average(penetration_ratios)
     if all(ratio < 0.3 for ratio in penetration_ratios):
@@ -175,11 +173,15 @@ def evaluate_entry_quality(
         S5 = clamp(0.6 * W + 0.4 * B_after)
 
     # S6 — Candle Count (Decisiveness)
-    n = break_idx - retest_idx
-    if n <= 3:
+    n = break_idx - retest_idx - 1
+    if n == 0:
+        S6 = 0.4
+    elif n <= 2:
         S6 = 1.0
+    elif n == 3:
+        n = 0.95
     elif n == 4:
-        S6 = 0.75
+        S6 = 0.8
     elif n == 5:
         S6 = 0.5
     elif n == 6:
