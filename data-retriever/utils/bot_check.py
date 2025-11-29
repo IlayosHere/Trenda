@@ -1,4 +1,7 @@
+from dataclasses import dataclass
+
 import pandas as pd
+from analyzers.entry_quality import evaluate_entry_quality
 from externals.data_fetcher import fetch_data
 from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 
@@ -27,6 +30,41 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     aoi_low = float(input("Enter the aoi low: "))
     prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
     print(prompt)
+
+    evaluate_selected_entry(selected_data, trend, aoi_low, aoi_high)
+
+
+@dataclass
+class Candle:
+    open: float
+    high: float
+    low: float
+    close: float
+
+
+def evaluate_selected_entry(
+    selected_candles_df: pd.DataFrame,
+    trend: str,
+    aoi_low: float,
+    aoi_high: float,
+) -> float:
+    candles = _dataframe_to_candles(selected_candles_df)
+    # Retest candle is always the first provided candle.
+    retest_idx = 0
+    break_idx, after_break_idx = _prompt_for_break_indices(len(candles))
+
+    score = evaluate_entry_quality(
+        candles,
+        aoi_low=aoi_low,
+        aoi_high=aoi_high,
+        trend=trend,
+        retest_idx=retest_idx,
+        break_idx=break_idx,
+        after_break_idx=after_break_idx,
+    )
+
+    print(f"Entry quality score: {score:.4f}")
+    return score
     
 def find_candles_by_time(df: pd.DataFrame, time_value, time_col="time"):
     # Ensure the column exists
@@ -65,6 +103,26 @@ def select_candles(indexed_dataframes, candle_ids, id_col="id"):
 def index_dataframes(dataframes):
     dataframes = dataframes.reset_index().rename(columns={"index": "id"})
     return dataframes
+
+
+def _dataframe_to_candles(df: pd.DataFrame) -> list[Candle]:
+    return [
+        Candle(open=row["open"], high=row["high"], low=row["low"], close=row["close"])
+        for _, row in df.iterrows()
+    ]
+
+
+def _prompt_for_break_indices(candle_count: int) -> tuple[int, int | None]:
+    if candle_count == 0:
+        raise ValueError("No candles provided for evaluation.")
+    if candle_count == 1:
+        raise ValueError("At least two candles are required to determine break and confirmation indices.")
+
+    last_is_break = input("Is the last candle the break candle? (yes/no): ").strip().lower()
+    if last_is_break in {"yes", "y"}:
+        return candle_count - 1, None
+
+    return candle_count - 2, candle_count - 1
 
 def build_full_prompt(symbol, selected_candles_df, trend, aoi_high, aoi_low):
     # Build candle lines
