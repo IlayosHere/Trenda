@@ -11,7 +11,7 @@ from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 import externals.db_handler as db_handler
 from externals.data_fetcher import fetch_data
 import utils.display as display
-from analyzers.trend import get_overall_trend
+from analyzers.trend import get_trend_by_timeframe
 
 
 class TrendDirection(Enum):
@@ -66,12 +66,11 @@ DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
 def run_1h_entry_scan_job(
     timeframe: str,
     trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
-) -> List[dict]:
+) -> None:
     """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
 
     mt5_timeframe = TIMEFRAMES.get(timeframe)
     lookback = ANALYSIS_PARAMS[timeframe].get("lookback")
-    results: List[dict] = []
 
     display.print_status(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
 
@@ -79,7 +78,10 @@ def run_1h_entry_scan_job(
         display.print_status(f"  -> Checking {symbol}...")
         candles = fetch_data(symbol, mt5_timeframe, int(lookback))
 
-        direction = _normalize_direction(get_overall_trend(trend_alignment_timeframes, symbol))
+        trend_snapshot = _collect_trend_snapshot(trend_alignment_timeframes, symbol)
+        direction = _normalize_direction(
+            _resolve_overall_trend(trend_alignment_timeframes, trend_snapshot)
+        )
         if direction is None:
             continue
 
@@ -93,11 +95,17 @@ def run_1h_entry_scan_job(
             aoi = AOIZone(lower=lower, upper=upper)
             signal = scan_1h_for_entry(symbol, direction, aoi, candles)
             if signal:
-                results.append(signal)
-                display.print_status(
-                    f"    ✅ Entry signal found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                entry_id = db_handler.store_entry_signal(
+                symbol=symbol,
+                trend_snapshot=trend_snapshot,
+                aoi_high=aoi.upper,
+                aoi_low=aoi.lower,
+                signal_time=signal.get("signal_time"),
+                candles=signal.get("candles"),
                 )
-    return results
+                display.print_status(
+                    f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                )
 
 def _normalize_direction(raw: Optional[Union[str, Mapping[str, Any]]]) -> Optional[TrendDirection]:
     if raw is None:
@@ -127,18 +135,10 @@ def scan_1h_for_entry(
     if not evaluation.get("take_trade", False):
         return None
 
-    relative_break_idx = pattern.break_index - pattern.retest_index
-    break_candle = pattern.candles[relative_break_idx]
-    retest_candle = pattern.candles[0]
-
     return {
-        "symbol": symbol,
-        "direction": direction.value,
-        "aoi": {"lower": aoi.lower, "upper": aoi.upper},
-        "break_time": break_candle.time,
-        "retest_time": retest_candle.time,
-        "confidence": evaluation.get("confidence"),
-        "reason": evaluation.get("reason"),
+        "candles": pattern.candles,
+        "signal_time": pattern.candles[-1].time,
+        "confidence": evaluation.get("confidence")
     }
     
 def find_entry_pattern(
@@ -152,6 +152,36 @@ def find_entry_pattern(
     if direction == TrendDirection.BEARISH:
         return _find_bearish_pattern(prepared_candles, aoi)
     return _find_bullish_pattern(prepared_candles, aoi)
+
+
+def _collect_trend_snapshot(
+    timeframes: Sequence[str], symbol: str
+) -> Mapping[str, Optional[str]]:
+    return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
+
+
+def _resolve_overall_trend(
+    timeframes: Sequence[str], trend_snapshot: Mapping[str, Optional[str]]
+) -> Optional[str]:
+    trend_values = [
+        {"trend": trend_snapshot.get(tf), "timeframe": tf} for tf in timeframes
+    ]
+
+    if not trend_values or any(tv["trend"] is None for tv in trend_values):
+        return None
+
+    if len(trend_values) >= 3:
+        if (
+            trend_values[0]["trend"] == trend_values[1]["trend"]
+            or trend_values[1]["trend"] == trend_values[2]["trend"]
+        ):
+            return trend_values[1]["trend"]
+        return None
+
+    if len(trend_values) >= 2 and trend_values[0]["trend"] == trend_values[1]["trend"]:
+        return trend_values[0]["trend"]
+
+    return None
 
 def _prepare_candles(
     candles: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]]
@@ -181,7 +211,7 @@ def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         break_idx = len(candles) - 1
     elif _is_fully_below_aoi(last_candle, aoi):
         break_idx = len(candles) - 2
-        if break_idx < 0 or not _is_bearish_break(candles[break_idx], aoi):
+        if _is_bearish_break(candles[break_idx], aoi):
             return None
     else:
         return None
@@ -190,13 +220,15 @@ def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         candle = candles[idx]
         if _opens_inside_aoi(candle, aoi) and _closes_above_aoi(candle, aoi):
             return None
-        if candle.open < aoi.lower and candle.close >= aoi.lower:
+        distance_between_last_candle_to_retest_candle = len(candles) - 1 - idx
+        if (candle.open < aoi.lower and candle.close >= aoi.lower 
+            and distance_between_last_candle_to_retest_candle > 1):
             return EntryPattern(
                 direction=TrendDirection.BEARISH,
                 aoi=aoi,
                 retest_index=idx,
                 break_index=break_idx,
-                candles=candles[idx : break_idx + 1],
+                candles=candles[idx:],
             )
     return None
 
@@ -217,13 +249,15 @@ def _find_bullish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         candle = candles[idx]
         if _opens_inside_aoi(candle, aoi) and _closes_below_aoi(candle, aoi):
             return None
-        if candle.open > aoi.upper and candle.close <= aoi.upper:
+        distance_between_last_candle_to_retest_candle = len(candles) - 1 - idx
+        if (candle.open > aoi.upper and candle.close <= aoi.upper
+            and distance_between_last_candle_to_retest_candle > 1):
             return EntryPattern(
                 direction=TrendDirection.BULLISH,
                 aoi=aoi,
                 retest_index=idx,
                 break_index=break_idx,
-                candles=candles[idx : break_idx + 1],
+                candles=candles[idx:],
             )
     return None
 
