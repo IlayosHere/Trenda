@@ -29,8 +29,7 @@ INSERT INTO trenda.timeframes (type) VALUES
 ('1W'),
 ('1D'),
 ('4H'),
-('1H'),
-('15min')
+('1H')
 ON CONFLICT (type) DO NOTHING;
 
 INSERT INTO trenda.aoi_type (type) VALUES
