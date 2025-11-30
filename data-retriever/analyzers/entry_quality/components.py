@@ -7,23 +7,57 @@ from .utils import (
     penetration_depth,
     wick_down,
     wick_into_aoi,
-    wick_up,
-    _average,
-    _is_close_inside_aoi,
+    wick_up
 )
 
-
 def compute_penetration_score(candles, aoi_low: float, aoi_high: float, retest_idx: int, break_idx: int) -> float:
-    penetration_ratios = []
+    aoi_height = aoi_high - aoi_low
+    if aoi_height <= 0:
+        return 0.0
+
+    max_penetration = 0.0
+    deepest_by_wick_only = False
+
     for idx in range(retest_idx, break_idx + 1):
         candle = candles[idx]
-        if _is_close_inside_aoi(candle, aoi_low, aoi_high):
-            penetration = penetration_depth(candle, aoi_low, aoi_high)
-            penetration_ratios.append(penetration)
 
-    S1 = _average(penetration_ratios)
-    if all(ratio < 0.3 for ratio in penetration_ratios):
+        # Candle touches AOI at all?
+        touches = not (candle.high < aoi_low or candle.low > aoi_high)
+        if not touches:
+            continue
+
+        # Total penetration depth relative to AOI height
+        pen = penetration_depth(candle, aoi_low, aoi_high)
+        if pen <= 0.0:
+            continue
+
+        # Track deepest penetration
+        if pen > max_penetration:
+            max_penetration = pen
+
+            # Determine if deepest penetration came from wick-only
+            body_high = max(candle.open, candle.close)
+            body_low = min(candle.open, candle.close)
+            body_overlap = max(0.0, min(body_high, aoi_high) - max(body_low, aoi_low))
+            body_penetration = body_overlap / aoi_height if aoi_height > 0 else 0.0
+
+            deepest_by_wick_only = (body_penetration == 0.0 and pen > 0.0)
+
+    # If nothing penetrated the AOI at all → S1 = 0
+    if max_penetration == 0.0:
+        return 0.0
+
+    # Base score = depth of deepest probe
+    S1 = max_penetration
+
+    # Weak probe: no candle reached at least 30% deep
+    if max_penetration < 0.3:
         S1 *= 0.4
+
+    # Wick-only deep probe bonus
+    if deepest_by_wick_only and max_penetration >= 0.3:
+        S1 = 0.6 * S1 + 0.4 * max_penetration  # slight uplift
+
     return clamp(S1)
 
 
@@ -59,8 +93,12 @@ def compute_wick_momentum_score(
         S2 = 0.7 * W_break + 0.3 * W_prev
     return clamp(S2)
 
-
-def compute_breaking_candle_quality(break_candle, retest_candle, aoi_height: float, trend: str):
+def compute_breaking_candle_quality(break_candle, 
+                                    retest_candle, 
+                                    aoi_high: float,
+                                    aoi_low: float,
+                                    aoi_height: float, 
+                                    trend: str):
     boundary = aoi_high if trend == "bullish" else aoi_low
     distance_raw = break_candle.close - boundary if trend == "bullish" else boundary - break_candle.close
     D = clamp(distance_raw / aoi_height)
@@ -81,15 +119,34 @@ def compute_breaking_candle_quality(break_candle, retest_candle, aoi_height: flo
     S3 = clamp(0.4 * D + 0.25 * E + 0.2 * W_opp + 0.15 * B)
     return S3, body_break, body_retest
 
+def compute_impulse_dominance_score(break_candle, retest_candle, aoi_high: float, aoi_low: float, trend: str) -> float:
+    aoi_height = aoi_high - aoi_low
+    if aoi_height <= 0:
+        return 0.0
 
-def compute_impulse_dominance_score(break_candle, retest_candle, body_break: float, body_retest: float, trend: str) -> float:
+    body_break = body_size(break_candle)
+    body_retest = body_size(retest_candle)
+
+    # 1) Continuous close dominance (C)
     if trend == "bullish":
-        C = 1.0 if break_candle.close > retest_candle.open else 0.0
-    else:
-        C = 1.0 if break_candle.close < retest_candle.open else 0.0
-    R = clamp(body_break / body_retest) if body_retest != 0 else 0.0
-    return clamp(0.5 * C + 0.5 * R)
+        close_diff = break_candle.close - retest_candle.open
+    else:  # bearish
+        close_diff = retest_candle.open - break_candle.close
 
+    if close_diff <= 0:
+        C = 0.0
+    else:
+        C = clamp(close_diff / aoi_height)
+
+    # 2) Body dominance ratio (R)
+    if body_retest != 0:
+        R = clamp(body_break / body_retest)
+    else:
+        # If retest body is 0 (doji-like), treat any non-zero break body as strong
+        R = 1.0 if body_break > 0 else 0.0
+
+    S4 = clamp(0.5 * C + 0.5 * R)
+    return S4
 
 def compute_after_break_confirmation(
     candles,
@@ -123,7 +180,7 @@ def compute_candle_count_score(retest_idx: int, break_idx: int) -> float:
     elif n <= 2:
         S6 = 1.0
     elif n == 3:
-        n = 0.95
+        S6 = 0.9
     elif n == 4:
         S6 = 0.8
     elif n == 5:

@@ -65,15 +65,3 @@ def penetration_depth(candle, aoi_low: float, aoi_high: float) -> float:
     overlap = max(0.0, overlap_end - overlap_start)
     return overlap / aoi_height
 
-
-def _is_close_inside_aoi(candle, aoi_low: float, aoi_high: float) -> bool:
-    return aoi_low <= candle.close <= aoi_high
-
-
-def _average(values: Iterable[float]) -> float:
-    total = 0.0
-    count = 0
-    for value in values:
-        total += value
-        count += 1
-    return total / count if count else 0.0

@@ -29,15 +29,55 @@ def evaluate_entry_quality(
     retest_candle = candles[retest_idx]
     break_candle = candles[break_idx]
 
-    S1 = compute_penetration_score(candles, aoi_low, aoi_high, retest_idx, break_idx)
-    S2 = compute_wick_momentum_score(
-        candles, trend, aoi_low, aoi_high, retest_idx, break_idx, after_break_idx, aoi_height, break_candle
-    )
-    S3, body_break, body_retest = compute_breaking_candle_quality(break_candle, retest_candle, aoi_height, trend)
-    S4 = compute_impulse_dominance_score(break_candle, retest_candle, body_break, body_retest, trend)
-    S5 = compute_after_break_confirmation(candles, trend, aoi_low, aoi_high, after_break_idx, body_break, aoi_height)
+    S1 = compute_penetration_score(candles, 
+                                   aoi_low, 
+                                   aoi_high, 
+                                   retest_idx, 
+                                   break_idx)
+    
+    S2 = compute_wick_momentum_score(candles, 
+                                     trend, 
+                                     aoi_low, 
+                                     aoi_high, 
+                                     retest_idx,
+                                     break_idx,
+                                     after_break_idx, 
+                                     aoi_height, 
+                                     break_candle)
+    
+    S3, body_break, body_retest = compute_breaking_candle_quality(break_candle, 
+                                                                  retest_candle,
+                                                                  aoi_high,
+                                                                  aoi_low, 
+                                                                  aoi_height, 
+                                                                  trend)
+    
+    S4 = compute_impulse_dominance_score(break_candle, 
+                                         retest_candle,
+                                         aoi_high, 
+                                         aoi_low,
+                                         trend)
+    
+    S5 = compute_after_break_confirmation(candles,
+                                          trend,
+                                          aoi_low,
+                                          aoi_high,
+                                          after_break_idx,
+                                          body_break,
+                                          aoi_height)
     S6 = compute_candle_count_score(retest_idx, break_idx)
-    S7 = compute_retest_entry_quality(retest_candle, trend, aoi_low, aoi_high, body_retest, aoi_height)
-    S8 = compute_opposing_wick_resistance(candles, trend, break_idx, retest_idx, after_break_idx)
+    
+    S7 = compute_retest_entry_quality(retest_candle,
+                                      trend,
+                                      aoi_low, 
+                                      aoi_high,
+                                      body_retest,
+                                      aoi_height)
+    
+    S8 = compute_opposing_wick_resistance(candles,
+                                          trend, 
+                                          break_idx,
+                                          retest_idx,
+                                          after_break_idx)
 
     return calculate_final_score(S1, S2, S3, S4, S5, S6, S7, S8)
