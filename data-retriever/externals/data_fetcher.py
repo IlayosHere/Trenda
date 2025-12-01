@@ -41,5 +41,5 @@ def _convert_to_dataframe(rates: tuple) -> pd.DataFrame:
     """
     df = pd.DataFrame(rates)
     df["time"] = pd.to_datetime(df["time"], unit="s")
-    df.set_index("time", inplace=True)
+    # df.set_index("time", inplace=True)
     return df
