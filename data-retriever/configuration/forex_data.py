@@ -3,7 +3,7 @@ import MetaTrader5 as mt5
 FOREX_PAIRS = [
     # "EURUSD",
     # "GBPUSD",
-    "USDJPY",
+    # "USDJPY",
     # "USDCHF",
     # "USDCAD",
     # "AUDUSD",
@@ -11,7 +11,7 @@ FOREX_PAIRS = [
     # "GBPCAD",
     # "EURJPY",
     # "GBPJPY",
-    # "AUDJPY",
+    "AUDJPY",
     # "CADJPY",
     # "NZDJPY",
     # "CHFJPY",
@@ -44,5 +44,5 @@ ANALYSIS_PARAMS = {
     "1W": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 year
     "1D": {"lookback": 100, "aoi_lookback": 140, "distance": 1, "prominence": 0.0004},  # ~1 year
     "4H": {"lookback": 100, "aoi_lookback": 180, "distance": 1, "prominence": 0.0004},  # ~1.5 months
-    "1H": {"lookback": 300}
+    "1H": {"lookback": 1000}
 }

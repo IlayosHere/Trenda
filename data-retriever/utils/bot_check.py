@@ -15,19 +15,37 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     data = fetch_data(
     symbol, formmated_timeframe, analysis_params["lookback"])
     indexed_data = index_dataframes(data)
-    time = input("Enter the time of the price: ")
-    #Date format: EURUSD: 2025-11-19 15:00:00 2025-11-18 15:00:00 
-    # USDJPY: 2025-11-13 17:00:00 
+    #Date format: 
+    # EURUSD: 2025-11-19 15:00:00 2025-11-18 15:00:00 2025-11-12 07:00:00 
+    # USDJPY: 2025-11-14 14:00:00 
+    # AUDUSD: 2025-10-13 16:00:00 
+    # NZDUSD: 2025-11-03 04:00:00 
+    # AUDJPY: 2025-11-28 14:00:00 
+    time = "2025-11-28 14:00:00"
     last_index = find_candles_by_time(indexed_data, time)
     print(last_index)
-    nums = list(map(int, input("Enter numbers separated by space: ").split()))
+    last_index_id = last_index["id"].values[0]
+    count = 2 # remember to change
+    nums = list(range(last_index_id, last_index_id + count))
     selected_data = select_candles(indexed_data, nums)
-    # EURUSD: bearish USDJPY: bullish
-    trend = input("enter the trend: ")
-    # EURUSD: 1.15997 1.16095 USDJPY: 154.392
-    aoi_high = float(input("Enter the aoi high: "))
-    # EURUSD: 1.15829 1.15965 USDJPY: 153.874
-    aoi_low = float(input("Enter the aoi low: "))
+    # EURUSD: bearish
+    # USDJPY: bullish
+    # AUDUSD: bearish
+    # NZDUSD: bearish
+    # AUDJPY: bullish
+    trend = "bullish"
+    # EURUSD: 1.16095 1.15893 
+    # USDJPY: 154.392
+    # AUDUSD: 0.65246
+    # NZDUSD: 0.5751
+    # AUDJPY: 100.896
+    aoi_high = 100.896
+    # EURUSD: 1.15965 1.15758  
+    # USDJPY: 153.874
+    # AUDUSD: 0.65133
+    # NZDUSD: 0.57187
+    # AUDJPY: 100.691
+    aoi_low = 100.691
     # prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
     # print(prompt)
 
