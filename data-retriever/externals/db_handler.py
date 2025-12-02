@@ -245,6 +245,7 @@ def store_entry_signal(
     aoi_low: float,
     signal_time,
     candles: Sequence[Any],
+    trade_quality: float
 ) -> Optional[int]:
     """Persist an entry signal and its supporting candles."""
 
@@ -255,8 +256,9 @@ def store_entry_signal(
     """
 
     insert_signal_sql = """
-    INSERT INTO trenda.entry_signal (symbol, signal_time, signal_trend_id, aoi_high, aoi_low, is_success)
-    VALUES (%s, %s, %s, %s, %s, NULL)
+    INSERT INTO trenda.entry_signal (symbol, signal_time, signal_trend_id, aoi_high, 
+    aoi_low, trade_quality, is_success)
+    VALUES (%s, %s, %s, %s, %s, %s, NULL)
     RETURNING id
     """
 
@@ -301,7 +303,7 @@ def store_entry_signal(
 
                 cursor.execute(
                     insert_signal_sql,
-                    (symbol, signal_time, signal_trend_id, aoi_high, aoi_low),
+                    (symbol, signal_time, signal_trend_id, aoi_high, aoi_low, trade_quality),
                 )
                 signal_id = cursor.fetchone()[0]
 
