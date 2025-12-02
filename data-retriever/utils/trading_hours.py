@@ -7,7 +7,7 @@ from typing import Iterable, Set
 import utils.display as display
 
 DEFAULT_TRADING_DAYS = "0-4"  # Monday=0, Sunday=6
-DEFAULT_TRADING_HOURS = "0-23"  # 24/7 by default
+DEFAULT_TRADING_HOURS = "4-15"  # 24/7 by default
 
 
 def _parse_range_list(raw_value: str, max_value: int) -> Set[int]:

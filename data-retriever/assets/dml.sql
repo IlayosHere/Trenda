@@ -1,4 +1,4 @@
-INSERT INTO fordash.forex (name) VALUES
+INSERT INTO trenda.forex (name) VALUES
 ('EURUSD'),
 ('GBPUSD'),
 ('USDJPY'),
@@ -25,16 +25,14 @@ INSERT INTO fordash.forex (name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- DML for populating the 'timeframes' table
-INSERT INTO fordash.timeframes (type) VALUES
-('1W')
+INSERT INTO trenda.timeframes (type) VALUES
+('1W'),
 ('1D'),
 ('4H'),
-('1H'),
-('15min')
+('1H')
 ON CONFLICT (type) DO NOTHING;
 
-
-INSERT INTO fordash.aoi_type (type) VALUES
+INSERT INTO trenda.aoi_type (type) VALUES
 ('tradable'),
 ('reference')
 ON CONFLICT (type) DO NOTHING;
