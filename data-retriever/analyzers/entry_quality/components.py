@@ -12,53 +12,33 @@ from .utils import (
 )
 
 
-def compute_penetration_score(candles, aoi_low: float, aoi_high: float, retest_idx: int, break_idx: int) -> float:
+def compute_penetration_score(candles, trend: str, aoi_low: float, aoi_high: float, retest_idx: int, break_idx: int) -> float:
     aoi_height = aoi_high - aoi_low
-    if aoi_height <= 0:
+    deepest = 0.0
+
+    relevant_closes = [
+        candles[i].close
+        for i in range(retest_idx, break_idx + 1)
+        if not (candles[i].high < aoi_low or candles[i].low > aoi_high)
+    ]
+    if not relevant_closes:
         return 0.0
 
-    max_penetration = 0.0
-    deepest_by_wick_only = False
+    for candle in relevant_closes:
+        if trend == "bullish":
+            penetration = max(0.0, aoi_high - candle.close) / aoi_height
+            wick_part = (candle.close - candle.low) / (candle.high - candle.low) if candle.high != candle.low else 0.0
+        else:  # bearish
+            penetration = max(0.0, candle.close - aoi_low) / aoi_height
+            wick_part = (candle.high - candle.close) / (candle.high - candle.low) if candle.high != candle.low else 0.0
 
-    for idx in range(retest_idx, break_idx + 1):
-        candle = candles[idx]
+        if penetration > deepest:
+            deepest = penetration
+            # Check if penetration is mostly wick (e.g., close barely inside AOI)
+            if wick_part > 0.7:
+                deepest += 0.2
 
-        # Candle touches AOI at all?
-        touches = not (candle.high < aoi_low or candle.low > aoi_high)
-        if not touches:
-            continue
-
-        # Total penetration depth relative to AOI height
-        pen = penetration_depth(candle, aoi_low, aoi_high)
-        if pen <= 0.0:
-            continue
-
-        # Track deepest penetration
-        if pen > max_penetration:
-            max_penetration = pen
-
-            # Determine if deepest penetration came from wick-only
-            body_high = max(candle.open, candle.close)
-            body_low = min(candle.open, candle.close)
-            body_overlap = max(0.0, min(body_high, aoi_high) - max(body_low, aoi_low))
-            body_penetration = body_overlap / aoi_height if aoi_height > 0 else 0.0
-
-            deepest_by_wick_only = (body_penetration == 0.0 and pen > 0.0)
-
-    # If nothing penetrated the AOI at all → S1 = 0
-    if max_penetration == 0.0:
-        return 0.0
-
-    # Base score = depth of deepest probe
-    S1 = max_penetration
-
-    # Weak probe: no candle reached at least 30% deep
-    if max_penetration < 0.3:
-        S1 *= 0.4
-
-    # Wick-only deep probe bonus
-    if deepest_by_wick_only and max_penetration >= 0.3:
-        S1 = 0.6 * S1 + 0.4 * max_penetration  # slight uplift
+    S1 = deepest
 
     return clamp(S1)
 
@@ -75,24 +55,22 @@ def compute_wick_momentum_score(
         break_candle,
 ) -> float:
     if break_idx - 1 == retest_idx:
-        return 0.0
+        return 1.0
 
     pre_break = candles[break_idx - 1]
     wick_break = wick_into_aoi(break_candle, trend, aoi_low, aoi_high)
-    W_break = clamp(wick_break / aoi_height)
+    breakWickOverlap = clamp(wick_break / aoi_height)
 
     wick_prev = wick_into_aoi(pre_break, trend, aoi_low, aoi_high)
-    body_prev = body_size(pre_break)
-    W_prev = 1.0 if wick_prev >= body_prev else 0.0
+    prevWickOverlap = clamp(wick_prev / aoi_height)
 
     if after_break_idx is not None:
         after_break = candles[after_break_idx]
         wick_after = wick_into_aoi(after_break, trend, aoi_low, aoi_high)
-        body_after = body_size(after_break)
-        W_after = 1.0 if wick_after >= body_after else 0.0
-        S2 = 0.5 * W_break + 0.3 * W_prev + 0.2 * W_after
+        afterWickOverlap = clamp(wick_after / aoi_height)
+        S2 = 0.5 * breakWickOverlap + 0.3 * prevWickOverlap + 0.2 * afterWickOverlap
     else:
-        S2 = 0.7 * W_break + 0.3 * W_prev
+        S2 = 0.7 * breakWickOverlap + 0.3 * prevWickOverlap
     return clamp(S2)
 
 
@@ -102,25 +80,41 @@ def compute_breaking_candle_quality(break_candle,
                                     aoi_low: float,
                                     aoi_height: float,
                                     trend: str):
-    boundary = aoi_high if trend == "bullish" else aoi_low
-    distance_raw = break_candle.close - boundary if trend == "bullish" else boundary - break_candle.close
-    D = clamp(distance_raw / aoi_height)
 
-    body_break = body_size(break_candle)
-    body_retest = body_size(retest_candle)
-    E = clamp(body_break / body_retest) if body_retest != 0 else 0.0
+    # 1. Wick with trend (bigger = better)
+    trendWick = wick_down(break_candle) if trend == "bullish" else wick_up(break_candle)
+    breakSize = body_size(break_candle)
 
-    opposing_wick = wick_down(break_candle) if trend == "bearish" else wick_up(break_candle)
-    if opposing_wick <= 0.2 * body_break:
-        W_opp = 1.0
-    elif opposing_wick <= 0.5 * body_break:
-        W_opp = 0.5
+    if trendWick >= 0.3 * breakSize:
+        wickScore = 1.0
+    elif trendWick >= 0.15 * breakSize:
+        wickScore = 0.7
     else:
-        W_opp = 0.0
+        wickScore = 0.3
 
-    B = clamp(body_break / full_range(break_candle)) if full_range(break_candle) != 0 else 0.0
-    S3 = clamp(0.4 * D + 0.25 * E + 0.2 * W_opp + 0.15 * B)
-    return S3, body_break, body_retest
+    # 2. Close far away from AOI
+
+    dist = (break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - break_candle.close)
+    distCalc = clamp(dist / breakSize)
+    if distCalc >= 0.8:
+        distScore = 1.0
+    elif distCalc >= 0.4:
+        distScore = 0.6
+    else:
+        distScore = 0.2
+
+    # 3. Big candle in trend direction
+    is_trend = candle_direction_with_trend(break_candle, trend)
+    dirClac = int(is_trend) * clamp(breakSize / aoi_height)
+    if dirClac >= 0.8:
+        dirScore = 1.0
+    elif dirClac >= 0.4:
+        dirScore = 0.6
+    else:
+        dirScore = 0.2
+    # Final score
+    S3 = clamp(0.3 * wickScore + 0.4 * dirScore + 0.3 * distScore)
+    return S3
 
 
 def compute_impulse_dominance_score(break_candle, retest_candle, aoi_high: float, aoi_low: float, trend: str) -> float:

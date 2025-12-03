@@ -29,7 +29,8 @@ def evaluate_entry_quality(
     retest_candle = candles[retest_idx]
     break_candle = candles[break_idx]
 
-    S1 = compute_penetration_score(candles, 
+    S1 = compute_penetration_score(candles,
+                                   trend,
                                    aoi_low, 
                                    aoi_high, 
                                    retest_idx, 
