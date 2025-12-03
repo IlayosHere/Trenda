@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS trenda.entry_signal (
     signal_trend_id INTEGER NOT NULL REFERENCES trenda.signal_trend(id) ON DELETE CASCADE,
     aoi_high REAL NOT NULL,
     aoi_low REAL NOT NULL,
+    trade_quality REAL NOT NULL,
     is_success BOOLEAN
 );
 
