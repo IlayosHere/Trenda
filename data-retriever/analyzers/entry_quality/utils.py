@@ -65,3 +65,8 @@ def penetration_depth(candle, aoi_low: float, aoi_high: float) -> float:
     overlap = max(0.0, overlap_end - overlap_start)
     return overlap / aoi_height
 
+
+def candle_direction_with_trend(candle, trend: str) -> bool:
+    """Return True if the candle direction aligns with the trend."""
+    is_bull_candle = candle.close > candle.open
+    return (trend == "bullish") == is_bull_candle
