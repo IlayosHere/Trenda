@@ -9,10 +9,9 @@ def run_bot_check(timeframe: str) -> None:
         run_symbol(timeframe, symbol)
          
 def run_symbol(timeframe: str, symbol: str) -> None:
-    formmated_timeframe = TIMEFRAMES[timeframe]
+    formatted_timeframe = TIMEFRAMES[timeframe]
     analysis_params = ANALYSIS_PARAMS[timeframe]
-    data = fetch_data(
-    symbol, formmated_timeframe, analysis_params["lookback"])
+    data = fetch_data(symbol, formatted_timeframe, analysis_params["lookback"])
     indexed_data = index_dataframes(data)
     #Date format: 
     # EURUSD: 2025-11-19 15:00:00 2025-11-18 15:00:00 2025-11-12 07:00:00 
