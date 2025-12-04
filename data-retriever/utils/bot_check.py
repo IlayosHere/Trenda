@@ -21,7 +21,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDUSD: 2025-10-13 16:00:00 
     # NZDUSD: 2025-11-03 04:00:00 
     # AUDJPY: 2025-11-28 14:00:00 
-    time = "2025-12-01 14:00:00"
+    time = "2025-12-02 11:00:00"
     last_index = find_candles_by_time(indexed_data, time)
     print(last_index)
     last_index_id = last_index["id"].values[0]
@@ -39,13 +39,13 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDUSD: 0.65246
     # NZDUSD: 0.5751
     # AUDJPY: 100.896
-    aoi_high =154.955
+    aoi_high = 0.65519
     # EURUSD: 1.15965 1.15758  
     # USDJPY: 153.874
     # AUDUSD: 0.65133
     # NZDUSD: 0.57187
     # AUDJPY: 100.691
-    aoi_low = 154.69
+    aoi_low = 0.65411
     # prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
     # print(prompt)
 

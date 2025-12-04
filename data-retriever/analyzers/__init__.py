@@ -9,7 +9,9 @@ from .entry_detector import (
     find_entry_pattern,
     scan_1h_for_entry,
     run_1h_entry_scan_job,
+
 )
+
 
 __all__ = [
     "analyze_trend_by_timeframe",

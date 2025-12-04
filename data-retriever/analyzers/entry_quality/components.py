@@ -121,9 +121,6 @@ def compute_breaking_candle_quality(break_candle,
 
 def compute_impulse_dominance_score(break_candle, retest_candle, aoi_high: float, aoi_low: float, trend: str) -> float:
     aoi_height = aoi_high - aoi_low
-    if aoi_height <= 0:
-        return 0.0
-
     body_break = body_size(break_candle)
     body_retest = body_size(retest_candle)
 
@@ -182,7 +179,7 @@ def compute_candle_count_score(retest_idx: int, break_idx: int) -> float:
     elif n == 3:
         S6 = 0.9
     elif n == 4:
-        S6 = 0.8
+        S6 = 0.7
     elif n == 5:
         S6 = 0.5
     elif n == 6:
