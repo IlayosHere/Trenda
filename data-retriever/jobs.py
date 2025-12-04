@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from analyzers import analyze_aoi_by_timeframe, analyze_trend_by_timeframe
+from aoi import analyze_aoi_by_timeframe
 import utils.display as display
+from trend import analyze_trend_by_timeframe
 
 
 ENTRY_TIMEFRAME = "1H"

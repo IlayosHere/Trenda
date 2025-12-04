@@ -1,5 +1,5 @@
 import pandas as pd
-from analyzers.entry_quality import evaluate_entry_quality
+from entry.quality import evaluate_entry_quality
 from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 from externals.data_fetcher import fetch_data
 from utils.candles import dataframe_to_candles

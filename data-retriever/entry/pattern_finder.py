@@ -4,7 +4,7 @@ from typing import Any, List, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 
-from analyzers.models import EntryPattern
+from entry.models import EntryPattern
 from models import AOIZone, Candle, TrendDirection
 from utils.candles import prepare_candles
 

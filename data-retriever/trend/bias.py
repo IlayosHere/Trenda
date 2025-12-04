@@ -1,4 +1,4 @@
-"""Shared trend helpers used across analyzers.
+"""Shared trend helpers used across the project.
 
 These functions wrap database access to provide a single place to derive
 timeframe-aligned trend bias for a symbol.

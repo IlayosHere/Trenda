@@ -3,7 +3,7 @@ from constants import DATA_ERROR_MSG
 from externals.data_fetcher import fetch_data
 import utils.display as display
 from externals import db
-from .trend_analyzer import analyze_snake_trend, get_swing_points
+from .structure import analyze_snake_trend, get_swing_points
 
 def analyze_trend_by_timeframe(timeframe: str) -> None:
     display.print_status(f"\n--- 🔄 Running scheduled job for {timeframe} ---")

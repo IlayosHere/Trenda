@@ -1,5 +1,7 @@
 from __future__ import annotations
-from analyzers import analyze_trend_by_timeframe, analyze_aoi_by_timeframe, run_1h_entry_scan_job
+from aoi import analyze_aoi_by_timeframe
+from entry import run_1h_entry_scan_job
+from trend import analyze_trend_by_timeframe
 from utils.bot_check import run_bot_check
 from jobs import evaluate_entry_signals, refresh_pre_close_data, run_aoi_batch, run_trend_batch
 
