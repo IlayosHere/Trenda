@@ -30,13 +30,13 @@ def compute_penetration_score(candles, trend: str, aoi_low: float, aoi_high: flo
             wick_part = (candle.close - candle.low) / (candle.high - candle.low) if candle.high != candle.low else 0.0
         else:  # bearish
             penetration = max(0.0, candle.close - aoi_low) / aoi_height
-            wick_part = (candle.high - candle.close) / (candle.high - candle.low) if candle.high != candle.low else 0.0
+            wick_part = (candle.high - candle.open) / (candle.high - candle.low) if candle.high != candle.low else 0.0
 
         if penetration > deepest:
             deepest = penetration
             # Check if penetration is mostly wick (e.g., close barely inside AOI)
-            if wick_part > 0.7:
-                deepest += 0.2
+            if wick_part > 0.5:
+                deepest += wick_part / 2.5
 
     S1 = deepest
 
