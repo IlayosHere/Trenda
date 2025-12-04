@@ -64,15 +64,14 @@ def evaluate_entry_quality(
                                           aoi_low,
                                           aoi_high,
                                           after_break_idx,
-                                          body_break,
-                                          aoi_height)
+                                          aoi_height,
+                                          break_candle)
     S6 = compute_candle_count_score(retest_idx, break_idx)
     
     S7 = compute_retest_entry_quality(retest_candle,
                                       trend,
                                       aoi_low, 
                                       aoi_high,
-                                      body_retest,
                                       aoi_height)
     
     S8 = compute_opposing_wick_resistance(candles,

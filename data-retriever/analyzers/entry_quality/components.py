@@ -156,19 +156,20 @@ def compute_after_break_confirmation(
         aoi_low: float,
         aoi_high: float,
         after_break_idx: int | None,
-        body_break: float,
         aoi_height: float,
+        break_candle
 ):
     S5 = None
+    bodyBreak = body_size(break_candle)
     if after_break_idx is not None:
         after_break = candles[after_break_idx]
         wick_after = wick_into_aoi(after_break, trend, aoi_low, aoi_high)
         wickInAOI = clamp(wick_after / aoi_height)
         body_after = body_size(after_break)
-        if body_after >= body_break:
+        if body_after >= bodyBreak:
             B_after = 1.0
         else:
-            B_after = clamp(body_after / body_break) if body_break != 0 else 0.0
+            B_after = clamp(body_after / bodyBreak) if bodyBreak != 0 else 0.0
 
         isTrend = 1.0 if candle_direction_with_trend(after_break, trend) else 0.0
 
@@ -198,9 +199,9 @@ def compute_retest_entry_quality(
         trend: str,
         aoi_low: float,
         aoi_high: float,
-        body_retest: float,
         aoi_height: float,
 ) -> float:
+    bodyRetest = body_size(retest_candle)
     pen = penetration_depth(retest_candle, aoi_low, aoi_high)
     if pen >= 0.6:
         inDepth = 1.0
@@ -208,7 +209,7 @@ def compute_retest_entry_quality(
         inDepth = 0.5
     else:
         return 0
-    bodyRetest = clamp(body_retest / aoi_height)
+    bodyRetest = clamp(bodyRetest / aoi_height)
     wick_retest = wick_into_aoi(retest_candle, trend, aoi_low, aoi_high) / (aoi_high - aoi_low)
     if wick_retest >= 0.25:
         W_penalty = 1.0
