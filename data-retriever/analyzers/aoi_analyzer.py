@@ -13,7 +13,7 @@ import pandas_ta as ta
 from .trend_analyzer import _check_for_structure_break, _find_corresponding_structural_swing, _find_initial_structure
 from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from externals.data_fetcher import fetch_data
-import externals.db_handler as db_handler
+from externals import db
 import utils.display as display
 from constants import BREAK_BEARISH, BREAK_BULLISH, NO_BREAK, SwingPoint
 from utils.forex import get_pip_size, price_to_pips, pips_to_price
@@ -42,7 +42,7 @@ def analyze_aoi_by_timeframe(timeframe: str) -> None:
     for symbol in FOREX_PAIRS:
         display.print_status(f"  -> Processing {symbol}...")
         try:
-            db_handler.clear_aois(symbol, timeframe)
+            db.clear_aois(symbol, timeframe)
             _process_symbol(settings, symbol)
         except Exception as err:
             display.print_error(f"  -> Failed for {symbol}: {err}")
@@ -82,10 +82,10 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
         : settings.max_zones_per_symbol
     ]
 
-    db_handler.store_aois(symbol, settings.timeframe, top_zones)
+    db.store_aois(symbol, settings.timeframe, top_zones)
     display.print_status(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
-    ) 
+    )
 
 def _calculate_atr(
     data,

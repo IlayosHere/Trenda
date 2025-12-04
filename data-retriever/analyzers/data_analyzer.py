@@ -2,7 +2,7 @@ from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
 from constants import DATA_ERROR_MSG
 from externals.data_fetcher import fetch_data
 import utils.display as display
-import externals.db_handler as db_handler
+from externals import db
 from .trend_analyzer import analyze_snake_trend, get_swing_points
 
 def analyze_trend_by_timeframe(timeframe: str) -> None:
@@ -17,7 +17,7 @@ def analyze_trend_by_timeframe(timeframe: str) -> None:
             )
             high_price = struct_high[1] if struct_high else None
             low_price = struct_low[1] if struct_low else None
-            db_handler.update_trend_data(
+            db.update_trend_data(
                 symbol,
                 timeframe,
                 trend,
