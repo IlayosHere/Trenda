@@ -75,7 +75,6 @@ def compute_wick_momentum_score(
 
 
 def compute_breaking_candle_quality(break_candle,
-                                    retest_candle,
                                     aoi_high: float,
                                     aoi_low: float,
                                     aoi_height: float,

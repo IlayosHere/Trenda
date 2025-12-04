@@ -14,13 +14,13 @@ from .components import (
 
 
 def evaluate_entry_quality(
-    candles: list,
-    aoi_low: float,
-    aoi_high: float,
-    trend: str,
-    retest_idx: int,
-    break_idx: int,
-    after_break_idx: int | None,
+        candles: list,
+        aoi_low: float,
+        aoi_high: float,
+        trend: str,
+        retest_idx: int,
+        break_idx: int,
+        after_break_idx: int | None,
 ) -> float:
     aoi_height = aoi_high - aoi_low
     if aoi_height <= 0:
@@ -31,34 +31,33 @@ def evaluate_entry_quality(
 
     S1 = compute_penetration_score(candles,
                                    trend,
-                                   aoi_low, 
-                                   aoi_high, 
-                                   retest_idx, 
+                                   aoi_low,
+                                   aoi_high,
+                                   retest_idx,
                                    break_idx)
-    
-    S2 = compute_wick_momentum_score(candles, 
-                                     trend, 
-                                     aoi_low, 
-                                     aoi_high, 
+
+    S2 = compute_wick_momentum_score(candles,
+                                     trend,
+                                     aoi_low,
+                                     aoi_high,
                                      retest_idx,
                                      break_idx,
-                                     after_break_idx, 
-                                     aoi_height, 
+                                     after_break_idx,
+                                     aoi_height,
                                      break_candle)
-    
+
     S3 = compute_breaking_candle_quality(break_candle,
-                                                                  retest_candle,
-                                                                  aoi_high,
-                                                                  aoi_low, 
-                                                                  aoi_height, 
-                                                                  trend)
-    
-    S4 = compute_impulse_dominance_score(break_candle, 
+                                         aoi_high,
+                                         aoi_low,
+                                         aoi_height,
+                                         trend)
+
+    S4 = compute_impulse_dominance_score(break_candle,
                                          retest_candle,
-                                         aoi_high, 
+                                         aoi_high,
                                          aoi_low,
                                          trend)
-    
+
     S5 = compute_after_break_confirmation(candles,
                                           trend,
                                           aoi_low,
@@ -67,15 +66,15 @@ def evaluate_entry_quality(
                                           aoi_height,
                                           break_candle)
     S6 = compute_candle_count_score(retest_idx, break_idx)
-    
+
     S7 = compute_retest_entry_quality(retest_candle,
                                       trend,
-                                      aoi_low, 
+                                      aoi_low,
                                       aoi_high,
                                       aoi_height)
-    
+
     S8 = compute_opposing_wick_resistance(candles,
-                                          trend, 
+                                          trend,
                                           break_idx,
                                           retest_idx,
                                           after_break_idx)
