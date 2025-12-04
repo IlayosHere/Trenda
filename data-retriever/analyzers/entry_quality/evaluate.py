@@ -46,7 +46,7 @@ def evaluate_entry_quality(
                                      aoi_height, 
                                      break_candle)
     
-    S3, body_break, body_retest = compute_breaking_candle_quality(break_candle, 
+    S3 = compute_breaking_candle_quality(break_candle,
                                                                   retest_candle,
                                                                   aoi_high,
                                                                   aoi_low, 
