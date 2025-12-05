@@ -28,7 +28,7 @@ def evaluate_entry_quality(
 
     retest_candle = candles[retest_idx]
     break_candle = candles[break_idx]
-    after_break_idx = None
+    after_break_candle = None
     if after_break_idx:
         after_break_candle = candles[after_break_idx]
 
@@ -43,10 +43,10 @@ def evaluate_entry_quality(
                                      trend,
                                      aoi_low,
                                      aoi_high,
-                                     break_idx,
-                                     after_break_idx,
                                      aoi_height,
-                                     break_candle)
+                                     break_idx,
+                                     break_candle,
+                                     after_break_candle)
 
     S3 = compute_breaking_candle_quality(break_candle,
                                          aoi_high,
@@ -57,8 +57,6 @@ def evaluate_entry_quality(
     S4 = compute_impulse_dominance_score(break_candle,
                                          retest_candle,
                                          after_break_candle,
-                                         aoi_high,
-                                         aoi_low,
                                          trend)
 
     S5 = compute_after_break_confirmation(after_break_candle,
@@ -67,6 +65,7 @@ def evaluate_entry_quality(
                                           aoi_low,
                                           aoi_high,
                                           aoi_height)
+    
     S6 = compute_candle_count_score(retest_idx, break_idx)
 
     S7 = compute_retest_entry_quality(retest_candle,

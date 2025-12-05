@@ -46,25 +46,34 @@ def compute_wick_momentum_score(
         trend: str,
         aoi_low: float,
         aoi_high: float,
-        break_idx: int,
-        after_break_idx: int | None,
         aoi_height: float,
+        break_idx: int,
         break_candle,
+        after_break_candle
 ) -> float:
+    MAX_BREAK_WICK_RATIO = 0.6
+    MAX_PRE_BREAK_WICK_RATIO = 0.4
+    MAX_AFTER_BREAK_WICK_RATIO = 0.4
+    # Break wick 
     wick_break = wick_into_aoi(break_candle, trend, aoi_low, aoi_high)
-    break_wick_overlap = clamp(wick_break / aoi_height)
-
+    break_wick_ratio = clamp(wick_break / aoi_height)
+    break_wick_score =  min(1.0, break_wick_ratio / MAX_BREAK_WICK_RATIO)
+    
+    # Pre break wick
     pre_break = candles[break_idx - 1]
     wick_prev = wick_into_aoi(pre_break, trend, aoi_low, aoi_high)
-    prev_wick_overlap = clamp(wick_prev / aoi_height)
+    prev_wick_ratio = clamp(wick_prev / aoi_height)
+    pre_break_wick_score =  min(1.0, prev_wick_ratio / MAX_PRE_BREAK_WICK_RATIO)
 
-    if after_break_idx is not None:
-        after_break = candles[after_break_idx]
-        wick_after = wick_into_aoi(after_break, trend, aoi_low, aoi_high)
-        after_wick_overlap = clamp(wick_after / aoi_height)
-        S2 = 0.5 * break_wick_overlap + 0.3 * prev_wick_overlap + 0.2 * after_wick_overlap
+    # After break wick
+    if after_break_candle is not None:
+        wick_after = wick_into_aoi(after_break_candle, trend, aoi_low, aoi_high)
+        after_wick_ratio = clamp(wick_after / aoi_height)
+        after_break_wick_score =  min(1.0, after_wick_ratio / MAX_AFTER_BREAK_WICK_RATIO)
+        S2 = 0.5 * break_wick_score + 0.3 * pre_break_wick_score + 0.2 * after_break_wick_score
     else:
-        S2 = 0.7 * break_wick_overlap + 0.3 * prev_wick_overlap
+        S2 = 0.7 * break_wick_score + 0.3 * pre_break_wick_score
+        
     return clamp(S2)
 
 
@@ -107,11 +116,7 @@ def compute_breaking_candle_quality(break_candle,
 def compute_impulse_dominance_score(break_candle, 
                                     retest_candle, 
                                     after_break_candle,
-                                    aoi_high: float, 
-                                    aoi_low: float, 
                                     trend: str) -> float:
-    aoi_height = aoi_high - aoi_low
-
     body_break = body_size(break_candle)
     body_retest = body_size(retest_candle)
 
@@ -139,8 +144,8 @@ def compute_impulse_dominance_score(break_candle,
             after_break_close_dominance = 1
 
     # 3) Breaking candle body dominance ratio
-    candles_ratio = clamp(body_break / body_retest)
-    dominance_ratio = 1.0 if candles_ratio > 1.0 else 0.0
+    candles_ratio = body_break / body_retest
+    dominance_ratio = 1.0 if candles_ratio >= 1.0 else 0.0
 
     # Final Result
     if after_break_candle:
@@ -162,7 +167,7 @@ def compute_after_break_confirmation(
         aoi_height: float
 ):
     if after_break_candle is None:
-        return 0.0
+        return None
     
     MAX_DIST_RATIO = 0.8
     # Wick with trend
@@ -213,9 +218,10 @@ def compute_retest_entry_quality(
         aoi_high: float,
         aoi_height: float,
 ) -> float:
-    MAX_PENETRATION = 0.5
-    MAX_WICK_RATIO = 0.25
-    # Check Retest candle penetrated into the AOI
+    MAX_PENETRATION = 0.7
+    MAX_WICK_RATIO = 0.3
+    
+    # Check Retest candle body into the AOI
     body_retest = body_size(retest_candle)
     penetration = penetration_depth(retest_candle, aoi_low, aoi_high)
     penetration_score = min(1.0, penetration / MAX_PENETRATION)
@@ -227,7 +233,7 @@ def compute_retest_entry_quality(
     w_score = min(1.0, wick_retest / MAX_WICK_RATIO)
     
     # Final Score
-    return clamp(0.3 * body_retest_ratio + 0.2 * w_score + 0.5 * penetration_score)
+    return clamp(0.35 * body_retest_ratio + 0.15 * w_score + 0.5 * penetration_score)
 
 
 def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candle) -> float:
@@ -243,7 +249,7 @@ def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candl
         wick_ratio = after_candle_opposing_wick / body_size(after_break_candle)
         wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
         
-    return clamp(wick_score)
+    return clamp(1 - wick_score)
 
 
 def calculate_final_score(S1: float, S2: float, S3: float, S4: float, S5, S6: float, S7: float, S8: float) -> float:
