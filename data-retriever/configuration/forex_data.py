@@ -6,7 +6,7 @@ FOREX_PAIRS = [
     # "USDJPY",
     # "USDCHF",
     # "USDCAD",
-    "AUDUSD",
+    # "AUDUSD",
     # "NZDUSD",
     # "GBPCAD",
     # "EURJPY",
@@ -20,7 +20,7 @@ FOREX_PAIRS = [
     # "EURGBP",
     # "EURCHF",
     # "GBPAUD",
-    # "GBPNZD",
+    "GBPNZD",
     # "AUDNZD",
     # "AUDCAD",
     # "NZDCAD"
@@ -44,5 +44,5 @@ ANALYSIS_PARAMS = {
     "1W": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 year
     "1D": {"lookback": 100, "aoi_lookback": 140, "distance": 1, "prominence": 0.0004},  # ~1 year
     "4H": {"lookback": 100, "aoi_lookback": 180, "distance": 1, "prominence": 0.0004},  # ~1.5 months
-    "1H": {"lookback": 1000}
+    "1H": {"lookback": 100}
 }

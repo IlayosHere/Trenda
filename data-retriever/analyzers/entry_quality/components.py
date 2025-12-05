@@ -11,9 +11,13 @@ from .utils import (
     candle_direction_with_trend
 )
 
-
-def compute_penetration_score(candles, trend: str, aoi_low: float, aoi_high: float, retest_idx: int, break_idx: int) -> float:
-    aoi_height = aoi_high - aoi_low
+def compute_penetration_score(candles, 
+                              trend: str, 
+                              aoi_low: float, 
+                              aoi_high: float, 
+                              aoi_height: float,
+                              retest_idx: int, 
+                              break_idx: int) -> float:
     deepest = 0.0
 
     relevant_candles = [
@@ -23,18 +27,19 @@ def compute_penetration_score(candles, trend: str, aoi_low: float, aoi_high: flo
     ]
 
     for candle in relevant_candles:
+        candle_range = full_range(candle)
         if trend == "bullish":
             penetration = max(0.0, aoi_high - candle.low) / aoi_height
-            wick_part = (candle.close - candle.low) / (candle.high - candle.low)
+            wick_part = (candle.close - candle.low) / candle_range
         else:  # bearish
             penetration = max(0.0, candle.high - aoi_low) / aoi_height
-            wick_part = (candle.high - candle.open) / (candle.high - candle.low)
+            wick_part = (candle.high - candle.open) / candle_range
 
         if penetration > deepest:
             deepest = penetration
             # Check if penetration is mostly wick (e.g., close barely inside AOI)
             if wick_part > 0.5:
-                deepest += wick_part / 2.5
+                deepest += wick_part / 2.5 #TODO: check about the numbers
 
     S1 = deepest
 
@@ -85,12 +90,13 @@ def compute_breaking_candle_quality(break_candle,
     MAX_WICK_RATIO = 0.5
     MAX_DIST_RATIO = 0.7
     MAX_DIR_RATIO = 0.8
+    MIN_SCORE_FAVOR = 0.75
     
     # 1. Wick with trend (bigger = better)
     trend_wick = wick_down(break_candle) if trend == "bullish" else wick_up(break_candle)
     candle_range = full_range(break_candle)
     wick_ratio = trend_wick / candle_range
-    wick_score = min(1.0, max(0.0, wick_ratio / MAX_WICK_RATIO))
+    wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
 
     # 2. Close far away from AOI
     dist_from_aoi = (break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - break_candle.close)
@@ -98,16 +104,16 @@ def compute_breaking_candle_quality(break_candle,
     dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
 
     # 3. Big candle in trend direction
-    cnalde_body = body_size(break_candle)
+    candle_body = body_size(break_candle)
     is_trend = candle_direction_with_trend(break_candle, trend) #TODO: check if always return 1
-    dir_ratio = int(is_trend) * clamp(cnalde_body / aoi_height)
+    dir_ratio = int(is_trend) * clamp(candle_body / aoi_height)
     dir_score = min(1.0, dir_ratio / MAX_DIR_RATIO)
     
     # Final Score
-    if (wick_score >= 0.8):
-         S3 = clamp(0.35 * wick_score + 0.15 * dir_score + 0.5 * dist_score)
-    elif (dir_score >= 0.8):
-         S3 = clamp(0.15 * wick_score + 0.35 * dir_score + 0.5 * dist_score)
+    if (wick_score >= MIN_SCORE_FAVOR):
+         S3 = clamp(0.4 * wick_score + 0.1 * dir_score + 0.5 * dist_score)
+    elif (dir_score >= MIN_SCORE_FAVOR):
+         S3 = clamp(0.1 * wick_score + 0.4 * dir_score + 0.5 * dist_score)
     else:
          S3 = clamp(0.25 * wick_score + 0.25 * dir_score + 0.5 * dist_score)
     return S3

@@ -36,6 +36,7 @@ def evaluate_entry_quality(
                                    trend,
                                    aoi_low,
                                    aoi_high,
+                                   aoi_height,
                                    retest_idx,
                                    break_idx)
 

@@ -228,7 +228,6 @@ def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         is_break_candle_last = True
     elif _is_fully_below_aoi(last_candle, aoi):
         break_idx = len(candles) - 2
-        after_break_idx = len(candles) - 1
         if break_idx < 0 or not _is_bearish_break(candles[break_idx], aoi):
             return None
     else:
@@ -238,9 +237,7 @@ def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         candle = candles[idx]
         if _opens_inside_aoi(candle, aoi) and _closes_above_aoi(candle, aoi):
             return None
-        distance_between_last_candle_to_retest_candle = len(candles) - 1 - idx
-        if (candle.open < aoi.lower and candle.close >= aoi.lower 
-            and distance_between_last_candle_to_retest_candle > 1):
+        if (candle.open < aoi.lower and candle.close >= aoi.lower):
             return EntryPattern(
                 direction=TrendDirection.BEARISH,
                 aoi=aoi,
@@ -258,7 +255,6 @@ def _find_bullish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         is_break_candle_last = True
     elif _is_fully_above_aoi(last_candle, aoi):
         break_idx = len(candles) - 3
-        after_break_idx = len(candles) - 2
         if break_idx < 0 or not _is_bullish_break(candles[break_idx], aoi):
             return None
     else:
@@ -268,9 +264,7 @@ def _find_bullish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         candle = candles[idx]
         if _opens_inside_aoi(candle, aoi) and _closes_below_aoi(candle, aoi):
             return None
-        distance_between_last_candle_to_retest_candle = len(candles) - 1 - idx
-        if (candle.open > aoi.upper and candle.close <= aoi.upper
-            and distance_between_last_candle_to_retest_candle > 1):
+        if (candle.open > aoi.upper and candle.close <= aoi.upper):
             return EntryPattern(
                 direction=TrendDirection.BULLISH,
                 aoi=aoi,
