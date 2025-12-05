@@ -69,4 +69,4 @@ def penetration_depth(candle, aoi_low: float, aoi_high: float) -> float:
 def candle_direction_with_trend(candle, trend: str) -> bool:
     """Return True if the candle direction aligns with the trend."""
     is_bull_candle = candle.close > candle.open
-    return (trend == "bullish") == is_bull_candle
+    return (is_bull_candle and trend == "bullish") or (not is_bull_candle and trend == "bearish")

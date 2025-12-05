@@ -30,10 +30,10 @@ def compute_penetration_score(candles,
         candle_range = full_range(candle)
         if trend == "bullish":
             penetration = max(0.0, aoi_high - candle.low) / aoi_height
-            wick_part = (candle.close - candle.low) / candle_range
+            wick_part = wick_down(candle) / candle_range
         else:  # bearish
             penetration = max(0.0, candle.high - aoi_low) / aoi_height
-            wick_part = (candle.high - candle.open) / candle_range
+            wick_part = wick_up(candle) / candle_range
 
         if penetration > deepest:
             deepest = penetration
@@ -151,8 +151,8 @@ def compute_impulse_dominance_score(break_candle,
             dist_from_aoi =  aoi_low - after_break_candle.close
             after_break_close_diff = retest_candle.open - after_break_candle.close
 
-    dominance_ratio = after_break_close_diff / dist_from_aoi
-    after_break_dominance_score = min(1.0, dominance_ratio / AFTER_BREAK_MAX_DOMINANCE)
+        dominance_ratio = after_break_close_diff / dist_from_aoi
+        after_break_dominance_score = min(1.0, dominance_ratio / AFTER_BREAK_MAX_DOMINANCE)
 
     # 3) Breaking candle body dominance ratio
     candles_ratio = body_break / body_retest
@@ -199,10 +199,12 @@ def compute_after_break_confirmation(
     dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
     
     trend_continuation = 1.0 if candle_direction_with_trend(after_break_candle, trend) else 0.0
-
-    S5 = clamp(0.1 * wick_ratio + 0.1 * body_ratio_score + 0.4 * dist_score + 0.4 * trend_continuation)
+    if trend_continuation == 1.0:
+        S5 = clamp(0.25 * wick_ratio + 0.25 * body_ratio_score + 0.5 * dist_score)
+    else:
+        S5 = clamp(0.1 * wick_ratio + 0.1 * body_ratio_score + 0.3 * dist_score + 0.5 * trend_continuation)
+        
     return S5
-
 
 def compute_candle_count_score(retest_idx: int, break_idx: int) -> float:
     n = break_idx - retest_idx - 1
@@ -249,12 +251,14 @@ def compute_retest_entry_quality(
 def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candle) -> float:
     MAX_WICK_RATIO = 0.5
     S8 = None
+    
+    breaking_candle_opposing_wick = wick_down(break_candle) if trend == "bearish" else wick_up(break_candle)
+    wick_ratio = breaking_candle_opposing_wick / body_size(break_candle)
+    breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
+        
     if after_break_candle is None:
-        breaking_candle_opposing_wick = wick_down(break_candle) if trend == "bearish" else wick_up(break_candle)
-        wick_ratio = breaking_candle_opposing_wick / body_size(break_candle)
-        breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
         S8 = 1 - breaking_wick_score
-    else: # Calculate only after break opposing wick
+    else:
         after_candle_opposing_wick = wick_down(after_break_candle) if trend == "bearish" else wick_up(after_break_candle)
         wick_ratio = after_candle_opposing_wick / body_size(after_break_candle)
         after_breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
