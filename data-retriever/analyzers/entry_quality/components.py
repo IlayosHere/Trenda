@@ -73,40 +73,34 @@ def compute_breaking_candle_quality(break_candle,
                                     aoi_low: float,
                                     aoi_height: float,
                                     trend: str):
-
+    MAX_WICK_RATIO = 0.5
+    MAX_DIST_RATIO = 0.7
+    MAX_DIR_RATIO = 0.8
+    
     # 1. Wick with trend (bigger = better)
-    trendWick = wick_down(break_candle) if trend == "bullish" else wick_up(break_candle)
-    breakSize = body_size(break_candle)
-
-    if trendWick >= 0.3 * breakSize:
-        wickScore = 1.0
-    elif trendWick >= 0.15 * breakSize:
-        wickScore = 0.7
-    else:
-        wickScore = 0.3
+    trend_wick = wick_down(break_candle) if trend == "bullish" else wick_up(break_candle)
+    candle_range = full_range(break_candle)
+    wick_ratio = trend_wick / candle_range
+    wick_score = min(1.0, max(0.0, wick_ratio / MAX_WICK_RATIO))
 
     # 2. Close far away from AOI
-
-    dist = (break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - break_candle.close)
-    distCalc = clamp(dist / breakSize)
-    if distCalc >= 0.8:
-        distScore = 1.0
-    elif distCalc >= 0.4:
-        distScore = 0.6
-    else:
-        distScore = 0.2
+    dist_from_aoi = (break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - break_candle.close)
+    dist_ratio = clamp(dist_from_aoi / aoi_height)
+    dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
 
     # 3. Big candle in trend direction
-    is_trend = candle_direction_with_trend(break_candle, trend)
-    dirClac = int(is_trend) * clamp(breakSize / aoi_height)
-    if dirClac >= 0.8:
-        dirScore = 1.0
-    elif dirClac >= 0.4:
-        dirScore = 0.6
+    cnalde_body = body_size(break_candle)
+    is_trend = candle_direction_with_trend(break_candle, trend) #TODO: check if always return 1
+    dir_ratio = int(is_trend) * clamp(cnalde_body / aoi_height)
+    dir_score = min(1.0, dir_ratio / MAX_DIR_RATIO)
+    
+    # Final Score
+    if (wick_score >= 0.8):
+         S3 = clamp(0.35 * wick_score + 0.15 * dir_score + 0.5 * dist_score)
+    elif (dir_score >= 0.8):
+         S3 = clamp(0.15 * wick_score + 0.35 * dir_score + 0.5 * dist_score)
     else:
-        dirScore = 0.2
-    # Final score
-    S3 = clamp(0.3 * wickScore + 0.4 * dirScore + 0.3 * distScore)
+         S3 = clamp(0.25 * wick_score + 0.25 * dir_score + 0.5 * dist_score)
     return S3
 
 
