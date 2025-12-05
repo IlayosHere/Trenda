@@ -46,29 +46,25 @@ def compute_wick_momentum_score(
         trend: str,
         aoi_low: float,
         aoi_high: float,
-        retest_idx: int,
         break_idx: int,
         after_break_idx: int | None,
         aoi_height: float,
         break_candle,
 ) -> float:
-    if break_idx - 1 == retest_idx:
-        return 1.0
+    wick_break = wick_into_aoi(break_candle, trend, aoi_low, aoi_high)
+    break_wick_overlap = clamp(wick_break / aoi_height)
 
     pre_break = candles[break_idx - 1]
-    wick_break = wick_into_aoi(break_candle, trend, aoi_low, aoi_high)
-    breakWickOverlap = clamp(wick_break / aoi_height)
-
     wick_prev = wick_into_aoi(pre_break, trend, aoi_low, aoi_high)
-    prevWickOverlap = clamp(wick_prev / aoi_height)
+    prev_wick_overlap = clamp(wick_prev / aoi_height)
 
     if after_break_idx is not None:
         after_break = candles[after_break_idx]
         wick_after = wick_into_aoi(after_break, trend, aoi_low, aoi_high)
-        afterWickOverlap = clamp(wick_after / aoi_height)
-        S2 = 0.5 * breakWickOverlap + 0.3 * prevWickOverlap + 0.2 * afterWickOverlap
+        after_wick_overlap = clamp(wick_after / aoi_height)
+        S2 = 0.5 * break_wick_overlap + 0.3 * prev_wick_overlap + 0.2 * after_wick_overlap
     else:
-        S2 = 0.7 * breakWickOverlap + 0.3 * prevWickOverlap
+        S2 = 0.7 * break_wick_overlap + 0.3 * prev_wick_overlap
     return clamp(S2)
 
 
