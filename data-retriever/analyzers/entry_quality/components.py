@@ -104,63 +104,88 @@ def compute_breaking_candle_quality(break_candle,
     return S3
 
 
-def compute_impulse_dominance_score(break_candle, retest_candle, aoi_high: float, aoi_low: float, trend: str) -> float:
+def compute_impulse_dominance_score(break_candle, 
+                                    retest_candle, 
+                                    after_break_candle,
+                                    aoi_high: float, 
+                                    aoi_low: float, 
+                                    trend: str) -> float:
     aoi_height = aoi_high - aoi_low
 
     body_break = body_size(break_candle)
     body_retest = body_size(retest_candle)
 
+    # 1) Dominance of Close Beyond Retest Open Of Breaking Candle
     if trend == "bullish":
-        close_diff = break_candle.close - retest_candle.open
-        diffToCandleRatio = close_diff/body_break
+        break_candle_close_diff = break_candle.close - retest_candle.open
     else:  # bearish
-        close_diff = retest_candle.open - break_candle.close
-        diffToCandleRatio = close_diff / body_retest
+        break_candle_close_diff = retest_candle.open - break_candle.close
 
-    if diffToCandleRatio >= 0.3:
-        closeDominance = 1.0
-    elif diffToCandleRatio >= 0.2:
-        closeDominance = 0.7
-    elif diffToCandleRatio >= 0.1:
-        closeDominance = 0.3
+    if break_candle_close_diff <= 0:
+        break_close_dominance = 0  
     else:
-        closeDominance = 0.0
+        break_close_dominance = 1
+        
+    # 2) Dominance of Close Beyond Retest Open Of Closing Candle
+    if after_break_candle:
+        if trend == "bullish":
+            after_break_close_diff = after_break_candle.close - retest_candle.open
+        else:  # bearish
+            after_break_close_diff = retest_candle.open - after_break_candle.close
 
-    # 2) Body dominance ratio (R)
-    if body_retest == 0:
-        dominanceRatio = 1.0 if body_break > 0 else 0.0
+        if after_break_close_diff <= 0:
+            after_break_close_dominance = 0  
+        else:
+            after_break_close_dominance = 1
+
+    # 3) Breaking candle body dominance ratio
+    candles_ratio = clamp(body_break / body_retest)
+    dominance_ratio = 1.0 if candles_ratio > 1.0 else 0.0
+
+    # Final Result
+    if after_break_candle:
+        S4 = clamp(0.3 * break_close_dominance + 
+                   0.4 * after_break_close_dominance + 
+                   0.3 * dominance_ratio)
     else:
-        candlesRatio = clamp(body_break / body_retest)
-        dominanceRatio = 1.0 if candlesRatio > 1.0 else 0.0
-
-    S4 = clamp(0.5 * closeDominance + 0.5 * dominanceRatio)
+        S4 = clamp(0.5 * break_close_dominance + 
+                   0.5 * dominance_ratio)
     return S4
 
 
 def compute_after_break_confirmation(
-        candles,
+        after_break_candle,
+        break_candle,
         trend: str,
         aoi_low: float,
         aoi_high: float,
-        after_break_idx: int | None,
-        aoi_height: float,
-        break_candle
+        aoi_height: float
 ):
-    S5 = None
-    bodyBreak = body_size(break_candle)
-    if after_break_idx is not None:
-        after_break = candles[after_break_idx]
-        wick_after = wick_into_aoi(after_break, trend, aoi_low, aoi_high)
-        wickInAOI = clamp(wick_after / aoi_height)
-        body_after = body_size(after_break)
-        if body_after >= bodyBreak:
-            B_after = 1.0
-        else:
-            B_after = clamp(body_after / bodyBreak) if bodyBreak != 0 else 0.0
+    if after_break_candle is None:
+        return 0.0
+    
+    MAX_DIST_RATIO = 0.8
+    # Wick with trend
+    wick_after = wick_into_aoi(after_break_candle, trend, aoi_low, aoi_high)
+    wick_ratio = clamp(wick_after / aoi_height)
+    
+    # Big body candle
+    body_break = body_size(break_candle)
+    body_after = body_size(after_break_candle)
+    if body_after >= body_break:
+        body_ratio_score = 1.0
+    else:
+        body_ratio_score = clamp(body_after / body_break)
 
-        isTrend = 1.0 if candle_direction_with_trend(after_break, trend) else 0.0
+    # Close far away from AOI
+    dist_from_aoi = (after_break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - after_break_candle.close)
+    dist_ratio = clamp(dist_from_aoi / aoi_height)
+    dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
+    
+    #check is_trend, suppose to be 1 all the time
+    is_trend = 1.0 if candle_direction_with_trend(after_break_candle, trend) else 0.0
 
-        S5 = clamp(0.2 * wickInAOI + 0.3 * B_after + 0.5 * isTrend)
+    S5 = clamp(0.2 * wick_ratio + 0.3 * body_ratio_score + 0.5 * dist_score)
     return S5
 
 
