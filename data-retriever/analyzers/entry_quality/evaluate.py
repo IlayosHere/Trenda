@@ -58,7 +58,9 @@ def evaluate_entry_quality(
     S4 = compute_impulse_dominance_score(break_candle,
                                          retest_candle,
                                          after_break_candle,
-                                         trend)
+                                         trend,
+                                         aoi_high,
+                                         aoi_low)
 
     S5 = compute_after_break_confirmation(after_break_candle,
                                           break_candle,
