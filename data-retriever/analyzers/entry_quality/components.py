@@ -16,21 +16,19 @@ def compute_penetration_score(candles, trend: str, aoi_low: float, aoi_high: flo
     aoi_height = aoi_high - aoi_low
     deepest = 0.0
 
-    relevantCandles = [
+    relevant_candles = [
         candles[i]
         for i in range(retest_idx, break_idx + 1)
         if not (candles[i].high < aoi_low or candles[i].low > aoi_high)
     ]
-    if not relevantCandles:
-        return 0.0
 
-    for candle in relevantCandles:
+    for candle in relevant_candles:
         if trend == "bullish":
-            penetration = max(0.0, aoi_high - candle.close) / aoi_height
-            wick_part = (candle.close - candle.low) / (candle.high - candle.low) if candle.high != candle.low else 0.0
+            penetration = max(0.0, aoi_high - candle.low) / aoi_height
+            wick_part = (candle.close - candle.low) / (candle.high - candle.low)
         else:  # bearish
-            penetration = max(0.0, candle.close - aoi_low) / aoi_height
-            wick_part = (candle.high - candle.open) / (candle.high - candle.low) if candle.high != candle.low else 0.0
+            penetration = max(0.0, candle.high - aoi_low) / aoi_height
+            wick_part = (candle.high - candle.open) / (candle.high - candle.low)
 
         if penetration > deepest:
             deepest = penetration
