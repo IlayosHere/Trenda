@@ -266,24 +266,24 @@ def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candl
 def calculate_final_score(S1: float, S2: float, S3: float, S4: float, S5, S6: float, S7: float, S8: float) -> float:
     if S5 is not None:
         score = (
-                0.17 * S1
-                + 0.08 * S2
+                0.18 * S1
+                + 0.09 * S2
                 + 0.17 * S3
                 + 0.10 * S4
                 + 0.25 * S5
-                + 0.13 * S6
+                + 0.11 * S6
                 + 0.03 * S7
                 + 0.07 * S8
         )
     else:
         score = (
-                0.2 * S1
-                + 0.08 * S2
-                + 0.33 * S3
+                0.19 * S1
+                + 0.10 * S2
+                + 0.34 * S3
                 + 0.12 * S4
-                + 0.15 * S6
-                + 0.05 * S7
-                + 0.07 * S8
+                + 0.13 * S6
+                + 0.04 * S7
+                + 0.08 * S8
         )
 
     return clamp(score)
