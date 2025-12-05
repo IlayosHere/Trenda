@@ -202,7 +202,7 @@ def compute_candle_count_score(retest_idx: int, break_idx: int) -> float:
     elif n == 6:
         S6 = 0.3
     else:
-        S6 = max(0.0, 1 - 0.15 * (n - 3))
+        S6 = 0.25
     return clamp(S6)
 
 
@@ -213,45 +213,37 @@ def compute_retest_entry_quality(
         aoi_high: float,
         aoi_height: float,
 ) -> float:
-    bodyRetest = body_size(retest_candle)
-    pen = penetration_depth(retest_candle, aoi_low, aoi_high)
-    if pen >= 0.6:
-        inDepth = 1.0
-    elif pen >= 0.3:
-        inDepth = 0.5
-    else:
-        return 0
-    bodyRetest = clamp(bodyRetest / aoi_height)
-    wick_retest = wick_into_aoi(retest_candle, trend, aoi_low, aoi_high) / (aoi_high - aoi_low)
-    if wick_retest >= 0.25:
-        W_penalty = 1.0
-    elif wick_retest >= 0.1:
-        W_penalty = 0.5
-    else:
-        W_penalty = 0.0
-    return clamp(0.3 * bodyRetest + 0.2 * W_penalty + 0.5 * inDepth)
+    MAX_PENETRATION = 0.5
+    MAX_WICK_RATIO = 0.25
+    # Check Retest candle penetrated into the AOI
+    body_retest = body_size(retest_candle)
+    penetration = penetration_depth(retest_candle, aoi_low, aoi_high)
+    penetration_score = min(1.0, penetration / MAX_PENETRATION)
+    
+    body_retest_ratio = clamp(body_retest / aoi_height)
+    
+    # Check retest candle wick into the AOI
+    wick_retest = wick_into_aoi(retest_candle, trend, aoi_low, aoi_high) / aoi_height
+    w_score = min(1.0, wick_retest / MAX_WICK_RATIO)
+    
+    # Final Score
+    return clamp(0.3 * body_retest_ratio + 0.2 * w_score + 0.5 * penetration_score)
 
 
-def compute_opposing_wick_resistance(candles, trend: str, break_idx: int, retest_idx: int,
-                                     after_break_idx: int | None) -> float:
-    penalties = 0
-    candidates = []
-    candidates.append(candles[break_idx])
-    if after_break_idx is not None:
-        candidates.append(candles[after_break_idx])
-
-    for candle in candidates:
-        opposing = wick_down(candle) if trend == "bearish" else wick_up(candle)
-        if opposing > 0.6 * body_size(candle):
-            penalties += 1
-
-    if penalties == 0:
-        S8 = 1.0
-    elif penalties == 1:
-        S8 = 0.5
-    else:
-        S8 = 0.2
-    return clamp(S8)
+def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candle) -> float:
+    MAX_WICK_RATIO = 0.5
+    
+    if after_break_candle is None:
+        breaking_candle_opposing_wick = wick_down(break_candle) if trend == "bearish" else wick_up(break_candle)
+        wick_ratio = breaking_candle_opposing_wick / body_size(break_candle)
+        wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
+        
+    else: # Calculate only after break opposing wick
+        after_candle_opposing_wick = wick_down(after_break_candle) if trend == "bearish" else wick_up(after_break_candle)
+        wick_ratio = after_candle_opposing_wick / body_size(after_break_candle)
+        wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
+        
+    return clamp(wick_score)
 
 
 def calculate_final_score(S1: float, S2: float, S3: float, S4: float, S5, S6: float, S7: float, S8: float) -> float:

@@ -75,10 +75,6 @@ def evaluate_entry_quality(
                                       aoi_high,
                                       aoi_height)
 
-    S8 = compute_opposing_wick_resistance(candles,
-                                          trend,
-                                          break_idx,
-                                          retest_idx,
-                                          after_break_idx)
+    S8 = compute_opposing_wick_resistance(trend, break_candle, after_break_candle)
 
     return calculate_final_score(S1, S2, S3, S4, S5, S6, S7, S8)
