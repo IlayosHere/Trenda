@@ -122,44 +122,51 @@ def compute_breaking_candle_quality(break_candle,
 def compute_impulse_dominance_score(break_candle, 
                                     retest_candle, 
                                     after_break_candle,
-                                    trend: str) -> float:
+                                    trend: str,
+                                    aoi_high : float,
+                                    aoi_low: float) -> float:
+    BREAK_MAX_DOMINANCE = 0.6
+    AFTER_BREAK_MAX_DOMINANCE = 0.85
+    CANDLES_RATIO_PENTALY = 0.7
+    
     body_break = body_size(break_candle)
     body_retest = body_size(retest_candle)
-
     # 1) Dominance of Close Beyond Retest Open Of Breaking Candle
     if trend == "bullish":
+        dist_from_aoi =  break_candle.close - aoi_high
         break_candle_close_diff = break_candle.close - retest_candle.open
     else:  # bearish
+        dist_from_aoi =  aoi_low - break_candle.close
         break_candle_close_diff = retest_candle.open - break_candle.close
 
-    if break_candle_close_diff <= 0:
-        break_close_dominance = 0  
-    else:
-        break_close_dominance = 1
-        
+    dominance_ratio = break_candle_close_diff / dist_from_aoi
+    break_dominance_score = min(1.0, dominance_ratio / BREAK_MAX_DOMINANCE)
+
     # 2) Dominance of Close Beyond Retest Open Of Closing Candle
     if after_break_candle:
         if trend == "bullish":
+            dist_from_aoi =  after_break_candle.close - aoi_high
             after_break_close_diff = after_break_candle.close - retest_candle.open
         else:  # bearish
+            dist_from_aoi =  aoi_low - after_break_candle.close
             after_break_close_diff = retest_candle.open - after_break_candle.close
 
-        if after_break_close_diff <= 0:
-            after_break_close_dominance = 0  
-        else:
-            after_break_close_dominance = 1
+    dominance_ratio = after_break_close_diff / dist_from_aoi
+    after_break_dominance_score = min(1.0, dominance_ratio / AFTER_BREAK_MAX_DOMINANCE)
 
     # 3) Breaking candle body dominance ratio
     candles_ratio = body_break / body_retest
-    dominance_ratio = 1.0 if candles_ratio >= 1.0 else 0.0
+    if candles_ratio < 1:
+        candles_ratio * CANDLES_RATIO_PENTALY
+    dominance_ratio = min(1.0, candles_ratio)
 
     # Final Result
     if after_break_candle:
-        S4 = clamp(0.3 * break_close_dominance + 
-                   0.4 * after_break_close_dominance + 
-                   0.3 * dominance_ratio)
+        S4 = clamp(0.4 * break_dominance_score + 
+                   0.2 * after_break_dominance_score + 
+                   0.4 * dominance_ratio)
     else:
-        S4 = clamp(0.5 * break_close_dominance + 
+        S4 = clamp(0.5 * break_dominance_score + 
                    0.5 * dominance_ratio)
     return S4
 
@@ -176,6 +183,7 @@ def compute_after_break_confirmation(
         return None
     
     MAX_DIST_RATIO = 0.8
+    
     # Wick with trend
     wick_after = wick_into_aoi(after_break_candle, trend, aoi_low, aoi_high)
     wick_ratio = clamp(wick_after / aoi_height)
@@ -183,20 +191,16 @@ def compute_after_break_confirmation(
     # Big body candle
     body_break = body_size(break_candle)
     body_after = body_size(after_break_candle)
-    if body_after >= body_break:
-        body_ratio_score = 1.0
-    else:
-        body_ratio_score = clamp(body_after / body_break)
+    body_ratio_score = clamp(body_after / body_break)
 
     # Close far away from AOI
     dist_from_aoi = (after_break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - after_break_candle.close)
     dist_ratio = clamp(dist_from_aoi / aoi_height)
     dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
     
-    #check is_trend, suppose to be 1 all the time
-    is_trend = 1.0 if candle_direction_with_trend(after_break_candle, trend) else 0.0
+    trend_continuation = 1.0 if candle_direction_with_trend(after_break_candle, trend) else 0.0
 
-    S5 = clamp(0.2 * wick_ratio + 0.3 * body_ratio_score + 0.5 * dist_score)
+    S5 = clamp(0.1 * wick_ratio + 0.1 * body_ratio_score + 0.4 * dist_score + 0.4 * trend_continuation)
     return S5
 
 
@@ -244,39 +248,40 @@ def compute_retest_entry_quality(
 
 def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candle) -> float:
     MAX_WICK_RATIO = 0.5
-    
+    S8 = None
     if after_break_candle is None:
         breaking_candle_opposing_wick = wick_down(break_candle) if trend == "bearish" else wick_up(break_candle)
         wick_ratio = breaking_candle_opposing_wick / body_size(break_candle)
-        wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
-        
+        breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
+        S8 = 1 - breaking_wick_score
     else: # Calculate only after break opposing wick
         after_candle_opposing_wick = wick_down(after_break_candle) if trend == "bearish" else wick_up(after_break_candle)
         wick_ratio = after_candle_opposing_wick / body_size(after_break_candle)
-        wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
+        after_breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
+        S8 = 1 - (0.5 * breaking_wick_score + 0.5 * after_breaking_wick_score)
         
-    return clamp(1 - wick_score)
+    return clamp(S8)
 
 
 def calculate_final_score(S1: float, S2: float, S3: float, S4: float, S5, S6: float, S7: float, S8: float) -> float:
     if S5 is not None:
         score = (
-                0.13 * S1
-                + 0.10 * S2
+                0.17 * S1
+                + 0.08 * S2
                 + 0.17 * S3
                 + 0.10 * S4
                 + 0.25 * S5
-                + 0.15 * S6
+                + 0.13 * S6
                 + 0.03 * S7
                 + 0.07 * S8
         )
     else:
         score = (
-                0.15 * S1
-                + 0.10 * S2
+                0.2 * S1
+                + 0.08 * S2
                 + 0.33 * S3
                 + 0.12 * S4
-                + 0.18 * S6
+                + 0.15 * S6
                 + 0.05 * S7
                 + 0.07 * S8
         )
