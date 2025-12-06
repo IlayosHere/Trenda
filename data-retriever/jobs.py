@@ -3,25 +3,19 @@ from __future__ import annotations
 from typing import Iterable
 
 from aoi import analyze_aoi_by_timeframe
-from entry.detector import run_1h_entry_scan_job
 import utils.display as display
 from trend.workflow import analyze_trend_by_timeframe
 
-
-ENTRY_TIMEFRAME = "1H"
 PRE_CLOSE_TRENDS = ["4H", "1D", "1W"]
 PRE_CLOSE_AOIS = ["4H", "1D"]
-
 
 def run_trend_batch(timeframes: Iterable[str]) -> None:
     for timeframe in timeframes:
         analyze_trend_by_timeframe(timeframe)
 
-
 def run_aoi_batch(timeframes: Iterable[str]) -> None:
     for timeframe in timeframes:
         analyze_aoi_by_timeframe(timeframe)
-
 
 def refresh_pre_close_data() -> None:
     display.print_status("\n--- 🔁 Pre-close refresh for hourly entry checks ---")
@@ -32,10 +26,3 @@ def refresh_pre_close_data() -> None:
 
     display.print_status("  -> Refreshing AOIs ahead of the close: " + ", ".join(PRE_CLOSE_AOIS))
     run_aoi_batch(PRE_CLOSE_AOIS)
-
-
-def evaluate_entry_signals(timeframe: str = ENTRY_TIMEFRAME) -> None:
-    display.print_status(
-        f"\n--- 🎯 Evaluating entry signals for {timeframe} (15s post-close) ---"
-    )
-    run_1h_entry_scan_job(timeframe)
