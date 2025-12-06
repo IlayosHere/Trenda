@@ -64,6 +64,6 @@ SCHEDULE_CONFIG = [
         "offset_seconds": 15,
         "job": evaluate_entry_signals,
         "args": ["1H"],
-        "trading_hours_only": False,
+        "trading_hours_only": True,
     },
 ]
