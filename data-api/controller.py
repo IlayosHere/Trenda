@@ -9,7 +9,7 @@ Loads configuration from environment variables (via .env file).
 import os
 from service import get_trend_data_service, get_aoi_data_service
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, status # Import status codes
+from fastapi import FastAPI, HTTPException, status # Import status codes
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any, Optional
 import logging

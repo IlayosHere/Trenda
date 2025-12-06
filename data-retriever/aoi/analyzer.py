@@ -4,27 +4,27 @@ This module delegates context building, zone generation, and scoring to
 helpers in the ``aoi`` package so the entrypoint stays focused on control flow.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from constants import BREAK_BEARISH, BREAK_BULLISH, NO_BREAK, SwingPoint
+from constants import BREAK_BEARISH, BREAK_BULLISH, SwingPoint
 from models import TrendDirection
 from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 from externals import db
 from externals.data_fetcher import fetch_data
 import utils.display as display
-from utils.forex import get_pip_size, price_to_pips, pips_to_price
+from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (
     _check_for_structure_break,
     _find_corresponding_structural_swing,
     _find_initial_structure,
 )
 from aoi.aoi_configuration import AOI_CONFIGS, AOISettings
-from aoi.context import AOIContext, build_context, extract_swings
-from aoi.pipeline import AOIZoneCandidate, generate_aoi_zones
+from aoi.context import build_context, extract_swings
+from aoi.pipeline import generate_aoi_zones
 from aoi.scoring import apply_directional_weighting_and_classify
 from aoi.trend import get_overall_trend
 
