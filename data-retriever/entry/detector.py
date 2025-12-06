@@ -4,7 +4,7 @@ from typing import Any, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 
-from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from entry.models import EntryPattern, LLMEvaluation
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
@@ -26,7 +26,7 @@ def run_1h_entry_scan_job(
     """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
 
     mt5_timeframe = TIMEFRAMES.get(timeframe)
-    lookback = ANALYSIS_PARAMS[timeframe].get("lookback")
+    lookback = require_analysis_params(timeframe).lookback
 
     display.print_status(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
 

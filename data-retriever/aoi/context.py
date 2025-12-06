@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 
-from configuration import ANALYSIS_PARAMS
+from configuration import require_analysis_params
 from utils.forex import get_pip_size, pips_to_price
 from trend.structure import get_swing_points
+from configuration.forex_data import AnalysisParams
 from aoi.aoi_configuration import AOISettings
 
 
@@ -16,7 +17,7 @@ class AOIContext:
     pip_size: float
     min_height_price: float
     max_height_price: float
-    params: Dict[str, float]
+    params: AnalysisParams
     settings: AOISettings
 
 
@@ -24,7 +25,7 @@ def build_context(
     settings: AOISettings, symbol: str, atr: float) -> Optional["AOIContext"]:
     """Prepare the AOI analysis context for a symbol and timeframe."""
 
-    params = ANALYSIS_PARAMS.get(settings.timeframe)
+    params = require_analysis_params(settings.timeframe)
 
     pip_size = get_pip_size(symbol)
 
@@ -54,5 +55,5 @@ def extract_swings(prices: np.ndarray, context: AOIContext):
     """Detect swing highs/lows using configured prominence and distance."""
 
     return get_swing_points(
-        prices, context.params["distance"], context.params["prominence"]
+        prices, context.params.distance, context.params.prominence
     )

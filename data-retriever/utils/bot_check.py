@@ -1,7 +1,8 @@
 import pandas as pd
 from entry.quality import evaluate_entry_quality
-from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from externals.data_fetcher import fetch_data
+from models import TrendDirection
 from utils.candles import dataframe_to_candles
 
 def run_bot_check(timeframe: str) -> None:
@@ -10,8 +11,8 @@ def run_bot_check(timeframe: str) -> None:
          
 def run_symbol(timeframe: str, symbol: str) -> None:
     formatted_timeframe = TIMEFRAMES[timeframe]
-    analysis_params = ANALYSIS_PARAMS[timeframe]
-    data = fetch_data(symbol, formatted_timeframe, analysis_params["lookback"])
+    analysis_params = require_analysis_params(timeframe)
+    data = fetch_data(symbol, formatted_timeframe, analysis_params.lookback)
     indexed_data = index_dataframes(data)
     #Date format: 
     # EURUSD: 2025-11-27 01:00:00 2025-11-18 15:00:00 2025-11-12 07:00:00 
@@ -35,7 +36,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDJPY: bullish
     # EURAUD: bearish
     # GBPNZD: bearish
-    trend = "bullish"
+    trend = TrendDirection.BULLISH
     # EURUSD: 1.16095 1.15893 
     # USDJPY: 154.392 154.954
     # AUDUSD: 0.65246 0.65519

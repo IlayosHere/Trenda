@@ -6,7 +6,7 @@ trend calculations separate from the core trend logic.
 
 from __future__ import annotations
 
-from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from constants import DATA_ERROR_MSG
 from externals import db
 from externals.data_fetcher import fetch_data
@@ -45,7 +45,7 @@ def analyze_trend_by_timeframe(timeframe: str) -> None:
 def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
     """Analyze a specific symbol/timeframe pair and return trend details."""
 
-    if timeframe not in TIMEFRAMES or timeframe not in ANALYSIS_PARAMS:
+    if timeframe not in TIMEFRAMES:
         display.print_error(f"Unknown timeframe {timeframe} in analysis.")
         return DATA_ERROR_MSG, None, None
 
@@ -54,10 +54,10 @@ def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
         return DATA_ERROR_MSG, None, None
 
     formatted_timeframe = TIMEFRAMES[timeframe]
-    analysis_params = ANALYSIS_PARAMS[timeframe]
+    analysis_params = require_analysis_params(timeframe)
 
     symbol_data_by_timeframe = fetch_data(
-        symbol, formatted_timeframe, analysis_params["lookback"]
+        symbol, formatted_timeframe, analysis_params.lookback
     )
 
     if symbol_data_by_timeframe is None:
@@ -71,6 +71,6 @@ def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
         return DATA_ERROR_MSG, None, None
 
     swings = get_swing_points(
-        prices, analysis_params["distance"], analysis_params["prominence"]
+        prices, analysis_params.distance, analysis_params.prominence
     )
     return analyze_snake_trend(swings)

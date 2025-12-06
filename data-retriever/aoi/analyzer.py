@@ -4,26 +4,32 @@ This module delegates context building, zone generation, and scoring to
 helpers in the ``aoi`` package so the entrypoint stays focused on control flow.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from constants import BREAK_BEARISH, BREAK_BULLISH, NO_BREAK, SwingPoint
-from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+from constants import BREAK_BEARISH, BREAK_BULLISH, SwingPoint
+from models import TrendDirection
+from configuration import (
+    FOREX_PAIRS,
+    TIMEFRAMES,
+    require_aoi_lookback,
+    require_analysis_params,
+)
 from externals import db
 from externals.data_fetcher import fetch_data
 import utils.display as display
-from utils.forex import get_pip_size, price_to_pips, pips_to_price
+from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (
     _check_for_structure_break,
     _find_corresponding_structural_swing,
     _find_initial_structure,
 )
 from aoi.aoi_configuration import AOI_CONFIGS, AOISettings
-from aoi.context import AOIContext, build_context, extract_swings
-from aoi.pipeline import AOIZoneCandidate, generate_aoi_zones
+from aoi.context import build_context, extract_swings
+from aoi.pipeline import generate_aoi_zones
 from aoi.scoring import apply_directional_weighting_and_classify
 from aoi.trend import get_overall_trend
 
@@ -48,19 +54,21 @@ def analyze_aoi_by_timeframe(timeframe: str) -> None:
 
 
 def _process_symbol(settings: AOISettings, symbol: str) -> None:
-    trend_direction = get_overall_trend(settings.trend_alignment_timeframes, symbol)
+    trend_direction = TrendDirection.from_raw(
+        get_overall_trend(settings.trend_alignment_timeframes, symbol)
+    )
 
-    if (trend_direction == None):
+    if trend_direction is None:
         display.print_status(
             f"  ⚠️ Skipping {symbol}: trends not aligned across {settings.trend_alignment_timeframes}."
         )
         return
 
     mt5_timeframe = TIMEFRAMES.get(settings.timeframe)
-    timeframe_params = ANALYSIS_PARAMS.get(settings.timeframe, {})
-    lookback_bars = timeframe_params.get("aoi_lookback")
+    require_analysis_params(settings.timeframe)
+    lookback_bars = require_aoi_lookback(settings.timeframe)
 
-    data = fetch_data(symbol, mt5_timeframe, int(lookback_bars))
+    data = fetch_data(symbol, mt5_timeframe, lookback_bars)
     if data is None or "close" not in data:
         display.print_error(f"  ❌ No price data for {symbol}.")
         return
