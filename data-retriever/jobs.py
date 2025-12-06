@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from analyzers import analyze_aoi_by_timeframe, analyze_trend_by_timeframe
+from aoi import analyze_aoi_by_timeframe
+from entry.detector import run_1h_entry_scan_job
 import utils.display as display
+from trend.workflow import analyze_trend_by_timeframe
 
 
 ENTRY_TIMEFRAME = "1H"
@@ -36,6 +38,4 @@ def evaluate_entry_signals(timeframe: str = ENTRY_TIMEFRAME) -> None:
     display.print_status(
         f"\n--- 🎯 Evaluating entry signals for {timeframe} (15s post-close) ---"
     )
-    display.print_status(
-        "  Entry signal evaluation placeholder: plug in strategy logic here."
-    )
+    run_1h_entry_scan_job(timeframe)

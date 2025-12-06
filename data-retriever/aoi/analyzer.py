@@ -1,7 +1,7 @@
 """AOI analyzer orchestrator.
 
 This module delegates context building, zone generation, and scoring to
-helpers in ``analyzers.aoi`` so the entrypoint stays focused on control flow.
+helpers in the ``aoi`` package so the entrypoint stays focused on control flow.
 """
 
 from typing import List, Optional, Tuple
@@ -10,23 +10,22 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
-from .trend_analyzer import _check_for_structure_break, _find_corresponding_structural_swing, _find_initial_structure
-from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
-from externals.data_fetcher import fetch_data
-import externals.db_handler as db_handler
-import utils.display as display
 from constants import BREAK_BEARISH, BREAK_BULLISH, NO_BREAK, SwingPoint
+from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+from externals import db
+from externals.data_fetcher import fetch_data
+import utils.display as display
 from utils.forex import get_pip_size, price_to_pips, pips_to_price
-from .aoi import (
-    apply_directional_weighting_and_classify,
-    build_context,
-    get_overall_trend,
-    extract_swings,
-    generate_aoi_zones,
-    AOI_CONFIGS,
-    AOISettings,
-    AOIContext
+from trend.structure import (
+    _check_for_structure_break,
+    _find_corresponding_structural_swing,
+    _find_initial_structure,
 )
+from aoi.aoi_configuration import AOI_CONFIGS, AOISettings
+from aoi.context import AOIContext, build_context, extract_swings
+from aoi.pipeline import AOIZoneCandidate, generate_aoi_zones
+from aoi.scoring import apply_directional_weighting_and_classify
+from aoi.trend import get_overall_trend
 
 
 def analyze_aoi_by_timeframe(timeframe: str) -> None:
@@ -42,7 +41,7 @@ def analyze_aoi_by_timeframe(timeframe: str) -> None:
     for symbol in FOREX_PAIRS:
         display.print_status(f"  -> Processing {symbol}...")
         try:
-            db_handler.clear_aois(symbol, timeframe)
+            db.clear_aois(symbol, timeframe)
             _process_symbol(settings, symbol)
         except Exception as err:
             display.print_error(f"  -> Failed for {symbol}: {err}")
@@ -82,10 +81,10 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
         : settings.max_zones_per_symbol
     ]
 
-    db_handler.store_aois(symbol, settings.timeframe, top_zones)
+    db.store_aois(symbol, settings.timeframe, top_zones)
     display.print_status(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
-    ) 
+    )
 
 def _calculate_atr(
     data,

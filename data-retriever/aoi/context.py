@@ -3,15 +3,10 @@ from typing import Dict, Optional
 
 import numpy as np
 
-import utils.display as display
 from configuration import ANALYSIS_PARAMS
-from .aoi_configuration import AOISettings
-from utils.forex import (
-    get_pip_size,
-    price_to_pips,
-    pips_to_price,
-)
-from ..trend_analyzer import get_swing_points
+from utils.forex import get_pip_size, pips_to_price
+from trend.structure import get_swing_points
+from aoi.aoi_configuration import AOISettings
 
 
 @dataclass

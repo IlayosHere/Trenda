@@ -1,4 +1,4 @@
-"""Shared trend helpers used across analyzers.
+"""Shared trend helpers used across the project.
 
 These functions wrap database access to provide a single place to derive
 timeframe-aligned trend bias for a symbol.
@@ -6,13 +6,13 @@ timeframe-aligned trend bias for a symbol.
 
 from typing import Optional, Sequence
 
-import externals.db_handler as db_handler
+from externals import db
 
 
 def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[str]:
     """Wrapper around the DB trend provider for testability."""
 
-    result = db_handler.fetch_trend_bias(symbol, timeframe)
+    result = db.fetch_trend_bias(symbol, timeframe)
     return result
 
 
