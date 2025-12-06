@@ -1,11 +1,22 @@
-from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
+"""Scheduled trend analysis workflows.
+
+This module keeps the orchestration layer for running timeframe-based
+trend calculations separate from the core trend logic.
+"""
+
+from __future__ import annotations
+
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from constants import DATA_ERROR_MSG
+from externals import db
 from externals.data_fetcher import fetch_data
 import utils.display as display
-import externals.db_handler as db_handler
-from .trend_analyzer import analyze_snake_trend, get_swing_points
+from trend.structure import analyze_snake_trend, get_swing_points
+
 
 def analyze_trend_by_timeframe(timeframe: str) -> None:
+    """Run trend analysis for all configured symbols for a given timeframe."""
+
     display.print_status(f"\n--- 🔄 Running scheduled job for {timeframe} ---")
 
     for symbol in FOREX_PAIRS:
@@ -17,7 +28,7 @@ def analyze_trend_by_timeframe(timeframe: str) -> None:
             )
             high_price = struct_high[1] if struct_high else None
             low_price = struct_low[1] if struct_low else None
-            db_handler.update_trend_data(
+            db.update_trend_data(
                 symbol,
                 timeframe,
                 trend,
@@ -25,15 +36,16 @@ def analyze_trend_by_timeframe(timeframe: str) -> None:
                 float(low_price) if low_price is not None else None,
             )
 
-        except Exception as e:
-            display.print_error(f"Failed to analyze {symbol}/{timeframe}: {e}")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            display.print_error(f"Failed to analyze {symbol}/{timeframe}: {exc}")
 
     display.print_status(f"--- ✅ Scheduled job for {timeframe} complete ---")
 
 
 def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
+    """Analyze a specific symbol/timeframe pair and return trend details."""
 
-    if timeframe not in TIMEFRAMES or timeframe not in ANALYSIS_PARAMS:
+    if timeframe not in TIMEFRAMES:
         display.print_error(f"Unknown timeframe {timeframe} in analysis.")
         return DATA_ERROR_MSG, None, None
 
@@ -41,11 +53,11 @@ def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
         display.print_error(f"Unknown symbol {symbol} in analysis.")
         return DATA_ERROR_MSG, None, None
 
-    formmated_timeframe = TIMEFRAMES[timeframe]
-    analysis_params = ANALYSIS_PARAMS[timeframe]
+    formatted_timeframe = TIMEFRAMES[timeframe]
+    analysis_params = require_analysis_params(timeframe)
 
     symbol_data_by_timeframe = fetch_data(
-        symbol, formmated_timeframe, analysis_params["lookback"]
+        symbol, formatted_timeframe, analysis_params.lookback
     )
 
     if symbol_data_by_timeframe is None:
@@ -59,6 +71,6 @@ def analyze_symbol_by_timeframe(symbol: str, timeframe: str):
         return DATA_ERROR_MSG, None, None
 
     swings = get_swing_points(
-        prices, analysis_params["distance"], analysis_params["prominence"]
+        prices, analysis_params.distance, analysis_params.prominence
     )
     return analyze_snake_trend(swings)

@@ -1,4 +1,15 @@
+from dataclasses import dataclass
+from typing import Mapping
+
 import MetaTrader5 as mt5
+
+
+@dataclass(frozen=True)
+class AnalysisParams:
+    lookback: int
+    distance: int
+    prominence: float
+    aoi_lookback: int | None = None
 
 FOREX_PAIRS = [
     # "EURUSD",
@@ -11,7 +22,7 @@ FOREX_PAIRS = [
     # "GBPCAD",
     # "EURJPY",
     # "GBPJPY",
-    # "AUDJPY",
+    "AUDJPY",
     # "CADJPY",
     # "NZDJPY",
     # "CHFJPY",
@@ -38,11 +49,30 @@ TIMEFRAMES = {
 # You MUST adjust 'distance' and 'prominence' for each timeframe.
 # These values are just *examples* to get you started.
 # Use the visual plotting method we discussed to find the right values.
-ANALYSIS_PARAMS = {
+ANALYSIS_PARAMS: Mapping[str, AnalysisParams] = {
     # timeframe: {lookback_candles, distance_filter, prominence_filter_in_pips}
     # (Note: prominence is in price units, e.g., 0.0010 for EURUSD)
-    "1W": {"lookback": 100, "distance": 1, "prominence": 0.0004},  # ~1 year
-    "1D": {"lookback": 100, "aoi_lookback": 140, "distance": 1, "prominence": 0.0004},  # ~1 year
-    "4H": {"lookback": 100, "aoi_lookback": 180, "distance": 1, "prominence": 0.0004},  # ~1.5 months
-    "1H": {"lookback": 1000}
+    "1W": AnalysisParams(lookback=100, distance=1, prominence=0.0004),  # ~1 year
+    "1D": AnalysisParams(
+        lookback=100, aoi_lookback=140, distance=1, prominence=0.0004
+    ),  # ~1 year
+    "4H": AnalysisParams(
+        lookback=100, aoi_lookback=180, distance=1, prominence=0.0004
+    ),  # ~1.5 months
+    "1H": AnalysisParams(lookback=1000, distance=1, prominence=0.0004),
 }
+
+
+def require_analysis_params(timeframe: str) -> AnalysisParams:
+    if timeframe not in ANALYSIS_PARAMS:
+        raise KeyError(f"Unknown timeframe {timeframe!r} in ANALYSIS_PARAMS.")
+
+    return ANALYSIS_PARAMS[timeframe]
+
+
+def require_aoi_lookback(timeframe: str) -> int:
+    params = require_analysis_params(timeframe)
+    if params.aoi_lookback is None:
+        raise ValueError(f"AOI lookback not configured for timeframe {timeframe!r}.")
+
+    return params.aoi_lookback

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import List
+
 from .utils import (
     body_size,
     clamp,
@@ -10,14 +12,18 @@ from .utils import (
     wick_up,
     candle_direction_with_trend
 )
+from models import TrendDirection
+from models.market import Candle
 
-def compute_penetration_score(candles, 
-                              trend: str, 
-                              aoi_low: float, 
-                              aoi_high: float, 
-                              aoi_height: float,
-                              retest_idx: int, 
-                              break_idx: int) -> float:
+def compute_penetration_score(
+    candles: List[Candle],
+    trend: TrendDirection,
+    aoi_low: float,
+    aoi_high: float,
+    aoi_height: float,
+    retest_idx: int,
+    break_idx: int,
+) -> float:
     deepest = 0.0
 
     relevant_candles = [
@@ -28,7 +34,7 @@ def compute_penetration_score(candles,
 
     for candle in relevant_candles:
         candle_range = full_range(candle)
-        if trend == "bullish":
+        if trend == TrendDirection.BULLISH:
             penetration = max(0.0, aoi_high - candle.low) / aoi_height
             wick_part = wick_down(candle) / candle_range
         else:  # bearish
@@ -47,14 +53,14 @@ def compute_penetration_score(candles,
 
 
 def compute_wick_momentum_score(
-        candles,
-        trend: str,
-        aoi_low: float,
-        aoi_high: float,
-        aoi_height: float,
-        break_idx: int,
-        break_candle,
-        after_break_candle
+    candles: List[Candle],
+    trend: TrendDirection,
+    aoi_low: float,
+    aoi_high: float,
+    aoi_height: float,
+    break_idx: int,
+    break_candle: Candle,
+    after_break_candle: Candle | None,
 ) -> float:
     MAX_BREAK_WICK_RATIO = 0.6
     MAX_PRE_BREAK_WICK_RATIO = 0.4
@@ -82,24 +88,34 @@ def compute_wick_momentum_score(
     return clamp(S2)
 
 
-def compute_breaking_candle_quality(break_candle,
-                                    aoi_high: float,
-                                    aoi_low: float,
-                                    aoi_height: float,
-                                    trend: str):
+def compute_breaking_candle_quality(
+    break_candle: Candle,
+    aoi_high: float,
+    aoi_low: float,
+    aoi_height: float,
+    trend: TrendDirection,
+) -> float:
     MAX_WICK_RATIO = 0.5
     MAX_DIST_RATIO = 0.7
     MAX_DIR_RATIO = 0.8
     MIN_SCORE_FAVOR = 0.75
     
     # 1. Wick with trend (bigger = better)
-    trend_wick = wick_down(break_candle) if trend == "bullish" else wick_up(break_candle)
+    trend_wick = (
+        wick_down(break_candle)
+        if trend == TrendDirection.BULLISH
+        else wick_up(break_candle)
+    )
     candle_range = full_range(break_candle)
     wick_ratio = trend_wick / candle_range
     wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
 
     # 2. Close far away from AOI
-    dist_from_aoi = (break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - break_candle.close)
+    dist_from_aoi = (
+        (break_candle.close - aoi_high)
+        if trend == TrendDirection.BULLISH
+        else (aoi_low - break_candle.close)
+    )
     dist_ratio = clamp(dist_from_aoi / aoi_height)
     dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
 
@@ -119,12 +135,14 @@ def compute_breaking_candle_quality(break_candle,
     return S3
 
 
-def compute_impulse_dominance_score(break_candle, 
-                                    retest_candle, 
-                                    after_break_candle,
-                                    trend: str,
-                                    aoi_high : float,
-                                    aoi_low: float) -> float:
+def compute_impulse_dominance_score(
+    break_candle: Candle,
+    retest_candle: Candle,
+    after_break_candle: Candle | None,
+    trend: TrendDirection,
+    aoi_high: float,
+    aoi_low: float,
+) -> float:
     BREAK_MAX_DOMINANCE = 0.6
     AFTER_BREAK_MAX_DOMINANCE = 0.85
     CANDLES_RATIO_PENTALY = 0.7
@@ -132,11 +150,11 @@ def compute_impulse_dominance_score(break_candle,
     body_break = body_size(break_candle)
     body_retest = body_size(retest_candle)
     # 1) Dominance of Close Beyond Retest Open Of Breaking Candle
-    if trend == "bullish":
-        dist_from_aoi =  break_candle.close - aoi_high
+    if trend == TrendDirection.BULLISH:
+        dist_from_aoi = break_candle.close - aoi_high
         break_candle_close_diff = break_candle.close - retest_candle.open
     else:  # bearish
-        dist_from_aoi =  aoi_low - break_candle.close
+        dist_from_aoi = aoi_low - break_candle.close
         break_candle_close_diff = retest_candle.open - break_candle.close
 
     dominance_ratio = break_candle_close_diff / dist_from_aoi
@@ -144,11 +162,11 @@ def compute_impulse_dominance_score(break_candle,
 
     # 2) Dominance of Close Beyond Retest Open Of Closing Candle
     if after_break_candle:
-        if trend == "bullish":
-            dist_from_aoi =  after_break_candle.close - aoi_high
+        if trend == TrendDirection.BULLISH:
+            dist_from_aoi = after_break_candle.close - aoi_high
             after_break_close_diff = after_break_candle.close - retest_candle.open
         else:  # bearish
-            dist_from_aoi =  aoi_low - after_break_candle.close
+            dist_from_aoi = aoi_low - after_break_candle.close
             after_break_close_diff = retest_candle.open - after_break_candle.close
 
         dominance_ratio = after_break_close_diff / dist_from_aoi
@@ -172,13 +190,13 @@ def compute_impulse_dominance_score(break_candle,
 
 
 def compute_after_break_confirmation(
-        after_break_candle,
-        break_candle,
-        trend: str,
-        aoi_low: float,
-        aoi_high: float,
-        aoi_height: float
-):
+    after_break_candle: Candle | None,
+    break_candle: Candle,
+    trend: TrendDirection,
+    aoi_low: float,
+    aoi_high: float,
+    aoi_height: float,
+) -> float | None:
     if after_break_candle is None:
         return None
     
@@ -194,7 +212,11 @@ def compute_after_break_confirmation(
     body_ratio_score = clamp(body_after / body_break)
 
     # Close far away from AOI
-    dist_from_aoi = (after_break_candle.close - aoi_high) if trend == "bullish" else (aoi_low - after_break_candle.close)
+    dist_from_aoi = (
+        (after_break_candle.close - aoi_high)
+        if trend == TrendDirection.BULLISH
+        else (aoi_low - after_break_candle.close)
+    )
     dist_ratio = clamp(dist_from_aoi / aoi_height)
     dist_score = min(1.0, dist_ratio / MAX_DIST_RATIO)
     
@@ -224,11 +246,11 @@ def compute_candle_count_score(retest_idx: int, break_idx: int) -> float:
 
 
 def compute_retest_entry_quality(
-        retest_candle,
-        trend: str,
-        aoi_low: float,
-        aoi_high: float,
-        aoi_height: float,
+    retest_candle: Candle,
+    trend: TrendDirection,
+    aoi_low: float,
+    aoi_high: float,
+    aoi_height: float,
 ) -> float:
     MAX_PENETRATION = 0.7
     MAX_WICK_RATIO = 0.3
@@ -248,18 +270,28 @@ def compute_retest_entry_quality(
     return clamp(0.35 * body_retest_ratio + 0.15 * w_score + 0.5 * penetration_score)
 
 
-def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candle) -> float:
+def compute_opposing_wick_resistance(
+    trend: TrendDirection, break_candle: Candle, after_break_candle: Candle | None
+) -> float:
     MAX_WICK_RATIO = 0.5
     S8 = None
     
-    breaking_candle_opposing_wick = wick_down(break_candle) if trend == "bearish" else wick_up(break_candle)
+    breaking_candle_opposing_wick = (
+        wick_down(break_candle)
+        if trend == TrendDirection.BEARISH
+        else wick_up(break_candle)
+    )
     wick_ratio = breaking_candle_opposing_wick / body_size(break_candle)
     breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
         
     if after_break_candle is None:
         S8 = 1 - breaking_wick_score
     else:
-        after_candle_opposing_wick = wick_down(after_break_candle) if trend == "bearish" else wick_up(after_break_candle)
+        after_candle_opposing_wick = (
+            wick_down(after_break_candle)
+            if trend == TrendDirection.BEARISH
+            else wick_up(after_break_candle)
+        )
         wick_ratio = after_candle_opposing_wick / body_size(after_break_candle)
         after_breaking_wick_score = min(1.0, wick_ratio / MAX_WICK_RATIO)
         S8 = 1 - (0.5 * breaking_wick_score + 0.5 * after_breaking_wick_score)
@@ -267,7 +299,16 @@ def compute_opposing_wick_resistance(trend: str, break_candle, after_break_candl
     return clamp(S8)
 
 
-def calculate_final_score(S1: float, S2: float, S3: float, S4: float, S5, S6: float, S7: float, S8: float) -> float:
+def calculate_final_score(
+    S1: float,
+    S2: float,
+    S3: float,
+    S4: float,
+    S5: float | None,
+    S6: float,
+    S7: float,
+    S8: float,
+) -> float:
     if S5 is not None:
         score = (
                 0.18 * S1

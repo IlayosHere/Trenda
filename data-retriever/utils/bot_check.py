@@ -1,19 +1,18 @@
-from dataclasses import dataclass
-
 import pandas as pd
-from analyzers.entry_quality import evaluate_entry_quality
+from entry.quality import evaluate_entry_quality
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from externals.data_fetcher import fetch_data
-from configuration import ANALYSIS_PARAMS, TIMEFRAMES, FOREX_PAIRS
+from models import TrendDirection
+from utils.candles import dataframe_to_candles
 
 def run_bot_check(timeframe: str) -> None:
     for symbol in FOREX_PAIRS:
         run_symbol(timeframe, symbol)
          
 def run_symbol(timeframe: str, symbol: str) -> None:
-    formmated_timeframe = TIMEFRAMES[timeframe]
-    analysis_params = ANALYSIS_PARAMS[timeframe]
-    data = fetch_data(
-    symbol, formmated_timeframe, analysis_params["lookback"])
+    formatted_timeframe = TIMEFRAMES[timeframe]
+    analysis_params = require_analysis_params(timeframe)
+    data = fetch_data(symbol, formatted_timeframe, analysis_params.lookback)
     indexed_data = index_dataframes(data)
     #Date format: 
     # EURUSD: 2025-11-27 01:00:00 2025-11-18 15:00:00 2025-11-12 07:00:00 
@@ -37,7 +36,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDJPY: bullish
     # EURAUD: bearish
     # GBPNZD: bearish
-    trend = "bullish"
+    trend = TrendDirection.BULLISH
     # EURUSD: 1.16095 1.15893 
     # USDJPY: 154.392 154.954
     # AUDUSD: 0.65246 0.65519
@@ -60,21 +59,13 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     evaluate_selected_entry(selected_data, trend, aoi_low, aoi_high)
 
 
-@dataclass
-class Candle:
-    open: float
-    high: float
-    low: float
-    close: float
-
-
 def evaluate_selected_entry(
     selected_candles_df: pd.DataFrame,
     trend: str,
     aoi_low: float,
     aoi_high: float,
 ) -> float:
-    candles = _dataframe_to_candles(selected_candles_df)
+    candles = dataframe_to_candles(selected_candles_df)
     # Retest candle is always the first provided candle.
     retest_idx = 0
     break_idx, after_break_idx = _prompt_for_break_indices(len(candles))
@@ -129,13 +120,6 @@ def select_candles(indexed_dataframes, candle_ids, id_col="id"):
 def index_dataframes(dataframes):
     dataframes = dataframes.reset_index().rename(columns={"index": "id"})
     return dataframes
-
-
-def _dataframe_to_candles(df: pd.DataFrame) -> list[Candle]:
-    return [
-        Candle(open=row["open"], high=row["high"], low=row["low"], close=row["close"])
-        for _, row in df.iterrows()
-    ]
 
 
 def _prompt_for_break_indices(candle_count: int) -> tuple[int, int | None]:
