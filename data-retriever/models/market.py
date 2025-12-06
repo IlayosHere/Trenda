@@ -49,13 +49,34 @@ class Candle:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "Candle":
+        time_value = cls._normalize_time(data.get("time"))
+
         return cls(
-            time=data.get("time"),
-            open=float(data.get("open")),
-            high=float(data.get("high")),
-            low=float(data.get("low")),
-            close=float(data.get("close")),
+            time=time_value,
+            open=float(data["open"]),
+            high=float(data["high"]),
+            low=float(data["low"]),
+            close=float(data["close"]),
         )
+
+    @staticmethod
+    def _normalize_time(value: Any) -> datetime:
+        if isinstance(value, datetime):
+            return value
+
+        if hasattr(value, "to_pydatetime"):
+            return value.to_pydatetime()  # type: ignore[no-any-return]
+
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value)
+
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                pass
+
+        raise TypeError("Candle time value must be datetime-compatible")
 
 
 @dataclass

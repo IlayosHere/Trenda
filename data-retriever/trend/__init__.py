@@ -6,9 +6,12 @@ from trend.structure import (
     analyze_snake_trend,
     get_swing_points,
 )
+from trend.workflow import analyze_symbol_by_timeframe, analyze_trend_by_timeframe
 
 __all__ = [
     "analyze_snake_trend",
+    "analyze_symbol_by_timeframe",
+    "analyze_trend_by_timeframe",
     "get_overall_trend",
     "get_swing_points",
     "get_trend_by_timeframe",

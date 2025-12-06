@@ -4,7 +4,7 @@ from typing import Iterable
 
 from aoi import analyze_aoi_by_timeframe
 import utils.display as display
-from workflows.trend import analyze_trend_by_timeframe
+from trend.workflow import analyze_trend_by_timeframe
 
 
 ENTRY_TIMEFRAME = "1H"
