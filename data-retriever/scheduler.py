@@ -46,6 +46,7 @@ def _add_job(scheduler: BackgroundScheduler, config: Dict[str, Any], job: Any, n
         minutes=config["interval_minutes"],
         id=config["id"],
         replace_existing=True,
+        max_instances=1,
         misfire_grace_time=60 * 5,  # Allow job to be 5 mins late
         next_run_time=next_run_time,
     )
@@ -61,7 +62,7 @@ def _prepare_job(config: Dict[str, Any]):
 
     args: List[Any] = list(config.get("args", []))
     if not args and config.get("timeframes"):
-        args = [config["timeframes"]]
+        args = list(config["timeframes"])
 
     kwargs = config.get("kwargs", {})
 
@@ -77,7 +78,10 @@ def _wrap_with_trading_hours(job, job_name: str, trading_hours_only: bool, args:
                 f"⏩ Skipping '{job_name}': outside configured trading hours."
             )
             return
-        job(*args, **kwargs)
+        try:
+            job(*args, **kwargs)
+        except Exception as e:
+            display.print_error(f"Job '{job_name}' failed: {e}")
 
     return _runner
 

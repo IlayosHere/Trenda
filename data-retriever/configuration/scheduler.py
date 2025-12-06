@@ -9,7 +9,7 @@ SCHEDULE_CONFIG = [
         "timeframes": ["4H"],
         "interval_minutes": 60,
         "job": run_trend_batch,
-        "args": [["4H"]],
+        "args": ["4H"],
         "trading_hours_only": True,
     },
     {
@@ -18,7 +18,7 @@ SCHEDULE_CONFIG = [
         "timeframes": ["1D"],
         "interval_minutes": 240,
         "job": run_trend_batch,
-        "args": [["1D"]],
+        "args": ["1D"],
         "trading_hours_only": True,
     },
     {
@@ -27,7 +27,7 @@ SCHEDULE_CONFIG = [
         "timeframes": ["1W"],
         "interval_minutes": 1440,
         "job": run_trend_batch,
-        "args": [["1W"]],
+        "args": ["1W"],
         "trading_hours_only": True,
     },
     {
@@ -36,7 +36,7 @@ SCHEDULE_CONFIG = [
         "timeframes": ["4H"],
         "interval_minutes": 240,
         "job": run_aoi_batch,
-        "args": [["4H"]],
+        "args": ["4H"],
         "trading_hours_only": True,
     },
     {
@@ -45,7 +45,7 @@ SCHEDULE_CONFIG = [
         "timeframes": ["1D"],
         "interval_minutes": 1440,
         "job": run_aoi_batch,
-        "args": [["1D"]],
+        "args": ["1D"],
         "trading_hours_only": True,
     },
     {
