@@ -11,6 +11,7 @@ import pandas as pd
 import pandas_ta as ta
 
 from constants import BREAK_BEARISH, BREAK_BULLISH, NO_BREAK, SwingPoint
+from models import TrendDirection
 from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 from externals import db
 from externals.data_fetcher import fetch_data
@@ -48,9 +49,11 @@ def analyze_aoi_by_timeframe(timeframe: str) -> None:
 
 
 def _process_symbol(settings: AOISettings, symbol: str) -> None:
-    trend_direction = get_overall_trend(settings.trend_alignment_timeframes, symbol)
+    trend_direction = TrendDirection.from_raw(
+        get_overall_trend(settings.trend_alignment_timeframes, symbol)
+    )
 
-    if (trend_direction == None):
+    if trend_direction is None:
         display.print_status(
             f"  ⚠️ Skipping {symbol}: trends not aligned across {settings.trend_alignment_timeframes}."
         )

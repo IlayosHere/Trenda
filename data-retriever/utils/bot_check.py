@@ -2,6 +2,7 @@ import pandas as pd
 from entry.quality import evaluate_entry_quality
 from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 from externals.data_fetcher import fetch_data
+from models import TrendDirection
 from utils.candles import dataframe_to_candles
 
 def run_bot_check(timeframe: str) -> None:
@@ -35,7 +36,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDJPY: bullish
     # EURAUD: bearish
     # GBPNZD: bearish
-    trend = "bullish"
+    trend = TrendDirection.BULLISH
     # EURUSD: 1.16095 1.15893 
     # USDJPY: 154.392 154.954
     # AUDUSD: 0.65246 0.65519
