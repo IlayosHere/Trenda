@@ -12,7 +12,12 @@ import pandas_ta as ta
 
 from constants import BREAK_BEARISH, BREAK_BULLISH, SwingPoint
 from models import TrendDirection
-from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
+from configuration import (
+    FOREX_PAIRS,
+    TIMEFRAMES,
+    require_aoi_lookback,
+    require_analysis_params,
+)
 from externals import db
 from externals.data_fetcher import fetch_data
 import utils.display as display
@@ -60,10 +65,10 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
         return
 
     mt5_timeframe = TIMEFRAMES.get(settings.timeframe)
-    timeframe_params = ANALYSIS_PARAMS.get(settings.timeframe, {})
-    lookback_bars = timeframe_params.get("aoi_lookback")
+    require_analysis_params(settings.timeframe)
+    lookback_bars = require_aoi_lookback(settings.timeframe)
 
-    data = fetch_data(symbol, mt5_timeframe, int(lookback_bars))
+    data = fetch_data(symbol, mt5_timeframe, lookback_bars)
     if data is None or "close" not in data:
         display.print_error(f"  ❌ No price data for {symbol}.")
         return
