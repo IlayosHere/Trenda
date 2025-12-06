@@ -5,7 +5,8 @@ from typing import Any, List, Mapping, Optional, Sequence, Union
 import pandas as pd
 
 from entry.models import EntryPattern
-from models import AOIZone, Candle, TrendDirection
+from models import AOIZone, TrendDirection
+from models.market import Candle
 from utils.candles import prepare_candles
 
 __all__ = ["find_entry_pattern"]

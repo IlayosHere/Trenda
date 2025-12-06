@@ -4,13 +4,14 @@ from typing import Any, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 
+from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 from entry.models import EntryPattern, LLMEvaluation
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
-from configuration import ANALYSIS_PARAMS, FOREX_PAIRS, TIMEFRAMES
 from externals import db
 from externals.data_fetcher import fetch_data
-from models import AOIZone, Candle, SignalData, TrendDirection
+from models import AOIZone, SignalData, TrendDirection
+from models.market import Candle
 from trend.bias import get_overall_trend, get_trend_by_timeframe
 import utils.display as display
 

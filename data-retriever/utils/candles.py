@@ -8,7 +8,7 @@ if util.find_spec("pandas") is not None:  # Optional dependency for dataframe ca
 else:  # pragma: no cover - fallback when pandas is absent
     pd = None  # type: ignore
 
-from models import Candle
+from models.market import Candle
 
 
 def to_candle(entry: Candle | Mapping[str, Any]) -> Candle:
