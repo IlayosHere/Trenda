@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from entry.detector import run_1h_entry_scan_job
-from jobs import TIMEFRAME_JOB_RUNNERS
+from jobs import run_timeframe_job
 
 SCHEDULE_CONFIG = [
     {
@@ -9,21 +9,27 @@ SCHEDULE_CONFIG = [
         "name": "4H AOI and trend update",
         "interval_minutes": 60 * 4,
         "offset_seconds": 10,
-        "job": TIMEFRAME_JOB_RUNNERS["4H"],
+        "job": run_timeframe_job,
+        "args": ["4H"],
+        "kwargs": {"include_aoi": True},
     },
     {
         "id": "job_1d_timeframe_analysis",
         "name": "1D AOI and trend update",
         "interval_minutes": 60 * 24,
         "offset_seconds": 15,
-        "job": TIMEFRAME_JOB_RUNNERS["1D"],
+        "job": run_timeframe_job,
+        "args": ["1D"],
+        "kwargs": {"include_aoi": True},
     },
     {
         "id": "job_1w_timeframe_analysis",
         "name": "1W trend update",
         "interval_minutes": 60 * 24 * 7,
         "offset_seconds": 20,
-        "job": TIMEFRAME_JOB_RUNNERS["1W"],
+        "job": run_timeframe_job,
+        "args": ["1W"],
+        "kwargs": {"include_aoi": False},
     },
     {
         "id": "job_hourly_entry_signals",
