@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Mapping
 
 import pandas as pd
@@ -15,7 +14,6 @@ from configuration import (
 import utils.display as display
 from externals.data_fetcher import fetch_data
 from trend.workflow import analyze_trend_by_timeframe
-from utils.candles import last_expected_close_time, trim_to_closed_candles
 
 
 def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.DataFrame]:
@@ -26,29 +24,27 @@ def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.D
         raise KeyError(f"Unknown timeframe {timeframe!r} requested for candle fetch.")
 
     candles: dict[str, pd.DataFrame] = {}
-    cutoff_time = last_expected_close_time(timeframe, now=datetime.now(timezone.utc))
-
     for symbol in FOREX_PAIRS:
         display.print_status(
             f"  -> Fetching {lookback} closed candles for {symbol} on {timeframe}..."
         )
-        data = fetch_data(symbol, mt5_timeframe, lookback)
+        data = fetch_data(
+            symbol,
+            mt5_timeframe,
+            lookback,
+            timeframe_label=timeframe,
+        )
         if data is None:
             display.print_error(
                 f"  ❌ No candle data returned for {symbol} on timeframe {timeframe}."
             )
             continue
-        trimmed = trim_to_closed_candles(data, timeframe, now=cutoff_time)
-        if len(trimmed) < len(data):
-            display.print_status(
-                f"     ⚠️ Dropped {len(data) - len(trimmed)} non-closed candles for {symbol}."
-            )
-        if trimmed.empty:
+        if data.empty:
             display.print_error(
                 f"  ❌ No closed candles available for {symbol} on timeframe {timeframe}."
             )
             continue
-        candles[symbol] = trimmed
+        candles[symbol] = data
     return candles
 
 
