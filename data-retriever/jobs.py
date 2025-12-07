@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Mapping
 
 import pandas as pd
@@ -14,6 +15,7 @@ from configuration import (
 import utils.display as display
 from externals.data_fetcher import fetch_data
 from trend.workflow import analyze_trend_by_timeframe
+from utils.candles import last_expected_close_time, trim_to_closed_candles
 
 
 def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.DataFrame]:
@@ -24,6 +26,8 @@ def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.D
         raise KeyError(f"Unknown timeframe {timeframe!r} requested for candle fetch.")
 
     candles: dict[str, pd.DataFrame] = {}
+    cutoff_time = last_expected_close_time(timeframe, now=datetime.now(timezone.utc))
+
     for symbol in FOREX_PAIRS:
         display.print_status(
             f"  -> Fetching {lookback} closed candles for {symbol} on {timeframe}..."
@@ -34,7 +38,17 @@ def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.D
                 f"  ❌ No candle data returned for {symbol} on timeframe {timeframe}."
             )
             continue
-        candles[symbol] = data
+        trimmed = trim_to_closed_candles(data, timeframe, now=cutoff_time)
+        if len(trimmed) < len(data):
+            display.print_status(
+                f"     ⚠️ Dropped {len(data) - len(trimmed)} non-closed candles for {symbol}."
+            )
+        if trimmed.empty:
+            display.print_error(
+                f"  ❌ No closed candles available for {symbol} on timeframe {timeframe}."
+            )
+            continue
+        candles[symbol] = trimmed
     return candles
 
 
@@ -84,3 +98,4 @@ def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
         aoi_candles=aoi_candles,
     )
     display.print_status(f"--- ✅ {timeframe} timeframe job complete ---\n")
+

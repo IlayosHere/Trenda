@@ -14,6 +14,7 @@ from models import AOIZone, SignalData, TrendDirection
 from models.market import Candle
 from trend.bias import get_overall_trend, get_trend_by_timeframe
 import utils.display as display
+from utils.candles import last_expected_close_time, trim_to_closed_candles
 
 
 DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
@@ -27,12 +28,24 @@ def run_1h_entry_scan_job(
 
     mt5_timeframe = TIMEFRAMES.get(timeframe)
     lookback = require_analysis_params(timeframe).lookback
+    expected_close_time = last_expected_close_time(timeframe)
 
     display.print_status(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
 
     for symbol in FOREX_PAIRS:
         display.print_status(f"  -> Checking {symbol}...")
         candles = fetch_data(symbol, mt5_timeframe, int(lookback))
+        if candles is None:
+            display.print_error(
+                f"  ❌ Skipping {symbol}: no candle data returned for timeframe {timeframe}."
+            )
+            continue
+        candles = trim_to_closed_candles(candles, timeframe, now=expected_close_time)
+        if candles.empty:
+            display.print_error(
+                f"  ❌ Skipping {symbol}: no closed candles available after trimming."
+            )
+            continue
 
         trend_snapshot = _collect_trend_snapshot(trend_alignment_timeframes, symbol)
         direction = TrendDirection.from_raw(
