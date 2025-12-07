@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Mapping
 
 import pandas as pd
@@ -45,26 +46,38 @@ def _fetch_closed_candles(
     return candles
 
 
-def run_timeframe_jobs(timeframe: str, *, run_aoi: bool) -> None:
-    """Fetch candles once and run trend/AOI analysis for a timeframe."""
+def _run_timeframe_analysis(
+    timeframe: str, *, include_aoi: bool, candles: Mapping[str, pd.DataFrame]
+) -> None:
+    """Run AOI (when requested) and trend analysis for the provided candles."""
 
-    display.print_status(f"\n--- 🔄 Running {timeframe} timeframe job ---")
-    candles = _fetch_closed_candles(timeframe, include_aoi_lookback=run_aoi)
-
-    if run_aoi:
+    if include_aoi:
         analyze_aoi_by_timeframe(timeframe, candles)
 
     analyze_trend_by_timeframe(timeframe, candles)
+
+
+def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
+    """Fetch candles once and run analyses for a timeframe."""
+
+    display.print_status(f"\n--- 🔄 Running {timeframe} timeframe job ---")
+    candles = _fetch_closed_candles(timeframe, include_aoi_lookback=include_aoi)
+    _run_timeframe_analysis(timeframe, include_aoi=include_aoi, candles=candles)
     display.print_status(f"--- ✅ {timeframe} timeframe job complete ---\n")
 
 
-def run_4h_timeframe_job() -> None:
-    run_timeframe_jobs("4H", run_aoi=True)
+def create_timeframe_job_runner(timeframe: str, *, include_aoi: bool) -> Callable[[], None]:
+    """Return a zero-argument runner for the configured timeframe."""
+
+    def runner() -> None:
+        run_timeframe_job(timeframe, include_aoi=include_aoi)
+
+    runner.__name__ = f"run_{timeframe.lower()}_timeframe_job"
+    return runner
 
 
-def run_1d_timeframe_job() -> None:
-    run_timeframe_jobs("1D", run_aoi=True)
-
-
-def run_1w_timeframe_job() -> None:
-    run_timeframe_jobs("1W", run_aoi=False)
+TIMEFRAME_JOB_RUNNERS: Mapping[str, Callable[[], None]] = {
+    "4H": create_timeframe_job_runner("4H", include_aoi=True),
+    "1D": create_timeframe_job_runner("1D", include_aoi=True),
+    "1W": create_timeframe_job_runner("1W", include_aoi=False),
+}
