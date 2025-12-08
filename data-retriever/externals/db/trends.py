@@ -2,85 +2,66 @@ from typing import Optional, Tuple
 
 import utils.display as display
 
-from .connection import get_db_connection
+from .db import (
+    execute_non_query,
+    fetch_one,
+    validate_nullable_float,
+    validate_symbol,
+    validate_timeframe,
+)
 from .queries import FETCH_TREND_BIAS, FETCH_TREND_LEVELS, UPDATE_TREND_DATA
 
 
 def update_trend_data(
     symbol: str, timeframe: str, trend: str, high: Optional[float], low: Optional[float]
 ) -> None:
-    conn = get_db_connection()
-    if not conn:
-        display.print_error(
-            f"Could not update trend for {symbol}/{timeframe}, DB connection failed."
-        )
+    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
+        return
+    if not trend or not isinstance(trend, str):
+        display.print_error("DB_VALIDATION: trend must be provided as a string")
+        return
+    if not validate_nullable_float(high, "high") or not validate_nullable_float(low, "low"):
         return
 
-    with conn:
-        try:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    UPDATE_TREND_DATA, (symbol, timeframe, trend, high, low)
-                )
-            conn.commit()
-        except Exception as e:
-            display.print_error(
-                f"Error during trend update for {symbol}/{timeframe}: {e}"
-            )
-            conn.rollback()  # Roll back the failed transaction
+    execute_non_query(
+        UPDATE_TREND_DATA,
+        (symbol, timeframe, trend, high, low),
+        context="update_trend_data",
+    )
 
 
 def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
-    conn = get_db_connection()
-    if not conn:
-        display.print_error(
-            f"Could not fetch trend levels for {symbol}/{timeframe}, DB connection failed."
-        )
+    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
         return None
 
-    try:
-        with conn:
-            with conn.cursor() as cursor:
-                cursor.execute(FETCH_TREND_BIAS, (symbol, timeframe))
-                row = cursor.fetchone()
+    row = fetch_one(
+        FETCH_TREND_BIAS,
+        (symbol, timeframe),
+        context="fetch_trend_bias",
+    )
 
-        if not row:
-            return None
-
-        trend_value = row[0]
-        return trend_value
-    except Exception as e:
-        display.print_error(
-            f"Error while fetching trend for {symbol}/{timeframe}: {e}"
-        )
+    if not row:
         return None
+
+    return row[0]
 
 
 def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Optional[float]]:
     """Retrieve the stored high/low levels for a symbol/timeframe combination."""
-    conn = get_db_connection()
-    if not conn:
-        display.print_error(
-            f"Could not fetch trend levels for {symbol}/{timeframe}, DB connection failed."
-        )
+    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
         return None, None
 
-    try:
-        with conn:
-            with conn.cursor() as cursor:
-                cursor.execute(FETCH_TREND_LEVELS, (symbol, timeframe))
-                row = cursor.fetchone()
+    row = fetch_one(
+        FETCH_TREND_LEVELS,
+        (symbol, timeframe),
+        context="fetch_trend_levels",
+    )
 
-        if not row:
-            return None, None
-
-        high, low = row
-        return (
-            float(high) if high is not None else None,
-            float(low) if low is not None else None,
-        )
-    except Exception as e:
-        display.print_error(
-            f"Error while fetching trend levels for {symbol}/{timeframe}: {e}"
-        )
+    if not row:
         return None, None
+
+    high, low = row
+    return (
+        float(high) if high is not None else None,
+        float(low) if low is not None else None,
+    )
