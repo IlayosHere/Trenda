@@ -1,8 +1,10 @@
 import logging
 import os
+import threading
 from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar
 
 import psycopg2
+from psycopg2 import extras
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2.extensions import connection as PgConnection, cursor as PgCursor
 
@@ -19,7 +21,12 @@ if not log.handlers:
 
 _pool: Optional[SimpleConnectionPool] = None
 _pool_details_logged = False
+_pool_lock = threading.Lock()
 _T = TypeVar("_T")
+
+
+class DBConnectionError(Exception):
+    """Raised when the database connection cannot be acquired."""
 
 
 def init_pool(minconn: Optional[int] = None, maxconn: Optional[int] = None) -> SimpleConnectionPool:
@@ -28,18 +35,22 @@ def init_pool(minconn: Optional[int] = None, maxconn: Optional[int] = None) -> S
     if _pool:
         return _pool
 
-    min_conn = int(os.getenv("DB_POOL_MIN_CONN", minconn or 1))
-    max_conn = int(os.getenv("DB_POOL_MAX_CONN", maxconn or 5))
+    with _pool_lock:
+        if _pool:
+            return _pool
 
-    try:
-        _pool = SimpleConnectionPool(min_conn, max_conn, **POSTGRES_DB)
-        _log_pool_details()
-        return _pool
-    except Exception as exc:
-        _pool = None
-        display.print_error(f"DB_POOL_INIT_FAILED: {exc}")
-        log.error("DB_POOL_INIT_FAILED|error=%s", exc, exc_info=True)
-        raise
+        min_conn = int(os.getenv("DB_POOL_MIN_CONN", minconn or 1))
+        max_conn = int(os.getenv("DB_POOL_MAX_CONN", maxconn or 5))
+
+        try:
+            _pool = SimpleConnectionPool(min_conn, max_conn, **POSTGRES_DB)
+            _log_pool_details()
+            return _pool
+        except Exception as exc:
+            _pool = None
+            display.print_error(f"DB_POOL_INIT_FAILED: {exc}")
+            log.error("DB_POOL_INIT_FAILED|error=%s", exc, exc_info=True)
+            raise
 
 
 def _log_pool_details() -> None:
@@ -71,14 +82,14 @@ def _require_pool() -> SimpleConnectionPool:
     return pool
 
 
-def get_connection() -> Optional[PgConnection]:
+def get_connection() -> PgConnection:
     """Retrieve a connection from the global pool."""
     try:
         return _require_pool().getconn()
     except Exception as exc:
         display.print_error(f"DB_CONNECTION_RETRIEVE_FAILED: {exc}")
         log.error("DB_CONNECTION_RETRIEVE_FAILED|error=%s", exc, exc_info=True)
-        return None
+        raise DBConnectionError("Failed to acquire database connection") from exc
 
 
 def release_connection(conn: Optional[PgConnection]) -> None:
@@ -104,16 +115,21 @@ def close_pool() -> None:
             _pool = None
 
 
-def _handle_error(context: str, exc: Exception, conn: PgConnection) -> None:
-    display.print_error(f"DB_ERROR[{context}]: {exc}")
-    log.error("DB_ERROR|context=%s|error=%s", context, exc, exc_info=True)
-    try:
-        conn.rollback()
-    except Exception as rollback_exc:
-        display.print_error(f"DB_ROLLBACK_FAILED[{context}]: {rollback_exc}")
-        log.error(
-            "DB_ROLLBACK_FAILED|context=%s|error=%s", context, rollback_exc, exc_info=True
-        )
+def _truncate_sql(sql: str, limit: int = 200) -> str:
+    return sql if len(sql) <= limit else f"{sql[:limit]}...(truncated)"
+
+
+def _log_sql_error(context: str, sql: str, params: Optional[Sequence[Any]], exc: Exception) -> None:
+    message_context = context or "unspecified"
+    log.error(
+        "DB_ERROR|context=%s|sql=%s|params=%s|error=%s",
+        message_context,
+        _truncate_sql(sql),
+        params,
+        exc,
+        exc_info=True,
+    )
+    display.print_error(f"DB_ERROR[{message_context}]: {exc}")
 
 
 def _execute(
@@ -124,27 +140,31 @@ def _execute(
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
     context: str = "",
 ) -> Any:
-    conn = get_connection()
-    if not conn:
-        return None
+    try:
+        conn = get_connection()
+    except DBConnectionError as exc:
+        _log_sql_error(context or sql, sql, params, exc)
+        raise
 
-    result: Any = True if fetch is None else None
+    result: Any = [] if fetch == "all" else None if fetch else False
     try:
         with conn:
             with conn.cursor(cursor_factory=cursor_factory) as cursor:
                 if many:
-                    cursor.executemany(sql, params or [])
+                    extras.execute_values(cursor, sql, params or [])
                 else:
                     cursor.execute(sql, params)
 
                 if fetch == "one":
                     result = cursor.fetchone()
                 elif fetch == "all":
-                    result = cursor.fetchall()
-            conn.commit()
+                    rows = cursor.fetchall()
+                    result = rows if rows is not None else []
+                else:
+                    result = True
     except Exception as exc:
         result = None
-        _handle_error(context or sql, exc, conn)
+        _log_sql_error(context or sql, sql, params, exc)
     finally:
         release_connection(conn)
     return result
@@ -159,7 +179,8 @@ def execute_non_query(
 def execute_many(
     sql: str, param_sets: Iterable[Sequence[Any]], context: str = "batch"
 ) -> bool:
-    return bool(_execute(sql, params=list(param_sets), many=True, context=context))
+    params_list = list(param_sets)
+    return bool(_execute(sql, params=params_list, many=True, context=context))
 
 
 def fetch_one(
@@ -185,35 +206,58 @@ def execute_transaction(
     context: str = "transaction",
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
 ) -> Optional[_T]:
-    conn = get_connection()
-    if not conn:
-        return None
+    try:
+        conn = get_connection()
+    except DBConnectionError as exc:
+        _log_sql_error(context, "<transaction>", None, exc)
+        raise
 
     try:
         with conn:
             with conn.cursor(cursor_factory=cursor_factory) as cursor:
                 result = work(cursor)
-            conn.commit()
             return result
     except Exception as exc:
-        _handle_error(context, exc, conn)
+        _log_sql_error(context, "<transaction>", None, exc)
         return None
     finally:
         release_connection(conn)
 
 
-def validate_symbol(symbol: str) -> bool:
+def validate_symbol(symbol: str) -> Optional[str]:
     if not isinstance(symbol, str) or not symbol.strip():
         display.print_error("DB_VALIDATION: symbol must be a non-empty string")
-        return False
-    return True
+        return None
+
+    normalized = symbol.strip().upper()
+
+    if len(normalized) > 20:
+        display.print_error("DB_VALIDATION: symbol must be 20 characters or fewer")
+        return None
+
+    if not normalized.isalnum():
+        display.print_error("DB_VALIDATION: symbol must be alphanumeric")
+        return None
+
+    return normalized
 
 
-def validate_timeframe(timeframe: str) -> bool:
+def validate_timeframe(timeframe: str) -> Optional[str]:
     if not isinstance(timeframe, str) or not timeframe.strip():
         display.print_error("DB_VALIDATION: timeframe must be a non-empty string")
-        return False
-    return True
+        return None
+
+    normalized = timeframe.strip().upper()
+
+    if len(normalized) > 20:
+        display.print_error("DB_VALIDATION: timeframe must be 20 characters or fewer")
+        return None
+
+    if not normalized.isalnum():
+        display.print_error("DB_VALIDATION: timeframe must be alphanumeric")
+        return None
+
+    return normalized
 
 
 def validate_nullable_float(value: Optional[float], field: str) -> bool:

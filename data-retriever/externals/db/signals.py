@@ -17,7 +17,8 @@ def store_entry_signal(
     trade_quality: float,
 ) -> Optional[int]:
     """Persist an entry signal and its supporting candles."""
-    if not validate_symbol(symbol):
+    normalized_symbol = validate_symbol(symbol)
+    if not normalized_symbol:
         return None
     if not isinstance(trade_quality, (int, float)):
         display.print_error("DB_VALIDATION: trade_quality must be numeric")
@@ -49,7 +50,14 @@ def store_entry_signal(
 
         cursor.execute(
             INSERT_ENTRY_SIGNAL,
-            (symbol, signal_time, signal_trend_id, aoi_high, aoi_low, trade_quality),
+            (
+                normalized_symbol,
+                signal_time,
+                signal_trend_id,
+                aoi_high,
+                aoi_low,
+                trade_quality,
+            ),
         )
         signal_id = cursor.fetchone()[0]
 

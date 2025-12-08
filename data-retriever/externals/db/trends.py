@@ -15,7 +15,9 @@ from .queries import FETCH_TREND_BIAS, FETCH_TREND_LEVELS, UPDATE_TREND_DATA
 def update_trend_data(
     symbol: str, timeframe: str, trend: str, high: Optional[float], low: Optional[float]
 ) -> None:
-    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
+    normalized_symbol = validate_symbol(symbol)
+    normalized_timeframe = validate_timeframe(timeframe)
+    if not (normalized_symbol and normalized_timeframe):
         return
     if not trend or not isinstance(trend, str):
         display.print_error("DB_VALIDATION: trend must be provided as a string")
@@ -25,18 +27,20 @@ def update_trend_data(
 
     execute_non_query(
         UPDATE_TREND_DATA,
-        (symbol, timeframe, trend, high, low),
+        (normalized_symbol, normalized_timeframe, trend, high, low),
         context="update_trend_data",
     )
 
 
 def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
-    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
+    normalized_symbol = validate_symbol(symbol)
+    normalized_timeframe = validate_timeframe(timeframe)
+    if not (normalized_symbol and normalized_timeframe):
         return None
 
     row = fetch_one(
         FETCH_TREND_BIAS,
-        (symbol, timeframe),
+        (normalized_symbol, normalized_timeframe),
         context="fetch_trend_bias",
     )
 
@@ -48,12 +52,14 @@ def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
 
 def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Optional[float]]:
     """Retrieve the stored high/low levels for a symbol/timeframe combination."""
-    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
+    normalized_symbol = validate_symbol(symbol)
+    normalized_timeframe = validate_timeframe(timeframe)
+    if not (normalized_symbol and normalized_timeframe):
         return None, None
 
     row = fetch_one(
         FETCH_TREND_LEVELS,
-        (symbol, timeframe),
+        (normalized_symbol, normalized_timeframe),
         context="fetch_trend_levels",
     )
 

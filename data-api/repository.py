@@ -68,7 +68,8 @@ def fetch_all_trend_data() -> Optional[List[Dict[str, Any]]]:
 def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch AOI data along with trend levels for a specific symbol/timeframe."""
 
-    if not validate_symbol(symbol):
+    normalized_symbol = validate_symbol(symbol)
+    if not normalized_symbol:
         log.error("API Repo: Invalid symbol provided for AOI lookup")
         return None
 
@@ -91,11 +92,12 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         ORDER BY lower_bound ASC
     """
 
-    if not validate_timeframe("4H"):
+    normalized_timeframe = validate_timeframe("4H")
+    if not normalized_timeframe:
         return None
 
     response: Dict[str, Any] = {
-        "symbol": symbol,
+        "symbol": normalized_symbol,
         "low": None,
         "high": None,
         "aois": [],
@@ -103,7 +105,7 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
 
     trend_row = fetch_one(
         trend_sql,
-        (symbol, "4H"),
+        (normalized_symbol, normalized_timeframe),
         cursor_factory=RealDictCursor,
         context="fetch_aoi_trend",
     )
@@ -119,7 +121,7 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
 
     aoi_rows = fetch_all(
         aoi_sql,
-        (symbol,),
+        (normalized_symbol,),
         cursor_factory=RealDictCursor,
         context="fetch_aoi_rows",
     )

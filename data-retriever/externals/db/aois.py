@@ -14,12 +14,14 @@ from .queries import CLEAR_AOIS, FETCH_TRADABLE_AOIS, UPSERT_AOIS
 
 
 def clear_aois(symbol: str, timeframe: str):
-    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
+    normalized_symbol = validate_symbol(symbol)
+    normalized_timeframe = validate_timeframe(timeframe)
+    if not (normalized_symbol and normalized_timeframe):
         return
 
     execute_non_query(
         CLEAR_AOIS,
-        (symbol, timeframe),
+        (normalized_symbol, normalized_timeframe),
         context="clear_aois",
     )
 
@@ -30,7 +32,9 @@ def store_aois(
     aois: List[Dict[str, float]],
 ) -> None:
     """Sync AOI zones for a forex pair/timeframe combination."""
-    if not (validate_symbol(symbol) and validate_timeframe(timeframe)):
+    normalized_symbol = validate_symbol(symbol)
+    normalized_timeframe = validate_timeframe(timeframe)
+    if not (normalized_symbol and normalized_timeframe):
         return
     if not isinstance(aois, list):
         display.print_error("DB_VALIDATION: aois must be provided as a list")
@@ -46,8 +50,8 @@ def store_aois(
             return
         param_sets.append(
             (
-                symbol,
-                timeframe,
+                normalized_symbol,
+                normalized_timeframe,
                 aoi.get("lower_bound"),
                 aoi.get("upper_bound"),
                 aoi_type,
@@ -59,12 +63,13 @@ def store_aois(
 
 
 def fetch_tradable_aois(symbol: str) -> List[Dict[str, Optional[float]]]:
-    if not validate_symbol(symbol):
+    normalized_symbol = validate_symbol(symbol)
+    if not normalized_symbol:
         return []
 
     rows = fetch_all(
         FETCH_TRADABLE_AOIS,
-        (symbol,),
+        (normalized_symbol,),
         context="fetch_tradable_aois",
     )
 
