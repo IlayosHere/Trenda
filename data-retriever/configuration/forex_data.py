@@ -59,7 +59,7 @@ ANALYSIS_PARAMS: Mapping[str, AnalysisParams] = {
     "4H": AnalysisParams(
         lookback=100, aoi_lookback=180, distance=1, prominence=0.0004
     ),  # ~1.5 months
-    "1H": AnalysisParams(lookback=1000, distance=1, prominence=0.0004),
+    "1H": AnalysisParams(lookback=15, distance=1, prominence=0.0004),
 }
 
 
