@@ -1,7 +1,7 @@
 import logging
 import os
 import threading
-from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar
+from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar, Union
 
 import psycopg2
 from psycopg2 import extras
@@ -139,11 +139,7 @@ def _execute(
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
     context: str = "",
 ) -> Any:
-    conn: Optional[PgConnection] = None
-    try:
-        conn = get_connection()
-    except DBConnectionError:
-        raise
+    conn: Optional[PgConnection] = get_connection()
 
     result: Any = [] if fetch == "all" else None if fetch else False
     try:
@@ -186,7 +182,7 @@ def execute_non_query(
 def execute_many(
     sql: str, param_sets: Iterable[Sequence[Any]], context: str = "batch"
 ) -> bool:
-    params_list: Iterable[Sequence[Any]] | list[Sequence[Any]]
+    params_list: Union[Iterable[Sequence[Any]], list[Sequence[Any]]]
     if isinstance(param_sets, (list, tuple)):
         params_list = param_sets
     else:
@@ -208,7 +204,7 @@ def fetch_all(
     params: Optional[Sequence[Any]] = None,
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
     context: str = "fetch_all",
-) -> Optional[Any]:
+) -> list[Any]:
     return _execute(sql, params=params, fetch="all", cursor_factory=cursor_factory, context=context)
 
 
@@ -216,12 +212,8 @@ def execute_transaction(
     work: Callable[[PgCursor], _T],
     context: str = "transaction",
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
-) -> Optional[_T]:
-    conn: Optional[PgConnection] = None
-    try:
-        conn = get_connection()
-    except DBConnectionError:
-        raise
+) -> _T:
+    conn: Optional[PgConnection] = get_connection()
 
     try:
         with conn:
@@ -230,7 +222,7 @@ def execute_transaction(
             return result
     except Exception as exc:
         _log_sql_error(context, "<transaction>", None, exc)
-        return None
+        raise
     finally:
         if conn is not None:
             release_connection(conn)
