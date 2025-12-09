@@ -71,15 +71,12 @@ def _log_pool_details() -> None:
         display.print_error(f"DB_METADATA_QUERY_FAILED: {exc}")
         log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
     finally:
-        if conn:
+        if conn and _pool:
             _pool.putconn(conn)
 
 
 def _require_pool() -> SimpleConnectionPool:
-    pool = init_pool()
-    if not pool:
-        raise psycopg2.OperationalError("Database connection pool is not available")
-    return pool
+    return init_pool()
 
 
 def get_connection() -> PgConnection:
@@ -113,6 +110,8 @@ def close_pool() -> None:
             log.error("DB_POOL_CLOSE_FAILED|error=%s", exc, exc_info=True)
         finally:
             _pool = None
+    global _pool_details_logged
+    _pool_details_logged = False
 
 
 def _truncate_sql(sql: str, limit: int = 200) -> str:
@@ -142,8 +141,7 @@ def _execute(
 ) -> Any:
     try:
         conn = get_connection()
-    except DBConnectionError as exc:
-        _log_sql_error(context or sql, sql, params, exc)
+    except DBConnectionError:
         raise
 
     result: Any = [] if fetch == "all" else None if fetch else False
@@ -151,7 +149,14 @@ def _execute(
         with conn:
             with conn.cursor(cursor_factory=cursor_factory) as cursor:
                 if many:
-                    extras.execute_values(cursor, sql, params or [])
+                    if params is None or not isinstance(params, (list, tuple)):
+                        raise ValueError("Batch parameters must be a list or tuple")
+                    for idx, param_set in enumerate(params):
+                        if not isinstance(param_set, (list, tuple)):
+                            raise ValueError(
+                                f"Batch parameter set at index {idx} must be a list or tuple"
+                            )
+                    extras.execute_values(cursor, sql, params)
                 else:
                     cursor.execute(sql, params)
 
@@ -163,8 +168,8 @@ def _execute(
                 else:
                     result = True
     except Exception as exc:
-        result = None
         _log_sql_error(context or sql, sql, params, exc)
+        raise
     finally:
         release_connection(conn)
     return result
@@ -179,7 +184,11 @@ def execute_non_query(
 def execute_many(
     sql: str, param_sets: Iterable[Sequence[Any]], context: str = "batch"
 ) -> bool:
-    params_list = list(param_sets)
+    params_list: Iterable[Sequence[Any]] | list[Sequence[Any]]
+    if isinstance(param_sets, (list, tuple)):
+        params_list = param_sets
+    else:
+        params_list = list(param_sets)
     return bool(_execute(sql, params=params_list, many=True, context=context))
 
 
