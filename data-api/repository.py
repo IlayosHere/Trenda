@@ -1,9 +1,16 @@
-import os
-import psycopg2
-from psycopg2.extras import RealDictCursor # To get results as dictionaries
-from typing import Optional, List, Dict, Any
 import logging
+from typing import Optional, List, Dict, Any
+
+from psycopg2.extras import RealDictCursor  # To get results as dictionaries
 from dotenv import load_dotenv
+
+from db import (
+    fetch_all,
+    fetch_one,
+    validate_nullable_float,
+    validate_symbol,
+    validate_timeframe,
+)
 
 # --- Load Environment Variables ---
 # Ensure environment variables are loaded if this module is imported early
@@ -14,43 +21,6 @@ log = logging.getLogger(__name__)
 # Basic config if run standalone, actual config often done in api.py
 if not log.handlers:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] API_Repo: %(message)s')
-
-# --- Database Configuration ---~~
-# Read directly from environment variables (populated by .env or deployment config)
-DB_CONFIG = {
-    "dbname": os.getenv("DB_NAME", "trenda"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD"), # Should definitely be set in .env
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "options": os.getenv("DB_OPTIONS", "-c search_path=trenda")
-}
-
-if not DB_CONFIG["password"]:
-    log.warning("DB_PASSWORD environment variable not set. Database connection will likely fail.")
-
-# --- Connection Management ---
-
-def get_db_connection() -> Optional[psycopg2.extensions.connection]:
-    try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        log.debug("Database connection successful.")
-        return conn
-    except psycopg2.OperationalError as e:
-        log.error(f"DATABASE CONNECTION FAILED: {e}", exc_info=True)
-        return None
-    except Exception as e:
-        log.error(f"Unexpected error connecting to database: {e}", exc_info=True)
-        return None
-
-def close_db_connection(conn: Optional[psycopg2.extensions.connection]) -> None:
-    """ Closes the database connection if it's open. """
-    if conn:
-        try:
-            conn.close()
-            log.debug("Database connection closed.")
-        except Exception as e:
-            log.error(f"Error closing database connection: {e}", exc_info=True)
 
 # --- Data Fetching ---
 
@@ -82,32 +52,26 @@ def fetch_all_trend_data() -> Optional[List[Dict[str, Any]]]:
             ELSE 99
         END;
     """
-    conn = get_db_connection()
-    if not conn:
-        log.error("API Fetch: Database connection failed.")
-        return None # Indicate connection failure
+    results = fetch_all(
+        sql,
+        cursor_factory=RealDictCursor,
+        context="fetch_all_trend_data",
+    )
+    if results is None:
+        log.error("API Repo: Database query error while fetching trend data")
+        return None
 
-    results: List[Dict[str, Any]] = []
-    try:
-        # Use RealDictCursor to get rows as dictionaries directly
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(sql)
-            results = cursor.fetchall() # fetchall returns a list of dicts
-        log.info(f"API Repo: Retrieved {len(results)} records.")
-        return results
-
-    except psycopg2.Error as db_err:
-        log.error(f"API Repo: Database query error: {db_err}", exc_info=True)
-        return None # Indicate DB operation failure
-    except Exception as e:
-        log.error(f"API Repo: Unexpected error during fetch: {e}", exc_info=True)
-        return None # Indicate other failure
-    finally:
-        close_db_connection(conn)
+    log.info(f"API Repo: Retrieved {len(results)} records.")
+    return results
 
 
 def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch AOI data along with trend levels for a specific symbol/timeframe."""
+
+    normalized_symbol = validate_symbol(symbol)
+    if not normalized_symbol:
+        log.error("API Repo: Invalid symbol provided for AOI lookup")
+        return None
 
     trend_sql = """
         SELECT
@@ -128,46 +92,52 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         ORDER BY lower_bound ASC
     """
 
-    conn = get_db_connection()
-    if not conn:
-        log.error("API Fetch AOI: Database connection failed.")
+    normalized_timeframe = validate_timeframe("4H")
+    if not normalized_timeframe:
         return None
 
     response: Dict[str, Any] = {
-        "symbol": symbol,
+        "symbol": normalized_symbol,
         "low": None,
         "high": None,
         "aois": [],
     }
 
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(trend_sql, (symbol, "4H"))
-            trend_row = cursor.fetchone()
+    trend_row = fetch_one(
+        trend_sql,
+        (normalized_symbol, normalized_timeframe),
+        cursor_factory=RealDictCursor,
+        context="fetch_aoi_trend",
+    )
 
-            if trend_row:
-                high = trend_row.get("high")
-                low = trend_row.get("low")
-                response["high"] = float(high) if high is not None else None
-                response["low"] = float(low) if low is not None else None
+    if trend_row:
+        high = trend_row.get("high")
+        low = trend_row.get("low")
+        if validate_nullable_float(high, "high") and validate_nullable_float(low, "low"):
+            response["high"] = float(high) if high is not None else None
+            response["low"] = float(low) if low is not None else None
+        else:
+            return None
 
-            cursor.execute(aoi_sql, (symbol))
-            print(cursor.query.decode("utf-8"))
-            aoi_rows = cursor.fetchall()
-            response["aois"] = []
-            for row in aoi_rows:
-               response["aois"].append({
-                    "lower_bound": float(row["lower_bound"]) if row["lower_bound"] is not None else None,
-                    "upper_bound": float(row["upper_bound"]) if row["upper_bound"] is not None else None,
-                })
+    aoi_rows = fetch_all(
+        aoi_sql,
+        (normalized_symbol,),
+        cursor_factory=RealDictCursor,
+        context="fetch_aoi_rows",
+    )
 
-        return response
-
-    except psycopg2.Error as db_err:
-        log.error(f"API Repo: Database query error while fetching AOI: {db_err}", exc_info=True)
+    if aoi_rows is None:
+        log.error("API Repo: Database query error while fetching AOI list")
         return None
-    except Exception as e:
-        log.error(f"API Repo: Unexpected error during AOI fetch: {e}", exc_info=True)
-        return None
-    finally:
-        close_db_connection(conn)
+
+    for row in aoi_rows:
+        lower = row.get("lower_bound")
+        upper = row.get("upper_bound")
+        if not (validate_nullable_float(lower, "lower_bound") and validate_nullable_float(upper, "upper_bound")):
+            return None
+        response["aois"].append({
+            "lower_bound": float(lower) if lower is not None else None,
+            "upper_bound": float(upper) if upper is not None else None,
+        })
+
+    return response
