@@ -32,7 +32,22 @@ def run_1h_entry_scan_job(
 
     for symbol in FOREX_PAIRS:
         display.print_status(f"  -> Checking {symbol}...")
-        candles = fetch_data(symbol, mt5_timeframe, int(lookback))
+        candles = fetch_data(
+            symbol,
+            mt5_timeframe,
+            int(lookback),
+            timeframe_label=timeframe,
+        )
+        if candles is None:
+            display.print_error(
+                f"  ❌ Skipping {symbol}: no candle data returned for timeframe {timeframe}."
+            )
+            continue
+        if candles.empty:
+            display.print_error(
+                f"  ❌ Skipping {symbol}: no closed candles available after trimming."
+            )
+            continue
 
         trend_snapshot = _collect_trend_snapshot(trend_alignment_timeframes, symbol)
         direction = TrendDirection.from_raw(
