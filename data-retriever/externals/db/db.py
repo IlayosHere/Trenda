@@ -139,6 +139,7 @@ def _execute(
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
     context: str = "",
 ) -> Any:
+    conn: Optional[PgConnection] = None
     try:
         conn = get_connection()
     except DBConnectionError:
@@ -171,7 +172,8 @@ def _execute(
         _log_sql_error(context or sql, sql, params, exc)
         raise
     finally:
-        release_connection(conn)
+        if conn is not None:
+            release_connection(conn)
     return result
 
 
@@ -215,10 +217,10 @@ def execute_transaction(
     context: str = "transaction",
     cursor_factory: Optional[Callable[..., PgCursor]] = None,
 ) -> Optional[_T]:
+    conn: Optional[PgConnection] = None
     try:
         conn = get_connection()
-    except DBConnectionError as exc:
-        _log_sql_error(context, "<transaction>", None, exc)
+    except DBConnectionError:
         raise
 
     try:
@@ -230,7 +232,8 @@ def execute_transaction(
         _log_sql_error(context, "<transaction>", None, exc)
         return None
     finally:
-        release_connection(conn)
+        if conn is not None:
+            release_connection(conn)
 
 
 def validate_symbol(symbol: str) -> Optional[str]:
