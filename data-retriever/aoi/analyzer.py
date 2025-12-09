@@ -4,7 +4,7 @@ This module delegates context building, zone generation, and scoring to
 helpers in the ``aoi`` package so the entrypoint stays focused on control flow.
 """
 
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -14,12 +14,10 @@ from constants import BREAK_BEARISH, BREAK_BULLISH, SwingPoint
 from models import TrendDirection
 from configuration import (
     FOREX_PAIRS,
-    TIMEFRAMES,
     require_aoi_lookback,
     require_analysis_params,
 )
 from externals import db
-from externals.data_fetcher import fetch_data
 import utils.display as display
 from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (
@@ -34,7 +32,9 @@ from aoi.scoring import apply_directional_weighting_and_classify
 from aoi.trend import get_overall_trend
 
 
-def analyze_aoi_by_timeframe(timeframe: str) -> None:
+def analyze_aoi_by_timeframe(
+    timeframe: str, candles_by_symbol: Mapping[str, pd.DataFrame]
+) -> None:
     settings = AOI_CONFIGS.get(timeframe)
     if settings is None:
         display.print_status(
@@ -48,12 +48,18 @@ def analyze_aoi_by_timeframe(timeframe: str) -> None:
         display.print_status(f"  -> Processing {symbol}...")
         try:
             db.clear_aois(symbol, timeframe)
-            _process_symbol(settings, symbol)
+            symbol_candles = candles_by_symbol.get(symbol)
+            if symbol_candles is None:
+                display.print_error(
+                    f"  ❌ No candle data provided for {symbol} on {timeframe}."
+                )
+                continue
+            _process_symbol(settings, symbol, symbol_candles)
         except Exception as err:
             display.print_error(f"  -> Failed for {symbol}: {err}")
 
 
-def _process_symbol(settings: AOISettings, symbol: str) -> None:
+def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> None:
     trend_direction = TrendDirection.from_raw(
         get_overall_trend(settings.trend_alignment_timeframes, symbol)
     )
@@ -64,11 +70,9 @@ def _process_symbol(settings: AOISettings, symbol: str) -> None:
         )
         return
 
-    mt5_timeframe = TIMEFRAMES.get(settings.timeframe)
     require_analysis_params(settings.timeframe)
-    lookback_bars = require_aoi_lookback(settings.timeframe)
+    require_aoi_lookback(settings.timeframe)
 
-    data = fetch_data(symbol, mt5_timeframe, lookback_bars)
     if data is None or "close" not in data:
         display.print_error(f"  ❌ No price data for {symbol}.")
         return

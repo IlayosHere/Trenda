@@ -34,6 +34,7 @@ def get_swing_points(
     return swings
 
 
+#TODO: check the relavance of this function rn after we work with finished candles only
 def find_last_point(prices: np.ndarray, last_swing_point: SwingPoint) -> SwingPoint:
     if last_swing_point[2] == "L":
         return (last_swing_point[0] + 1, prices[-1], "H")

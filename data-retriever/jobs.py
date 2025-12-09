@@ -1,28 +1,97 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Mapping
+
+import pandas as pd
 
 from aoi import analyze_aoi_by_timeframe
+from configuration import (
+    FOREX_PAIRS,
+    TIMEFRAMES,
+    require_analysis_params,
+    require_aoi_lookback,
+)
 import utils.display as display
+from externals.data_fetcher import fetch_data
 from trend.workflow import analyze_trend_by_timeframe
 
-PRE_CLOSE_TRENDS = ["4H", "1D", "1W"]
-PRE_CLOSE_AOIS = ["4H", "1D"]
 
-def run_trend_batch(timeframes: Iterable[str]) -> None:
-    for timeframe in timeframes:
-        analyze_trend_by_timeframe(timeframe)
+def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.DataFrame]:
+    """Fetch closed candles for all symbols for the given timeframe."""
 
-def run_aoi_batch(timeframes: Iterable[str]) -> None:
-    for timeframe in timeframes:
-        analyze_aoi_by_timeframe(timeframe)
+    mt5_timeframe = TIMEFRAMES.get(timeframe)
+    if mt5_timeframe is None:
+        raise KeyError(f"Unknown timeframe {timeframe!r} requested for candle fetch.")
 
-def refresh_pre_close_data() -> None:
-    display.print_status("\n--- 🔁 Pre-close refresh for hourly entry checks ---")
-    display.print_status(
-        "  -> Updating trends for aligned timeframes: " + ", ".join(PRE_CLOSE_TRENDS)
+    candles: dict[str, pd.DataFrame] = {}
+    for symbol in FOREX_PAIRS:
+        display.print_status(
+            f"  -> Fetching {lookback} closed candles for {symbol} on {timeframe}..."
+        )
+        data = fetch_data(
+            symbol,
+            mt5_timeframe,
+            lookback,
+            timeframe_label=timeframe,
+        )
+        if data is None:
+            display.print_error(
+                f"  ❌ No candle data returned for {symbol} on timeframe {timeframe}."
+            )
+            continue
+        if data.empty:
+            display.print_error(
+                f"  ❌ No closed candles available for {symbol} on timeframe {timeframe}."
+            )
+            continue
+        candles[symbol] = data
+    return candles
+
+
+def _limit_candles(
+    candles: Mapping[str, pd.DataFrame], *, count: int | None
+) -> Mapping[str, pd.DataFrame]:
+    """Return only the latest ``count`` candles for each symbol."""
+
+    if count is None:
+        return candles
+
+    return {symbol: df.tail(count) for symbol, df in candles.items()}
+
+
+def _run_timeframe_analysis(
+    timeframe: str,
+    *,
+    include_aoi: bool,
+    trend_candles: Mapping[str, pd.DataFrame],
+    aoi_candles: Mapping[str, pd.DataFrame] | None,
+) -> None:
+    """Run AOI (when requested) and trend analysis for the provided candles."""
+
+    if include_aoi:
+        analyze_aoi_by_timeframe(timeframe, aoi_candles or {})
+
+    analyze_trend_by_timeframe(timeframe, trend_candles)
+
+
+def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
+    """Fetch candles once and run analyses for a timeframe."""
+
+    display.print_status(f"\n--- 🔄 Running {timeframe} timeframe job ---")
+    analysis_params = require_analysis_params(timeframe)
+    trend_lookback = analysis_params.lookback
+    aoi_lookback = require_aoi_lookback(timeframe) if include_aoi else None
+    fetch_lookback = max(trend_lookback, aoi_lookback or 0)
+
+    candles = _fetch_closed_candles(timeframe, lookback=fetch_lookback)
+    trend_candles = _limit_candles(candles, count=trend_lookback)
+    aoi_candles = _limit_candles(candles, count=aoi_lookback)
+
+    _run_timeframe_analysis(
+        timeframe,
+        include_aoi=include_aoi,
+        trend_candles=trend_candles,
+        aoi_candles=aoi_candles,
     )
-    run_trend_batch(PRE_CLOSE_TRENDS)
+    display.print_status(f"--- ✅ {timeframe} timeframe job complete ---\n")
 
-    display.print_status("  -> Refreshing AOIs ahead of the close: " + ", ".join(PRE_CLOSE_AOIS))
-    run_aoi_batch(PRE_CLOSE_AOIS)
