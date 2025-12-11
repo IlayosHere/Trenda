@@ -3,10 +3,9 @@ from typing import Final, Literal
 
 # --- Type Definitions ---
 
-
-SWING_HIGH: Final[str] = "H"
-SWING_LOW: Final[str] = "L"
-SwingKind = Literal[SWING_HIGH, SWING_LOW]
+SwingKind = Literal["H", "L"]
+SWING_HIGH: Final[SwingKind] = "H"
+SWING_LOW: Final[SwingKind] = "L"
 
 
 @dataclass(frozen=True)
