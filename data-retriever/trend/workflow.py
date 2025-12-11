@@ -31,8 +31,10 @@ def analyze_trend_by_timeframe(
             result = analyze_symbol_by_timeframe(
                 symbol, timeframe, candles_by_symbol.get(symbol)
             )
-            high_price = result.structural_high[1] if result.structural_high else None
-            low_price = result.structural_low[1] if result.structural_low else None
+            high_price = (
+                result.structural_high.price if result.structural_high else None
+            )
+            low_price = result.structural_low.price if result.structural_low else None
             update_trend_data(
                 symbol,
                 timeframe,
