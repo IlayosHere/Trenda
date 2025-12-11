@@ -2,6 +2,7 @@ from entry.detector import evaluate_entry_with_llm, run_1h_entry_scan_job, scan_
 from entry.models import EntryPattern, LLMEvaluation
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
+from entry.signal_repository import store_entry_signal
 
 __all__ = [
     "EntryPattern",
@@ -10,5 +11,6 @@ __all__ = [
     "evaluate_entry_with_llm",
     "find_entry_pattern",
     "run_1h_entry_scan_job",
+    "store_entry_signal",
     "scan_1h_for_entry",
 ]

@@ -17,7 +17,7 @@ from configuration import (
     require_aoi_lookback,
     require_analysis_params,
 )
-import database as db
+from aoi.aoi_repository import clear_aois, store_aois
 import utils.display as display
 from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (
@@ -47,7 +47,7 @@ def analyze_aoi_by_timeframe(
     for symbol in FOREX_PAIRS:
         display.print_status(f"  -> Processing {symbol}...")
         try:
-            db.clear_aois(symbol, timeframe)
+            clear_aois(symbol, timeframe)
             symbol_candles = candles_by_symbol.get(symbol)
             if symbol_candles is None:
                 display.print_error(
@@ -93,7 +93,7 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
         : settings.max_zones_per_symbol
     ]
 
-    db.store_aois(symbol, settings.timeframe, top_zones)
+    store_aois(symbol, settings.timeframe, top_zones)
     display.print_status(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
     )

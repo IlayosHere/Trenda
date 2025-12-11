@@ -1,10 +1,7 @@
 """Database access layer consolidating connection, execution, and validation logic."""
 
-from .aois import clear_aois, fetch_tradable_aois, store_aois
 from .connection import DBConnectionError, DBConnectionManager
 from .executor import DBDoNotRetryError, DBExecutor
-from .signals import store_entry_signal
-from .trends import fetch_trend_bias, fetch_trend_levels, update_trend_data
 from .validation import DBValidator
 
 
@@ -75,9 +72,6 @@ def validate_aoi(aoi):
 
 
 __all__ = [
-    "clear_aois",
-    "fetch_tradable_aois",
-    "store_aois",
     "get_connection",
     "init_pool",
     "close_pool",
@@ -91,10 +85,6 @@ __all__ = [
     "validate_timeframe",
     "validate_nullable_float",
     "validate_aoi",
-    "store_entry_signal",
-    "fetch_trend_bias",
-    "fetch_trend_levels",
-    "update_trend_data",
     "DBConnectionError",
     "DBDoNotRetryError",
     "DBExecutor",

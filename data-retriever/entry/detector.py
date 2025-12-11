@@ -8,7 +8,8 @@ from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from entry.models import EntryPattern, LLMEvaluation
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
-import database as db
+from aoi.aoi_repository import fetch_tradable_aois
+from entry.signal_repository import store_entry_signal
 from externals.data_fetcher import fetch_data
 from models import AOIZone, SignalData, TrendDirection
 from models.market import Candle
@@ -56,7 +57,7 @@ def run_1h_entry_scan_job(
         if direction is None:
             continue
 
-        aois = db.fetch_tradable_aois(symbol)
+        aois = fetch_tradable_aois(symbol)
         if not aois:
             continue
 
@@ -66,7 +67,7 @@ def run_1h_entry_scan_job(
             aoi = AOIZone(lower=lower, upper=upper)
             signal = scan_1h_for_entry(direction, aoi, candles)
             if signal:
-                entry_id = db.store_entry_signal(
+                entry_id = store_entry_signal(
                     symbol=symbol,
                     trend_snapshot=trend_snapshot,
                     aoi_high=aoi.upper,

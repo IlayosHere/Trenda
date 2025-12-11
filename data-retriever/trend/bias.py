@@ -6,13 +6,13 @@ timeframe-aligned trend bias for a symbol.
 
 from typing import Optional, Sequence
 
-import database as db
+from trend.trend_repository import fetch_trend_bias
 
 
 def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[str]:
     """Wrapper around the DB trend provider for testability."""
 
-    result = db.fetch_trend_bias(symbol, timeframe)
+    result = fetch_trend_bias(symbol, timeframe)
     return result
 
 

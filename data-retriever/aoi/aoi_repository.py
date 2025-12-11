@@ -2,9 +2,9 @@ from typing import Dict, List, Optional
 
 import utils.display as display
 
-from .executor import DBExecutor
-from .queries import CLEAR_AOIS, FETCH_TRADABLE_AOIS, UPSERT_AOIS
-from .validation import DBValidator
+from database.executor import DBExecutor
+from database.queries import CLEAR_AOIS, FETCH_TRADABLE_AOIS, UPSERT_AOIS
+from database.validation import DBValidator
 
 
 def clear_aois(symbol: str, timeframe: str):

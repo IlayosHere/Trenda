@@ -2,9 +2,9 @@ from typing import Optional, Tuple
 
 import utils.display as display
 
-from .executor import DBExecutor
-from .queries import FETCH_TREND_BIAS, FETCH_TREND_LEVELS, UPDATE_TREND_DATA
-from .validation import DBValidator
+from database.executor import DBExecutor
+from database.queries import FETCH_TREND_BIAS, FETCH_TREND_LEVELS, UPDATE_TREND_DATA
+from database.validation import DBValidator
 
 
 def update_trend_data(

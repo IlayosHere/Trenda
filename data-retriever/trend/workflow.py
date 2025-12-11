@@ -12,7 +12,7 @@ import pandas as pd
 
 from configuration import FOREX_PAIRS, require_analysis_params
 from constants import DATA_ERROR_MSG
-import database as db
+from trend.trend_repository import update_trend_data
 import utils.display as display
 from trend.structure import analyze_snake_trend, get_swing_points
 
@@ -33,7 +33,7 @@ def analyze_trend_by_timeframe(
             )
             high_price = struct_high[1] if struct_high else None
             low_price = struct_low[1] if struct_low else None
-            db.update_trend_data(
+            update_trend_data(
                 symbol,
                 timeframe,
                 trend,
