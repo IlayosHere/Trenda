@@ -26,21 +26,21 @@ def get_swing_points(
 
     swings: List[SwingPoint] = []
     for idx in high_indices:
-        swings.append((int(idx), prices[idx], "H"))
+        swings.append(SwingPoint(index=int(idx), price=float(prices[idx]), kind="H"))
     for idx in low_indices:
-        swings.append((int(idx), prices[idx], "L"))
+        swings.append(SwingPoint(index=int(idx), price=float(prices[idx]), kind="L"))
 
-    swings.sort(key=lambda x: x[0])  # Sort by index (chronologically)
+    swings.sort(key=lambda x: x.index)  # Sort by index (chronologically)
     swings.append(find_last_point(prices, swings[-1]))
     return swings
 
 
 #TODO: check the relavance of this function rn after we work with finished candles only
 def find_last_point(prices: np.ndarray, last_swing_point: SwingPoint) -> SwingPoint:
-    if last_swing_point[2] == "L":
-        return (last_swing_point[0] + 1, prices[-1], "H")
+    if last_swing_point.kind == "L":
+        return SwingPoint(last_swing_point.index + 1, float(prices[-1]), "H")
     else:
-        return (last_swing_point[0] + 1, prices[-1], "L")
+        return SwingPoint(last_swing_point.index + 1, float(prices[-1]), "L")
 
 def _find_initial_structure(
     all_swings: List[SwingPoint],
@@ -52,7 +52,7 @@ def _find_initial_structure(
     initial_low: Optional[SwingPoint] = None
 
     for swing in all_swings:
-        swing_type = swing[2]
+        swing_type = swing.kind
         if swing_type == "H" and initial_high is None:
             initial_high = swing
         elif swing_type == "L" and initial_low is None:
@@ -69,12 +69,12 @@ def _check_for_structure_break(
     """
     Checks if a new swing has broken the established market structure.
     """
-    price = current_swing[1]
-    swing_type = current_swing[2]
+    price = current_swing.price
+    swing_type = current_swing.kind
 
-    if swing_type == "H" and price > struct_high[1]:
+    if swing_type == "H" and price > struct_high.price:
         return BREAK_BULLISH
-    elif swing_type == "L" and price < struct_low[1]:
+    elif swing_type == "L" and price < struct_low.price:
         return BREAK_BEARISH
     return NO_BREAK
 
@@ -90,7 +90,7 @@ def _find_corresponding_structural_swing(
     search_for_type = "L" if break_type == BREAK_BULLISH else "H"
 
     for j in range(new_swing_index - 1, -1, -1):
-        if all_swings[j][2] == search_for_type:
+        if all_swings[j].kind == search_for_type:
             return all_swings[j]
 
     return None  # Fallback

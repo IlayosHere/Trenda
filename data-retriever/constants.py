@@ -1,8 +1,16 @@
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Literal
 
 # --- Type Definitions ---
-# (index, price, 'H'/'L')
-SwingPoint = Tuple[int, float, str]
+
+
+@dataclass(frozen=True)
+class SwingPoint:
+    """Represents a significant swing point (high/low) in price data."""
+
+    index: int
+    price: float
+    kind: Literal["H", "L"]
 
 # --- Trend Analysis Constants ---
 TREND_BULLISH: str = "bullish"
