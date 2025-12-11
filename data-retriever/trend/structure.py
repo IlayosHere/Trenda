@@ -9,6 +9,8 @@ from constants import (
     BREAK_BEARISH,
     BREAK_BULLISH,
     NO_BREAK,
+    SWING_HIGH,
+    SWING_LOW,
     SwingPoint,
     TREND_BEARISH,
     TREND_BULLISH,
@@ -26,9 +28,13 @@ def get_swing_points(
 
     swings: List[SwingPoint] = []
     for idx in high_indices:
-        swings.append(SwingPoint(index=int(idx), price=float(prices[idx]), kind="H"))
+        swings.append(
+            SwingPoint(index=int(idx), price=float(prices[idx]), kind=SWING_HIGH)
+        )
     for idx in low_indices:
-        swings.append(SwingPoint(index=int(idx), price=float(prices[idx]), kind="L"))
+        swings.append(
+            SwingPoint(index=int(idx), price=float(prices[idx]), kind=SWING_LOW)
+        )
 
     swings.sort(key=lambda x: x.index)  # Sort by index (chronologically)
     swings.append(find_last_point(prices, swings[-1]))
@@ -37,10 +43,10 @@ def get_swing_points(
 
 #TODO: check the relavance of this function rn after we work with finished candles only
 def find_last_point(prices: np.ndarray, last_swing_point: SwingPoint) -> SwingPoint:
-    if last_swing_point.kind == "L":
-        return SwingPoint(last_swing_point.index + 1, float(prices[-1]), "H")
+    if last_swing_point.kind == SWING_LOW:
+        return SwingPoint(last_swing_point.index + 1, float(prices[-1]), SWING_HIGH)
     else:
-        return SwingPoint(last_swing_point.index + 1, float(prices[-1]), "L")
+        return SwingPoint(last_swing_point.index + 1, float(prices[-1]), SWING_LOW)
 
 def _find_initial_structure(
     all_swings: List[SwingPoint],
@@ -53,9 +59,9 @@ def _find_initial_structure(
 
     for swing in all_swings:
         swing_type = swing.kind
-        if swing_type == "H" and initial_high is None:
+        if swing_type == SWING_HIGH and initial_high is None:
             initial_high = swing
-        elif swing_type == "L" and initial_low is None:
+        elif swing_type == SWING_LOW and initial_low is None:
             initial_low = swing
         if initial_high and initial_low:
             break
@@ -72,9 +78,9 @@ def _check_for_structure_break(
     price = current_swing.price
     swing_type = current_swing.kind
 
-    if swing_type == "H" and price > struct_high.price:
+    if swing_type == SWING_HIGH and price > struct_high.price:
         return BREAK_BULLISH
-    elif swing_type == "L" and price < struct_low.price:
+    elif swing_type == SWING_LOW and price < struct_low.price:
         return BREAK_BEARISH
     return NO_BREAK
 
@@ -87,7 +93,7 @@ def _find_corresponding_structural_swing(
     structural point (e.g., the new Higher Low or Lower High).
     """
     # If bullish break, we are looking for the last 'L' (Higher Low)
-    search_for_type = "L" if break_type == BREAK_BULLISH else "H"
+    search_for_type = SWING_LOW if break_type == BREAK_BULLISH else SWING_HIGH
 
     for j in range(new_swing_index - 1, -1, -1):
         if all_swings[j].kind == search_for_type:
@@ -120,33 +126,36 @@ def analyze_snake_trend(
         return TrendAnalysisResult(TREND_NEUTRAL, None, None)
 
     current_trend: str = TREND_NEUTRAL
-    current_structure: Dict[str, SwingPoint] = {"H": initial_high, "L": initial_low}
+    current_structure: Dict[str, SwingPoint] = {
+        SWING_HIGH: initial_high,
+        SWING_LOW: initial_low,
+    }
 
     for i in range(len(all_swings)):
         current_swing = all_swings[i]
 
         break_type = _check_for_structure_break(
-            current_swing, current_structure["H"], current_structure["L"]
+            current_swing, current_structure[SWING_HIGH], current_structure[SWING_LOW]
         )
 
         if break_type == BREAK_BULLISH:
             current_trend = TREND_BULLISH
             new_low = _find_corresponding_structural_swing(BREAK_BULLISH, i, all_swings)
-            current_structure["H"] = current_swing
+            current_structure[SWING_HIGH] = current_swing
             if new_low:
-                current_structure["L"] = new_low
+                current_structure[SWING_LOW] = new_low
 
         elif break_type == BREAK_BEARISH:
             current_trend = TREND_BEARISH
             new_high = _find_corresponding_structural_swing(
                 BREAK_BEARISH, i, all_swings
             )
-            current_structure["L"] = current_swing
+            current_structure[SWING_LOW] = current_swing
             if new_high:
-                current_structure["H"] = new_high
+                current_structure[SWING_HIGH] = new_high
 
     return TrendAnalysisResult(
         current_trend,
-        current_structure["H"],
-        current_structure["L"],
+        current_structure[SWING_HIGH],
+        current_structure[SWING_LOW],
     )

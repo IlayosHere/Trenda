@@ -4,13 +4,18 @@ from typing import Literal
 # --- Type Definitions ---
 
 
+SWING_HIGH: str = "H"
+SWING_LOW: str = "L"
+SwingKind = Literal[SWING_HIGH, SWING_LOW]
+
+
 @dataclass(frozen=True)
 class SwingPoint:
     """Represents a significant swing point (high/low) in price data."""
 
     index: int
     price: float
-    kind: Literal["H", "L"]
+    kind: SwingKind
 
 # --- Trend Analysis Constants ---
 TREND_BULLISH: str = "bullish"
