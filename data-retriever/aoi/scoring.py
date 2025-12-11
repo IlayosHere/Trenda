@@ -1,16 +1,16 @@
-from typing import Dict, List
+from dataclasses import replace
+from typing import List
 
 from .context import AOIContext
-from models import TrendDirection
+from models import AOIZone, TrendDirection
 
 
 def apply_directional_weighting_and_classify(
-    zones: List[Dict[str, float]],
+    zones: List[AOIZone],
     current_price: float,
-    last_bar_idx: int,
     trend_direction: TrendDirection | str,
     context: AOIContext,
-) -> List[Dict[str, float]]:
+) -> List[AOIZone]:
     """
     Apply direction-aware weighting to base score:
       - Bearish → AOIs ABOVE price are 'tradable' (sell), BELOW are 'reference'
@@ -18,9 +18,9 @@ def apply_directional_weighting_and_classify(
     """
 
     direction = TrendDirection.from_raw(trend_direction)
-    out: List[Dict[str, float]] = []
+    out: List[AOIZone] = []
     for z in zones:
-        lower, upper = z["lower_bound"], z["upper_bound"]
+        lower, upper = z.lower, z.upper
         zone_above_price = upper > current_price
         zone_below_price = lower < current_price
 
@@ -31,18 +31,15 @@ def apply_directional_weighting_and_classify(
         else:
             is_tradable = False
 
-        weighted_score = z["score"] * (
-            context.settings.alignment_weight if is_tradable else 1.0
-        )
+        alignment_weight = context.settings.alignment_weight if is_tradable else 1.0
+        base_score = z.score or 0.0
+        weighted_score = float(base_score * alignment_weight)
 
         out.append(
-            {
-                "lower_bound": float(lower),
-                "upper_bound": float(upper),
-                "score": float(weighted_score),
-                "touches": int(z["touches"]),
-                "last_swing_idx": int(z["last_swing_idx"]),
-                "type": "tradable" if is_tradable else "reference",
-            }
+            replace(
+                z,
+                score=weighted_score,
+                classification="tradable" if is_tradable else "reference",
+            )
         )
     return out

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 from utils.forex import pips_to_price
+from constants import SwingPoint
+from models import AOIZone
 
 from .context import AOIContext
 
@@ -17,33 +19,33 @@ class AOIZoneCandidate:
 
 
 def generate_aoi_zones(
-    swings: List,
+    swings: List[SwingPoint],
     last_bar_idx: int,
     context: AOIContext,
-) -> List[Dict[str, float]]:
+) -> List[AOIZone]:
     candidates = _find_zone_candidates(swings, last_bar_idx, context)
     merged = _merge_nearby_zones(candidates, context)
     recent = _filter_old_zones_by_bars(merged, last_bar_idx, context)
     non_overlapping = _filter_overlapping_zones(recent, context)
 
     return [
-        {
-            "lower_bound": z.lower_bound,
-            "upper_bound": z.upper_bound,
-            "height": z.height,
-            "touches": z.touches,
-            "score": z.score,
-            "last_swing_idx": z.last_swing_idx,
-        }
+        AOIZone(
+            lower=z.lower_bound,
+            upper=z.upper_bound,
+            height=z.height,
+            touches=z.touches,
+            score=z.score,
+            last_swing_idx=z.last_swing_idx,
+        )
         for z in non_overlapping
     ]
 
 def _find_zone_candidates(
-    swings: List,
+    swings: List[SwingPoint],
     last_bar_idx: int,
     context: AOIContext,
 ) -> List[AOIZoneCandidate]:
-    pairs: List[tuple[int, float]] = [(int(s[0]), float(s[1])) for s in swings]
+    pairs: List[tuple[int, float]] = [(int(s.index), float(s.price)) for s in swings]
     price_sorted: List[tuple[int, float]] = sorted(pairs, key=lambda x: x[1])
 
     candidates: Dict[tuple, AOIZoneCandidate] = {}
