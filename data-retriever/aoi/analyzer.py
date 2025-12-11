@@ -17,7 +17,7 @@ from configuration import (
     require_aoi_lookback,
     require_analysis_params,
 )
-from externals import db
+from aoi.aoi_repository import clear_aois, store_aois
 import utils.display as display
 from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (
@@ -29,7 +29,7 @@ from aoi.aoi_configuration import AOI_CONFIGS, AOISettings
 from aoi.context import build_context, extract_swings
 from aoi.pipeline import generate_aoi_zones
 from aoi.scoring import apply_directional_weighting_and_classify
-from aoi.trend import get_overall_trend
+from trend.bias import get_overall_trend
 
 
 def analyze_aoi_by_timeframe(
@@ -47,7 +47,7 @@ def analyze_aoi_by_timeframe(
     for symbol in FOREX_PAIRS:
         display.print_status(f"  -> Processing {symbol}...")
         try:
-            db.clear_aois(symbol, timeframe)
+            clear_aois(symbol, timeframe)
             symbol_candles = candles_by_symbol.get(symbol)
             if symbol_candles is None:
                 display.print_error(
@@ -87,13 +87,13 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
     important_swings = filter_noisy_points(swings)
     zones = generate_aoi_zones(important_swings, last_bar_idx, context)
     zones_scored = apply_directional_weighting_and_classify(
-        zones, current_price, last_bar_idx, trend_direction, context
+        zones, current_price, trend_direction, context
     )
-    top_zones = sorted(zones_scored, key=lambda z: z["score"], reverse=True)[
+    top_zones = sorted(zones_scored, key=lambda z: z.score or 0.0, reverse=True)[
         : settings.max_zones_per_symbol
     ]
 
-    db.store_aois(symbol, settings.timeframe, top_zones)
+    store_aois(symbol, settings.timeframe, top_zones)
     display.print_status(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
     )

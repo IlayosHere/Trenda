@@ -5,10 +5,11 @@ from typing import Any, Mapping, Optional, Sequence, Union
 import pandas as pd
 
 from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
-from entry.models import EntryPattern, LLMEvaluation
+from entry.models import EntryPattern
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
-from externals import db
+from aoi.aoi_repository import fetch_tradable_aois
+from entry.signal_repository import store_entry_signal
 from externals.data_fetcher import fetch_data
 from models import AOIZone, SignalData, TrendDirection
 from models.market import Candle
@@ -56,17 +57,14 @@ def run_1h_entry_scan_job(
         if direction is None:
             continue
 
-        aois = db.fetch_tradable_aois(symbol)
+        aois = fetch_tradable_aois(symbol)
         if not aois:
             continue
 
-        for aoi_data in aois:
-            lower = aoi_data.get("lower_bound")
-            upper = aoi_data.get("upper_bound")
-            aoi = AOIZone(lower=lower, upper=upper)
+        for aoi in aois:
             signal = scan_1h_for_entry(direction, aoi, candles)
             if signal:
-                entry_id = db.store_entry_signal(
+                entry_id = store_entry_signal(
                     symbol=symbol,
                     trend_snapshot=trend_snapshot,
                     aoi_high=aoi.upper,
@@ -82,7 +80,7 @@ def run_1h_entry_scan_job(
 
 def _collect_trend_snapshot(
     timeframes: Sequence[str], symbol: str
-) -> Mapping[str, Optional[str]]:
+) -> Mapping[str, Optional[TrendDirection]]:
     return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
 
 def scan_1h_for_entry(
@@ -118,18 +116,3 @@ def scan_1h_for_entry(
         signal_time=pattern.candles[-1].time,
         trade_quality=trade_quality,
     )
-
-
-def evaluate_entry_with_llm(
-    symbol: str,
-    timeframe: str,
-    direction: TrendDirection,
-    aoi: AOIZone,
-    pattern: EntryPattern,
-) -> LLMEvaluation:
-    return {
-        "take_trade": True,
-        "confidence": 1.0,
-        "reason": "LLM stub approved the trade by default.",
-    }
-

@@ -1,4 +1,4 @@
-"""External integrations such as database and broker adapters."""
+"""External integrations such as broker adapters."""
 
 from . import db
 
