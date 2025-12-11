@@ -17,6 +17,7 @@ def fetch_data(
     *,
     timeframe_label: str | None = None,
     now: datetime | None = None,
+    closed_candles_only: bool = True
 ) -> Optional[pd.DataFrame]:
     """
     Fetch OHLC data from MT5, converting it into a dataframe of closed candles.
@@ -36,11 +37,14 @@ def fetch_data(
     if timeframe_label is None:
         return df
 
-    cutoff_time = last_expected_close_time(
-        timeframe_label, now=now or datetime.now(timezone.utc)
-    )
-    trimmed = trim_to_closed_candles(df, timeframe_label, now=cutoff_time)
-    return trimmed
+    if closed_candles_only: 
+        cutoff_time = last_expected_close_time(
+            timeframe_label, now=now or datetime.now(timezone.utc)
+        )
+        trimmed = trim_to_closed_candles(df, timeframe_label, now=cutoff_time)
+        return trimmed
+    
+    return df
 
 
 def _convert_to_dataframe(rates: tuple) -> pd.DataFrame:
