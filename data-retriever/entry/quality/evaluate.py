@@ -32,6 +32,15 @@ def evaluate_entry_quality(
     aoi_height = aoi_high - aoi_low
     if aoi_height <= 0:
         return 0.0
+    
+    relevant_candles = [
+        candles[i]
+        for i in range(retest_idx, break_idx + 1)
+        if not (candles[i].high < aoi_low or candles[i].low > aoi_high)
+    ]
+    
+    if len(relevant_candles) == 0:
+        return 0.0
 
     retest_candle = candles[retest_idx]
     break_candle = candles[break_idx]
@@ -43,9 +52,7 @@ def evaluate_entry_quality(
                                    trend_direction,
                                    aoi_low,
                                    aoi_high,
-                                   aoi_height,
-                                   retest_idx,
-                                   break_idx)
+                                   aoi_height)
 
     S2 = compute_wick_momentum_score(candles,
                                      trend_direction,

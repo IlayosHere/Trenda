@@ -3,6 +3,7 @@ from typing import Optional
 
 import MetaTrader5 as mt5
 import pandas as pd
+import tzlocal
 
 # Import the error message constant
 from constants import DATA_ERROR_MSG
@@ -52,7 +53,11 @@ def _convert_to_dataframe(rates: tuple) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A clean, time-indexed DataFrame.
     """
+    local_tz = tzlocal.get_localzone_name()
     df = pd.DataFrame(rates)
-    df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
-    # df.set_index("time", inplace=True)
+    df["time"] = (
+        pd.to_datetime(df["time"], unit="s")
+        .dt.tz_localize(local_tz)   # interpret raw timestamps as local MT5 time
+        .dt.tz_convert("UTC")        # normalize to UTC
+    )    # df.set_index("time", inplace=True)
     return df
