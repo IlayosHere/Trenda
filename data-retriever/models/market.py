@@ -34,10 +34,26 @@ class TrendDirection(Enum):
 class AOIZone:
     lower: float
     upper: float
+    score: float | None = None
+    touches: int | None = None
+    last_swing_idx: int | None = None
+    height: float | None = None
+    classification: str | None = None
 
     def __post_init__(self) -> None:
-        if self.lower > self.upper:
+        if self.lower is not None and self.upper is not None and self.lower > self.upper:
             self.lower, self.upper = self.upper, self.lower
+
+    def with_classification(self, classification: str, score: float) -> "AOIZone":
+        return AOIZone(
+            lower=self.lower,
+            upper=self.upper,
+            score=score,
+            touches=self.touches,
+            last_swing_idx=self.last_swing_idx,
+            height=self.height,
+            classification=classification,
+        )
 
 
 @dataclass

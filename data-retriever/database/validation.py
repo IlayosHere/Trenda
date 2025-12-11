@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, Union
 
 import utils.display as display
+from models import AOIZone
 
 
 class DBValidator:
@@ -50,9 +51,13 @@ class DBValidator:
         return True
 
     @staticmethod
-    def validate_aoi(aoi: dict) -> bool:
-        lower = aoi.get("lower_bound")
-        upper = aoi.get("upper_bound")
+    def validate_aoi(aoi: Union[dict, AOIZone]) -> bool:
+        if isinstance(aoi, AOIZone):
+            lower = aoi.lower
+            upper = aoi.upper
+        else:
+            lower = aoi.get("lower_bound")
+            upper = aoi.get("upper_bound")
         if not DBValidator.validate_nullable_float(lower, "lower_bound"):
             return False
         if not DBValidator.validate_nullable_float(upper, "upper_bound"):

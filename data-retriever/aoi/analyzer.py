@@ -29,7 +29,7 @@ from aoi.aoi_configuration import AOI_CONFIGS, AOISettings
 from aoi.context import build_context, extract_swings
 from aoi.pipeline import generate_aoi_zones
 from aoi.scoring import apply_directional_weighting_and_classify
-from aoi.trend import get_overall_trend
+from trend.bias import get_overall_trend
 
 
 def analyze_aoi_by_timeframe(
@@ -87,9 +87,9 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
     important_swings = filter_noisy_points(swings)
     zones = generate_aoi_zones(important_swings, last_bar_idx, context)
     zones_scored = apply_directional_weighting_and_classify(
-        zones, current_price, last_bar_idx, trend_direction, context
+        zones, current_price, trend_direction, context
     )
-    top_zones = sorted(zones_scored, key=lambda z: z["score"], reverse=True)[
+    top_zones = sorted(zones_scored, key=lambda z: z.score or 0.0, reverse=True)[
         : settings.max_zones_per_symbol
     ]
 

@@ -1,10 +1,11 @@
-from typing import Dict, List, Optional
+from typing import List
 
 import utils.display as display
 
 from database.executor import DBExecutor
 from database.queries import CLEAR_AOIS, FETCH_TRADABLE_AOIS, UPSERT_AOIS
 from database.validation import DBValidator
+from models import AOIZone
 
 
 def clear_aois(symbol: str, timeframe: str):
@@ -23,31 +24,27 @@ def clear_aois(symbol: str, timeframe: str):
 def store_aois(
     symbol: str,
     timeframe: str,
-    aois: List[Dict[str, float]],
+    aois: List[AOIZone],
 ) -> None:
     """Sync AOI zones for a forex pair/timeframe combination."""
     normalized_symbol = DBValidator.validate_symbol(symbol)
     normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
         return
-    if not isinstance(aois, list):
-        display.print_error("DB_VALIDATION: aois must be provided as a list")
-        return
-
     param_sets = []
     for aoi in aois:
-        if not isinstance(aoi, dict) or not DBValidator.validate_aoi(aoi):
+        if not DBValidator.validate_aoi(aoi):
             return
-        aoi_type = aoi.get("type")
+        aoi_type = aoi.classification
         if not isinstance(aoi_type, str) or not aoi_type:
-            display.print_error("DB_VALIDATION: AOI type must be a non-empty string")
+            display.print_error("DB_VALIDATION: AOI classification must be a non-empty string")
             return
         param_sets.append(
             (
                 normalized_symbol,
                 normalized_timeframe,
-                aoi.get("lower_bound"),
-                aoi.get("upper_bound"),
+                aoi.lower,
+                aoi.upper,
                 aoi_type,
             )
         )
@@ -56,7 +53,7 @@ def store_aois(
         DBExecutor.execute_many(UPSERT_AOIS, param_sets, context="store_aois")
 
 
-def fetch_tradable_aois(symbol: str) -> List[Dict[str, Optional[float]]]:
+def fetch_tradable_aois(symbol: str) -> List[AOIZone]:
     normalized_symbol = DBValidator.validate_symbol(symbol)
     if not normalized_symbol:
         return []
@@ -70,10 +67,13 @@ def fetch_tradable_aois(symbol: str) -> List[Dict[str, Optional[float]]]:
     if not rows:
         return []
 
-    return [
-        {
-            "lower_bound": float(row[0]) if row[0] is not None else None,
-            "upper_bound": float(row[1]) if row[1] is not None else None,
-        }
-        for row in rows
-    ]
+    zones: List[AOIZone] = []
+    for row in rows:
+        zone = AOIZone(
+            lower=float(row[0]) if row[0] is not None else None,
+            upper=float(row[1]) if row[1] is not None else None,
+            classification="tradable",
+        )
+        if DBValidator.validate_aoi(zone):
+            zones.append(zone)
+    return zones

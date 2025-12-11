@@ -61,10 +61,7 @@ def run_1h_entry_scan_job(
         if not aois:
             continue
 
-        for aoi_data in aois:
-            lower = aoi_data.get("lower_bound")
-            upper = aoi_data.get("upper_bound")
-            aoi = AOIZone(lower=lower, upper=upper)
+        for aoi in aois:
             signal = scan_1h_for_entry(direction, aoi, candles)
             if signal:
                 entry_id = store_entry_signal(
