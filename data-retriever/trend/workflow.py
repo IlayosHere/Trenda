@@ -31,6 +31,12 @@ def analyze_trend_by_timeframe(
             result = analyze_symbol_by_timeframe(
                 symbol, timeframe, candles_by_symbol.get(symbol)
             )
+            if result.trend is None:
+                display.print_status(
+                    f"  -> Skipping {symbol}: unable to determine trend for {timeframe}."
+                )
+                continue
+
             high_price = (
                 result.structural_high.price if result.structural_high else None
             )
@@ -58,11 +64,11 @@ def analyze_symbol_by_timeframe(
         display.print_status(
             f"  -> {DATA_ERROR_MSG} for {symbol} on TF {timeframe} (No candles provided)"
         )
-        return TrendAnalysisResult(DATA_ERROR_MSG, None, None)
+        return TrendAnalysisResult(None, None, None)
 
     if symbol not in FOREX_PAIRS:
         display.print_error(f"Unknown symbol {symbol} in analysis.")
-        return TrendAnalysisResult(DATA_ERROR_MSG, None, None)
+        return TrendAnalysisResult(None, None, None)
 
     analysis_params = require_analysis_params(timeframe)
 
@@ -71,7 +77,7 @@ def analyze_symbol_by_timeframe(
         display.print_status(
             f"  -> {DATA_ERROR_MSG} for {symbol} on TF {timeframe} (No prices returned)"
         )
-        return TrendAnalysisResult(DATA_ERROR_MSG, None, None)
+        return TrendAnalysisResult(None, None, None)
 
     swings = get_swing_points(
         prices, analysis_params.distance, analysis_params.prominence

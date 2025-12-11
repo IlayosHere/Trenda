@@ -16,6 +16,7 @@ from constants import (
     TREND_BULLISH,
     TREND_NEUTRAL,
 )
+from models import TrendDirection
 
 def get_swing_points(
     prices: np.ndarray, distance: int, prominence: float
@@ -106,7 +107,7 @@ def _find_corresponding_structural_swing(
 class TrendAnalysisResult:
     """Container for trend analysis outcomes."""
 
-    trend: str
+    trend: Optional[TrendDirection]
     structural_high: Optional[SwingPoint]
     structural_low: Optional[SwingPoint]
 
@@ -125,7 +126,7 @@ def analyze_snake_trend(
     if not initial_high or not initial_low:
         return TrendAnalysisResult(TREND_NEUTRAL, None, None)
 
-    current_trend: str = TREND_NEUTRAL
+    current_trend: TrendDirection = TREND_NEUTRAL
     current_structure: Dict[str, SwingPoint] = {
         SWING_HIGH: initial_high,
         SWING_LOW: initial_low,

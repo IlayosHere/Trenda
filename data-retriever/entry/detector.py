@@ -83,7 +83,7 @@ def run_1h_entry_scan_job(
 
 def _collect_trend_snapshot(
     timeframes: Sequence[str], symbol: str
-) -> Mapping[str, Optional[str]]:
+) -> Mapping[str, Optional[TrendDirection]]:
     return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
 
 def scan_1h_for_entry(

@@ -6,36 +6,30 @@ timeframe-aligned trend bias for a symbol.
 
 from typing import Optional, Sequence
 
-from constants import TREND_BEARISH, TREND_BULLISH, TREND_NEUTRAL, TrendBias
+from constants import TREND_BEARISH, TREND_BULLISH, TREND_NEUTRAL
+from models import TrendDirection
 from trend.trend_repository import fetch_trend_bias
 
 
-def _normalize_trend_bias(value: Optional[str]) -> Optional[TrendBias]:
+def _normalize_trend_direction(value: Optional[str | TrendDirection]) -> Optional[TrendDirection]:
     if value is None:
         return None
 
-    if not isinstance(value, str):
-        return None
-
-    normalized = value.lower()
-    if normalized == TREND_BULLISH:
-        return TREND_BULLISH
-    if normalized == TREND_BEARISH:
-        return TREND_BEARISH
-    if normalized == TREND_NEUTRAL:
-        return TREND_NEUTRAL
+    normalized = TrendDirection.from_raw(value)
+    if normalized in {TREND_BULLISH, TREND_BEARISH, TREND_NEUTRAL}:
+        return normalized
 
     return None
 
 
-def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[TrendBias]:
+def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[TrendDirection]:
     """Wrapper around the DB trend provider for testability."""
 
     result = fetch_trend_bias(symbol, timeframe)
-    return _normalize_trend_bias(result)
+    return _normalize_trend_direction(result)
 
 
-def get_overall_trend(timeframes: Sequence[str], symbol: str) -> Optional[TrendBias]:
+def get_overall_trend(timeframes: Sequence[str], symbol: str) -> Optional[TrendDirection]:
     """Return the middle/consensus trend when higher timeframes align."""
 
     trend_values = [

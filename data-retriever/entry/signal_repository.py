@@ -6,11 +6,12 @@ from database.executor import DBExecutor
 from database.helpers import required_trend, value_from_candle
 from database.queries import INSERT_ENTRY_CANDLE, INSERT_ENTRY_SIGNAL, INSERT_TREND_SNAPSHOT
 from database.validation import DBValidator
+from models import TrendDirection
 
 
 def store_entry_signal(
     symbol: str,
-    trend_snapshot: Mapping[str, Optional[str]],
+    trend_snapshot: Mapping[str, Optional[TrendDirection]],
     aoi_high: float,
     aoi_low: float,
     signal_time,

@@ -9,6 +9,7 @@ from typing import Any, List, Mapping
 class TrendDirection(Enum):
     BULLISH = "bullish"
     BEARISH = "bearish"
+    NEUTRAL = "neutral"
 
     @classmethod
     def from_raw(cls, raw: Any) -> "TrendDirection | None":

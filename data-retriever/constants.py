@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Final, Literal
 
+from models import TrendDirection
+
 # --- Type Definitions ---
 
 SwingKind = Literal["H", "L"]
@@ -17,10 +19,9 @@ class SwingPoint:
     kind: SwingKind
 
 # --- Trend Analysis Constants ---
-TrendBias = Literal["bullish", "bearish", "neutral"]
-TREND_BULLISH: Final[TrendBias] = "bullish"
-TREND_BEARISH: Final[TrendBias] = "bearish"
-TREND_NEUTRAL: Final[TrendBias] = "neutral"
+TREND_BULLISH: Final[TrendDirection] = TrendDirection.BULLISH
+TREND_BEARISH: Final[TrendDirection] = TrendDirection.BEARISH
+TREND_NEUTRAL: Final[TrendDirection] = TrendDirection.NEUTRAL
 
 # --- Structure Break Constants ---
 BREAK_BULLISH: str = "BULLISH_BREAK"
