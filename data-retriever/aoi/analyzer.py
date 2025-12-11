@@ -17,7 +17,7 @@ from configuration import (
     require_aoi_lookback,
     require_analysis_params,
 )
-from externals import db
+import database as db
 import utils.display as display
 from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (

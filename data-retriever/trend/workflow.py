@@ -12,7 +12,7 @@ import pandas as pd
 
 from configuration import FOREX_PAIRS, require_analysis_params
 from constants import DATA_ERROR_MSG
-from externals import db
+import database as db
 import utils.display as display
 from trend.structure import analyze_snake_trend, get_swing_points
 

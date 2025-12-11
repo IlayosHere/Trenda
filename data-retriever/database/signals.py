@@ -2,9 +2,10 @@ from typing import Any, Mapping, Optional, Sequence
 
 import utils.display as display
 
-from .db import execute_transaction, validate_nullable_float, validate_symbol
+from .executor import DBExecutor
 from .helpers import required_trend, value_from_candle
 from .queries import INSERT_ENTRY_CANDLE, INSERT_ENTRY_SIGNAL, INSERT_TREND_SNAPSHOT
+from .validation import DBValidator
 
 
 def store_entry_signal(
@@ -17,13 +18,13 @@ def store_entry_signal(
     trade_quality: float,
 ) -> Optional[int]:
     """Persist an entry signal and its supporting candles."""
-    normalized_symbol = validate_symbol(symbol)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
     if not normalized_symbol:
         return None
     if not isinstance(trade_quality, (int, float)):
         display.print_error("DB_VALIDATION: trade_quality must be numeric")
         return None
-    if not validate_nullable_float(aoi_high, "aoi_high") or not validate_nullable_float(
+    if not DBValidator.validate_nullable_float(aoi_high, "aoi_high") or not DBValidator.validate_nullable_float(
         aoi_low, "aoi_low"
     ):
         return None
@@ -78,4 +79,4 @@ def store_entry_signal(
         cursor.executemany(INSERT_ENTRY_CANDLE, candle_rows)
         return signal_id
 
-    return execute_transaction(_persist, context="store_entry_signal")
+    return DBExecutor.execute_transaction(_persist, context="store_entry_signal")

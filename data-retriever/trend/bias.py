@@ -6,7 +6,7 @@ timeframe-aligned trend bias for a symbol.
 
 from typing import Optional, Sequence
 
-from externals import db
+import database as db
 
 
 def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[str]:

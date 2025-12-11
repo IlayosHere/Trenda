@@ -8,7 +8,7 @@ from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from entry.models import EntryPattern, LLMEvaluation
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
-from externals import db
+import database as db
 from externals.data_fetcher import fetch_data
 from models import AOIZone, SignalData, TrendDirection
 from models.market import Candle

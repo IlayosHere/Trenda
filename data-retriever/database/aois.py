@@ -2,24 +2,18 @@ from typing import Dict, List, Optional
 
 import utils.display as display
 
-from .db import (
-    execute_many,
-    execute_non_query,
-    fetch_all,
-    validate_aoi,
-    validate_symbol,
-    validate_timeframe,
-)
+from .executor import DBExecutor
 from .queries import CLEAR_AOIS, FETCH_TRADABLE_AOIS, UPSERT_AOIS
+from .validation import DBValidator
 
 
 def clear_aois(symbol: str, timeframe: str):
-    normalized_symbol = validate_symbol(symbol)
-    normalized_timeframe = validate_timeframe(timeframe)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
+    normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
         return
 
-    execute_non_query(
+    DBExecutor.execute_non_query(
         CLEAR_AOIS,
         (normalized_symbol, normalized_timeframe),
         context="clear_aois",
@@ -32,8 +26,8 @@ def store_aois(
     aois: List[Dict[str, float]],
 ) -> None:
     """Sync AOI zones for a forex pair/timeframe combination."""
-    normalized_symbol = validate_symbol(symbol)
-    normalized_timeframe = validate_timeframe(timeframe)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
+    normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
         return
     if not isinstance(aois, list):
@@ -42,7 +36,7 @@ def store_aois(
 
     param_sets = []
     for aoi in aois:
-        if not isinstance(aoi, dict) or not validate_aoi(aoi):
+        if not isinstance(aoi, dict) or not DBValidator.validate_aoi(aoi):
             return
         aoi_type = aoi.get("type")
         if not isinstance(aoi_type, str) or not aoi_type:
@@ -59,15 +53,15 @@ def store_aois(
         )
 
     if param_sets:
-        execute_many(UPSERT_AOIS, param_sets, context="store_aois")
+        DBExecutor.execute_many(UPSERT_AOIS, param_sets, context="store_aois")
 
 
 def fetch_tradable_aois(symbol: str) -> List[Dict[str, Optional[float]]]:
-    normalized_symbol = validate_symbol(symbol)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
     if not normalized_symbol:
         return []
 
-    rows = fetch_all(
+    rows = DBExecutor.fetch_all(
         FETCH_TRADABLE_AOIS,
         (normalized_symbol,),
         context="fetch_tradable_aois",

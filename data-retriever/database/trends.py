@@ -2,30 +2,25 @@ from typing import Optional, Tuple
 
 import utils.display as display
 
-from .db import (
-    execute_non_query,
-    fetch_one,
-    validate_nullable_float,
-    validate_symbol,
-    validate_timeframe,
-)
+from .executor import DBExecutor
 from .queries import FETCH_TREND_BIAS, FETCH_TREND_LEVELS, UPDATE_TREND_DATA
+from .validation import DBValidator
 
 
 def update_trend_data(
     symbol: str, timeframe: str, trend: str, high: Optional[float], low: Optional[float]
 ) -> None:
-    normalized_symbol = validate_symbol(symbol)
-    normalized_timeframe = validate_timeframe(timeframe)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
+    normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
         return
     if not trend or not isinstance(trend, str):
         display.print_error("DB_VALIDATION: trend must be provided as a string")
         return
-    if not validate_nullable_float(high, "high") or not validate_nullable_float(low, "low"):
+    if not DBValidator.validate_nullable_float(high, "high") or not DBValidator.validate_nullable_float(low, "low"):
         return
 
-    execute_non_query(
+    DBExecutor.execute_non_query(
         UPDATE_TREND_DATA,
         (normalized_symbol, normalized_timeframe, trend, high, low),
         context="update_trend_data",
@@ -33,12 +28,12 @@ def update_trend_data(
 
 
 def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
-    normalized_symbol = validate_symbol(symbol)
-    normalized_timeframe = validate_timeframe(timeframe)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
+    normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
         return None
 
-    row = fetch_one(
+    row = DBExecutor.fetch_one(
         FETCH_TREND_BIAS,
         (normalized_symbol, normalized_timeframe),
         context="fetch_trend_bias",
@@ -52,12 +47,12 @@ def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
 
 def fetch_trend_levels(symbol: str, timeframe: str) -> Tuple[Optional[float], Optional[float]]:
     """Retrieve the stored high/low levels for a symbol/timeframe combination."""
-    normalized_symbol = validate_symbol(symbol)
-    normalized_timeframe = validate_timeframe(timeframe)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
+    normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
         return None, None
 
-    row = fetch_one(
+    row = DBExecutor.fetch_one(
         FETCH_TREND_LEVELS,
         (normalized_symbol, normalized_timeframe),
         context="fetch_trend_levels",
