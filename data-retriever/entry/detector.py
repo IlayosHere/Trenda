@@ -5,7 +5,7 @@ from typing import Any, Mapping, Optional, Sequence, Union
 import pandas as pd
 
 from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
-from entry.models import EntryPattern, LLMEvaluation
+from entry.models import EntryPattern
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
 from aoi.aoi_repository import fetch_tradable_aois
@@ -119,18 +119,3 @@ def scan_1h_for_entry(
         signal_time=pattern.candles[-1].time,
         trade_quality=trade_quality,
     )
-
-
-def evaluate_entry_with_llm(
-    symbol: str,
-    timeframe: str,
-    direction: TrendDirection,
-    aoi: AOIZone,
-    pattern: EntryPattern,
-) -> LLMEvaluation:
-    return {
-        "take_trade": True,
-        "confidence": 1.0,
-        "reason": "LLM stub approved the trade by default.",
-    }
-

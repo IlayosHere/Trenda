@@ -6,17 +6,36 @@ timeframe-aligned trend bias for a symbol.
 
 from typing import Optional, Sequence
 
+from constants import TREND_BEARISH, TREND_BULLISH, TREND_NEUTRAL, TrendBias
 from trend.trend_repository import fetch_trend_bias
 
 
-def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[str]:
+def _normalize_trend_bias(value: Optional[str]) -> Optional[TrendBias]:
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.lower()
+    if normalized == TREND_BULLISH:
+        return TREND_BULLISH
+    if normalized == TREND_BEARISH:
+        return TREND_BEARISH
+    if normalized == TREND_NEUTRAL:
+        return TREND_NEUTRAL
+
+    return None
+
+
+def get_trend_by_timeframe(symbol: str, timeframe: str) -> Optional[TrendBias]:
     """Wrapper around the DB trend provider for testability."""
 
     result = fetch_trend_bias(symbol, timeframe)
-    return result
+    return _normalize_trend_bias(result)
 
 
-def get_overall_trend(timeframes: Sequence[str], symbol: str) -> Optional[str]:
+def get_overall_trend(timeframes: Sequence[str], symbol: str) -> Optional[TrendBias]:
     """Return the middle/consensus trend when higher timeframes align."""
 
     trend_values = [

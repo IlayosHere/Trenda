@@ -17,9 +17,10 @@ class SwingPoint:
     kind: SwingKind
 
 # --- Trend Analysis Constants ---
-TREND_BULLISH: str = "bullish"
-TREND_BEARISH: str = "bearish"
-TREND_NEUTRAL: str = "neutral"
+TrendBias = Literal["bullish", "bearish", "neutral"]
+TREND_BULLISH: Final[TrendBias] = "bullish"
+TREND_BEARISH: Final[TrendBias] = "bearish"
+TREND_NEUTRAL: Final[TrendBias] = "neutral"
 
 # --- Structure Break Constants ---
 BREAK_BULLISH: str = "BULLISH_BREAK"

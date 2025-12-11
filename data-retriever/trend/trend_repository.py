@@ -2,13 +2,14 @@ from typing import Optional, Tuple
 
 import utils.display as display
 
+from constants import TrendBias
 from database.executor import DBExecutor
 from database.queries import FETCH_TREND_BIAS, FETCH_TREND_LEVELS, UPDATE_TREND_DATA
 from database.validation import DBValidator
 
 
 def update_trend_data(
-    symbol: str, timeframe: str, trend: str, high: Optional[float], low: Optional[float]
+    symbol: str, timeframe: str, trend: TrendBias, high: Optional[float], low: Optional[float]
 ) -> None:
     normalized_symbol = DBValidator.validate_symbol(symbol)
     normalized_timeframe = DBValidator.validate_timeframe(timeframe)
@@ -27,7 +28,7 @@ def update_trend_data(
     )
 
 
-def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[str]:
+def fetch_trend_bias(symbol: str, timeframe: str) -> Optional[TrendBias]:
     normalized_symbol = DBValidator.validate_symbol(symbol)
     normalized_timeframe = DBValidator.validate_timeframe(timeframe)
     if not (normalized_symbol and normalized_timeframe):
