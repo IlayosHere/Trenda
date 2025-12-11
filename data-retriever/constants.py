@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Final, Literal
 
 # --- Type Definitions ---
 
 
-SWING_HIGH: str = "H"
-SWING_LOW: str = "L"
+SWING_HIGH: Final[str] = "H"
+SWING_LOW: Final[str] = "L"
 SwingKind = Literal[SWING_HIGH, SWING_LOW]
 
 
