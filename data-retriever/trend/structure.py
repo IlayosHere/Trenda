@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -95,19 +96,28 @@ def _find_corresponding_structural_swing(
     return None  # Fallback
 
 
+@dataclass(frozen=True)
+class TrendAnalysisResult:
+    """Container for trend analysis outcomes."""
+
+    trend: str
+    structural_high: Optional[SwingPoint]
+    structural_low: Optional[SwingPoint]
+
+
 def analyze_snake_trend(
     all_swings: List[SwingPoint],
-) -> Tuple[str, Optional[SwingPoint], Optional[SwingPoint]]:
+) -> TrendAnalysisResult:
     """
     Orchestrates the analysis of swings to find the trend and structural points.
     """
     if len(all_swings) < 2:
-        return TREND_NEUTRAL, None, None
+        return TrendAnalysisResult(TREND_NEUTRAL, None, None)
 
     initial_high, initial_low = _find_initial_structure(all_swings)
 
     if not initial_high or not initial_low:
-        return TREND_NEUTRAL, None, None
+        return TrendAnalysisResult(TREND_NEUTRAL, None, None)
 
     current_trend: str = TREND_NEUTRAL
     current_structure: Dict[str, SwingPoint] = {"H": initial_high, "L": initial_low}
@@ -135,4 +145,8 @@ def analyze_snake_trend(
             if new_high:
                 current_structure["H"] = new_high
 
-    return current_trend, current_structure["H"], current_structure["L"]
+    return TrendAnalysisResult(
+        current_trend,
+        current_structure["H"],
+        current_structure["L"],
+    )
