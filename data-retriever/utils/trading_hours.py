@@ -6,7 +6,7 @@ from typing import Iterable, Set
 
 import utils.display as display
 
-DEFAULT_TRADING_DAYS = "0-5"  # Monday=0, Sunday=6
+DEFAULT_TRADING_DAYS = "0-4"  # Monday=0, Sunday=6
 DEFAULT_TRADING_HOURS = "4-15"  # 24/7 by default
 
 

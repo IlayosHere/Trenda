@@ -40,7 +40,7 @@ SCHEDULE_CONFIG = [
         "id": "job_hourly_entry_signals",
         "name": "1H entry signal evaluation",
         "timeframes": ["1H"],
-        "interval_minutes": 60,
+        "interval_minutes": 1,
         "offset_seconds": 30,
         "job": run_1h_entry_scan_job,
         "args": ["1H"],

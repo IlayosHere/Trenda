@@ -5,14 +5,13 @@ from typing import Any, Mapping, Optional, Sequence, Union
 import pandas as pd
 
 from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
-from entry.models import EntryPattern
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
 from aoi.aoi_repository import fetch_tradable_aois
 from entry.signal_repository import store_entry_signal
 from externals.data_fetcher import fetch_data
-from models import AOIZone, SignalData, TrendDirection
-from models.market import Candle
+from models import AOIZone, TrendDirection
+from models.market import Candle, SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
 import utils.display as display
 
