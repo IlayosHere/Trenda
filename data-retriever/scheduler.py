@@ -101,8 +101,19 @@ def compute_first_run_time(timeframe: str, interval_minutes: int, offset_seconds
     """
     Compute the FIRST run based on the ACTUAL broker candle closes.
     """
-    df = fetch_data(STUB_FOREX_SYMBOL, TIMEFRAMES[timeframe], 1, 
-                    timeframe_label= timeframe, closed_candles_only=False)
+    df = fetch_data(
+        STUB_FOREX_SYMBOL,
+        TIMEFRAMES[timeframe],
+        1,
+        timeframe_label=timeframe,
+        closed_candles_only=False,
+    )
+    if df is None or df.empty:
+        display.print_error(
+            "  ❌ Unable to determine last close time; scheduling job immediately."
+        )
+        return datetime.now(timezone.utc) + timedelta(seconds=offset_seconds)
+
     last_close: datetime = df.iloc[-1]["time"]
     next_close = last_close + timedelta(minutes=interval_minutes)
     first_run_time = next_close + timedelta(seconds=offset_seconds)

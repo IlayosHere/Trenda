@@ -1,7 +1,14 @@
 from dataclasses import dataclass
 from typing import Mapping
 
-import MetaTrader5 as mt5
+from configuration.broker import BROKER_PROVIDER, BROKER_MT5, BROKER_TWELVEDATA
+
+if BROKER_PROVIDER == BROKER_MT5:
+    import MetaTrader5 as mt5
+elif BROKER_PROVIDER == BROKER_TWELVEDATA:
+    mt5 = None  # type: ignore[assignment]
+else:  # pragma: no cover - defensive fallback
+    raise ValueError(f"Unsupported broker provider {BROKER_PROVIDER!r}")
 
 
 @dataclass(frozen=True)
@@ -38,12 +45,20 @@ FOREX_PAIRS = [
     ]
 
 # 2. Define the timeframes you want to analyze
-TIMEFRAMES = {
-    "1W": mt5.TIMEFRAME_W1,
-    "1D": mt5.TIMEFRAME_D1,
-    "4H": mt5.TIMEFRAME_H4,
-    "1H": mt5.TIMEFRAME_H1,
-}
+if BROKER_PROVIDER == BROKER_MT5:
+    TIMEFRAMES = {
+        "1W": mt5.TIMEFRAME_W1,
+        "1D": mt5.TIMEFRAME_D1,
+        "4H": mt5.TIMEFRAME_H4,
+        "1H": mt5.TIMEFRAME_H1,
+    }
+else:  # TwelveData interval strings
+    TIMEFRAMES = {
+        "1W": "1week",
+        "1D": "1day",
+        "4H": "4h",
+        "1H": "1h",
+    }
 
 # 3. !! CRITICAL TUNING !!
 # You MUST adjust 'distance' and 'prominence' for each timeframe.
