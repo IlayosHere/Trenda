@@ -1,3 +1,4 @@
+import core.env
 import time
 from configuration import BROKER_PROVIDER, BROKER_MT5
 from scheduler import scheduler

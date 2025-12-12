@@ -50,6 +50,7 @@ def _add_job(scheduler: BackgroundScheduler, config: Dict[str, Any], job: Any, n
         max_instances=1,
         misfire_grace_time=60 * 5,  # Allow job to be 5 mins late
         next_run_time=next_run_time
+        #datetime.now(timezone.utc)
     )
 
 

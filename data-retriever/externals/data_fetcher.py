@@ -91,7 +91,7 @@ def _fetch_from_twelvedata(symbol: str, interval: str | int, lookback: int) -> O
         # TwelveData documents Forex time-series access through the dedicated
         # ``/forex/time_series`` endpoint with the pair encoded as "BASE/QUOTE".
         response = requests.get(
-            f"{TWELVEDATA_BASE_URL.rstrip('/')}/forex/time_series",
+            f"{TWELVEDATA_BASE_URL.rstrip('/')}/time_series",
             params={
                 "symbol": formatted_symbol,
                 "interval": interval,
