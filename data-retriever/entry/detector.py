@@ -14,14 +14,14 @@ from models import AOIZone, SignalData, TrendDirection
 from models.market import Candle
 from trend.bias import get_overall_trend, get_trend_by_timeframe
 import utils.display as display
-
+from alerts.whatsapp import send_whatsapp_message
 
 DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
 
 
 def run_1h_entry_scan_job(
-    timeframe: str,
-    trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
+        timeframe: str,
+        trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
 ) -> None:
     """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
 
@@ -75,20 +75,24 @@ def run_1h_entry_scan_job(
                     candles=signal.candles,
                     trade_quality=signal.trade_quality,
                 )
-                display.print_status(
-                    f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                output_line = (
+                    f"    ✅ Entry signal {entry_id} found for {symbol} "
+                    f"at AOI {aoi.lower}-{aoi.upper} "
+                    f"with quality of {signal.trade_quality}."
                 )
+                send_whatsapp_message(output_line)
 
 
 def _collect_trend_snapshot(
-    timeframes: Sequence[str], symbol: str
+        timeframes: Sequence[str], symbol: str
 ) -> Mapping[str, Optional[str]]:
     return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
 
+
 def scan_1h_for_entry(
-    direction: TrendDirection,
-    aoi: AOIZone,
-    candles_1h: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]],
+        direction: TrendDirection,
+        aoi: AOIZone,
+        candles_1h: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]],
 ) -> Optional[SignalData]:
     direction = TrendDirection.from_raw(direction)
     if direction is None:
@@ -121,15 +125,14 @@ def scan_1h_for_entry(
 
 
 def evaluate_entry_with_llm(
-    symbol: str,
-    timeframe: str,
-    direction: TrendDirection,
-    aoi: AOIZone,
-    pattern: EntryPattern,
+        symbol: str,
+        timeframe: str,
+        direction: TrendDirection,
+        aoi: AOIZone,
+        pattern: EntryPattern,
 ) -> LLMEvaluation:
     return {
         "take_trade": True,
         "confidence": 1.0,
         "reason": "LLM stub approved the trade by default.",
     }
-
