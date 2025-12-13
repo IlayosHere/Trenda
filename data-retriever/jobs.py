@@ -19,8 +19,8 @@ from trend.workflow import analyze_trend_by_timeframe
 def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.DataFrame]:
     """Fetch closed candles for all symbols for the given timeframe."""
 
-    mt5_timeframe = TIMEFRAMES.get(timeframe)
-    if mt5_timeframe is None:
+    broker_timeframe = TIMEFRAMES.get(timeframe)
+    if broker_timeframe is None:
         raise KeyError(f"Unknown timeframe {timeframe!r} requested for candle fetch.")
 
     candles: dict[str, pd.DataFrame] = {}
@@ -30,7 +30,7 @@ def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.D
         )
         data = fetch_data(
             symbol,
-            mt5_timeframe,
+            broker_timeframe,
             lookback,
             timeframe_label=timeframe,
         )

@@ -27,11 +27,12 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDJPY: 2025-11-28 14:00:00 
     # EURAUD: 2025-12-05 13:00:00
     # GBPNZD: 2025-12-05 13:00:00 2025-12-04 07:00:00
-    time = "2025-12-02 11:00:00"
+    # GBPAUD: 2025-12-10 09:00:00
+    time = "2025-12-10 23:00:00+00:00"
     last_index = find_candles_by_time(indexed_data, time)
     print(last_index)
     last_index_id = last_index["id"].values[0]
-    count = 5 # remember to change
+    count = 7 # remember to change
     nums = list(range(last_index_id, last_index_id + count))
     selected_data = select_candles(indexed_data, nums)
     # EURUSD: bearish
@@ -49,7 +50,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDJPY: 100.896
     # ERUAUD: 1.76025
     # GBPNZD: 2.31449
-    aoi_high = 0.65519
+    aoi_high = 155.918
     # EURUSD: 1.15965 1.15758  
     # USDJPY: 153.874 154.697
     # AUDUSD: 0.65133 0.65411
@@ -57,7 +58,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # AUDJPY: 100.691
     # ERUAUD: 1.7564
     # GBPNZD: 2.311
-    aoi_low = 0.65411
+    aoi_low = 155.694
     # prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
     # print(prompt)
 

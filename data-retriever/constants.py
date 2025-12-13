@@ -1,13 +1,27 @@
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Final, Literal
+
+from models import TrendDirection
 
 # --- Type Definitions ---
-# (index, price, 'H'/'L')
-SwingPoint = Tuple[int, float, str]
+
+SwingKind = Literal["H", "L"]
+SWING_HIGH: Final[SwingKind] = "H"
+SWING_LOW: Final[SwingKind] = "L"
+
+
+@dataclass(frozen=True)
+class SwingPoint:
+    """Represents a significant swing point (high/low) in price data."""
+
+    index: int
+    price: float
+    kind: SwingKind
 
 # --- Trend Analysis Constants ---
-TREND_BULLISH: str = "bullish"
-TREND_BEARISH: str = "bearish"
-TREND_NEUTRAL: str = "neutral"
+TREND_BULLISH: Final[TrendDirection] = TrendDirection.BULLISH
+TREND_BEARISH: Final[TrendDirection] = TrendDirection.BEARISH
+TREND_NEUTRAL: Final[TrendDirection] = TrendDirection.NEUTRAL
 
 # --- Structure Break Constants ---
 BREAK_BULLISH: str = "BULLISH_BREAK"
