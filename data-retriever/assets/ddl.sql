@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS trenda.entry_signal (
     -- Scoring
     final_score REAL NOT NULL,
     tier TEXT NOT NULL,
+    outcome_computed BOOLEAN NOT NULL DEFAULT FALSE,
      -- Meta
     is_break_candle_last BOOLEAN NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -66,6 +67,8 @@ CREATE TABLE IF NOT EXISTS trenda.entry_signal (
 
 CREATE INDEX idx_entry_signal_score ON trenda.entry_signal(final_score);
 CREATE INDEX idx_entry_signal_tier ON trenda.entry_signal(tier);
+CREATE INDEX idx_entry_signal_outcome_pending ON trenda.entry_signal (outcome_computed, signal_time);
+
 
 CREATE TABLE IF NOT EXISTS trenda.entry_signal_score (
     id SERIAL PRIMARY KEY,
