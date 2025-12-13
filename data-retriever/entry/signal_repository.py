@@ -118,6 +118,12 @@ def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[
                 signal.quality_result.final_score,
                 signal.quality_result.tier,
                 signal.is_break_candle_last,
+                # SL distances
+                signal.aoi_sl_tolerance_atr,
+                signal.aoi_raw_sl_distance_price,
+                signal.aoi_raw_sl_distance_atr,
+                signal.aoi_effective_sl_distance_price,
+                signal.aoi_effective_sl_distance_atr,
             ),
         )
         signal_id = cursor.fetchone()[0]

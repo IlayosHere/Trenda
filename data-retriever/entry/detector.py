@@ -7,6 +7,7 @@ import pandas as pd
 from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality, QualityResult
+from entry.sl_calculator import compute_aoi_sl_distances
 from aoi.aoi_repository import fetch_tradable_aois
 from entry.signal_repository import store_entry_signal_with_symbol
 from externals.data_fetcher import fetch_data
@@ -155,6 +156,15 @@ def scan_1h_for_entry(
     # Entry price is the close of the last candle (break or after-break)
     entry_price = pattern.candles[-1].close
 
+    # Compute AOI-based stop loss distances
+    sl_data = compute_aoi_sl_distances(
+        direction=direction,
+        entry_price=entry_price,
+        aoi_low=aoi.lower,
+        aoi_high=aoi.upper,
+        atr_1h=atr_1h,
+    )
+
     return SignalData(
         candles=pattern.candles,
         signal_time=pattern.candles[-1].time,
@@ -176,4 +186,11 @@ def scan_1h_for_entry(
         quality_result=quality_result,
         # Meta
         is_break_candle_last=pattern.is_break_candle_last,
+        # SL distances
+        aoi_sl_tolerance_atr=sl_data.aoi_sl_tolerance_atr,
+        aoi_raw_sl_distance_price=sl_data.aoi_raw_sl_distance_price,
+        aoi_raw_sl_distance_atr=sl_data.aoi_raw_sl_distance_atr,
+        aoi_effective_sl_distance_price=sl_data.aoi_effective_sl_distance_price,
+        aoi_effective_sl_distance_atr=sl_data.aoi_effective_sl_distance_atr,
     )
+

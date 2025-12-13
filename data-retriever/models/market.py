@@ -123,5 +123,9 @@ class SignalData:
     quality_result: "QualityResult"  # Forward reference
     # Meta
     is_break_candle_last: bool
-
-
+    # SL distances
+    aoi_sl_tolerance_atr: float
+    aoi_raw_sl_distance_price: float
+    aoi_raw_sl_distance_atr: float
+    aoi_effective_sl_distance_price: float
+    aoi_effective_sl_distance_atr: float

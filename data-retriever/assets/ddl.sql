@@ -62,7 +62,13 @@ CREATE TABLE IF NOT EXISTS trenda.entry_signal (
     outcome_computed BOOLEAN NOT NULL DEFAULT FALSE,
      -- Meta
     is_break_candle_last BOOLEAN NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    --SL
+    aoi_sl_tolerance_atr REAL NOT NULL,
+    aoi_raw_sl_distance_price REAL NOT NULL,
+    aoi_raw_sl_distance_atr   REAL NOT NULL,
+    aoi_effective_sl_distance_price REAL NOT NULL,  
+    aoi_effective_sl_distance_atr   REAL NOT NULL
 );
 
 CREATE INDEX idx_entry_signal_score ON trenda.entry_signal(final_score);
@@ -110,6 +116,13 @@ CREATE TABLE IF NOT EXISTS trenda.signal_outcome (
     return_after_24 REAL,
     return_end_window REAL,
 
+    --SL + TP
+    bars_to_aoi_sl_hit INTEGER,
+    bars_to_r_1   INTEGER,
+    bars_to_r_1_5 INTEGER,
+    bars_to_r_2   INTEGER,
+    aoi_rr_outcome TEXT NOT NULL CHECK (aoi_rr_outcome IN 
+    ('TP1_BEFORE_SL', 'TP1_5_BEFORE_SL', 'TP2_BEFORE_SL', 'SL_BEFORE_ANY_TP','NONE')),
     computed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

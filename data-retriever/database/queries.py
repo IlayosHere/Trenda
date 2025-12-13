@@ -66,9 +66,11 @@ INSERT_ENTRY_SIGNAL = """
         aoi_timeframe, aoi_low, aoi_high, aoi_classification,
         entry_price, atr_1h,
         final_score, tier,
-        is_break_candle_last
+        is_break_candle_last,
+        aoi_sl_tolerance_atr, aoi_raw_sl_distance_price, aoi_raw_sl_distance_atr,
+        aoi_effective_sl_distance_price, aoi_effective_sl_distance_atr
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -78,4 +80,33 @@ INSERT_ENTRY_SIGNAL_SCORE = """
     )
     VALUES (%s, %s, %s, %s, %s)
 """
+
+# Signal outcome queries
+FETCH_PENDING_SIGNALS = """
+    SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
+           aoi_low, aoi_high, aoi_effective_sl_distance_price
+    FROM trenda.entry_signal
+    WHERE outcome_computed = FALSE
+    ORDER BY signal_time ASC
+    LIMIT %s
+"""
+
+INSERT_SIGNAL_OUTCOME = """
+    INSERT INTO trenda.signal_outcome (
+        entry_signal_id, window_bars,
+        mfe_atr, mae_atr,
+        bars_to_mfe, bars_to_mae, first_extreme,
+        return_after_3, return_after_6, return_after_12, return_after_24, return_end_window,
+        bars_to_aoi_sl_hit, bars_to_r_1, bars_to_r_1_5, bars_to_r_2, aoi_rr_outcome
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id) DO NOTHING
+"""
+
+MARK_OUTCOME_COMPUTED = """
+    UPDATE trenda.entry_signal
+    SET outcome_computed = TRUE
+    WHERE id = %s
+"""
+
 
