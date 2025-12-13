@@ -97,6 +97,7 @@ def _fetch_from_twelvedata(symbol: str, interval: str | int, lookback: int) -> O
                 "interval": interval,
                 "outputsize": lookback,
                 "apikey": TWELVEDATA_API_KEY,
+                #"end_date": "2025-11-27T06:04:05",
                 "timezone": "UTC",
             },
             timeout=15,

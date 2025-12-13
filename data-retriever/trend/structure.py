@@ -41,8 +41,6 @@ def get_swing_points(
     swings.append(find_last_point(prices, swings[-1]))
     return swings
 
-
-#TODO: check the relavance of this function rn after we work with finished candles only
 def find_last_point(prices: np.ndarray, last_swing_point: SwingPoint) -> SwingPoint:
     if last_swing_point.kind == SWING_LOW:
         return SwingPoint(last_swing_point.index + 1, float(prices[-1]), SWING_HIGH)

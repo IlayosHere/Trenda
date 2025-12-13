@@ -45,5 +45,6 @@ SCHEDULE_CONFIG = [
         "job": run_1h_entry_scan_job,
         "args": ["1H"],
         "trading_hours_only": True,
+        #False
     },
 ]

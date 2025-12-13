@@ -39,6 +39,7 @@ class AOIZone:
     last_swing_idx: int | None = None
     height: float | None = None
     classification: str | None = None
+    timeframe: str | None = None
 
     def __post_init__(self) -> None:
         if self.lower is not None and self.upper is not None and self.lower > self.upper:
@@ -53,7 +54,9 @@ class AOIZone:
             last_swing_idx=self.last_swing_idx,
             height=self.height,
             classification=classification,
+            timeframe=self.timeframe,
         )
+
 
 
 @dataclass
@@ -98,7 +101,27 @@ class Candle:
 
 @dataclass
 class SignalData:
+    """Complete signal data for database insertion."""
+    # Candle context
     candles: List[Candle]
     signal_time: datetime
-    trade_quality: float
+    direction: TrendDirection
+    # Trend snapshot
+    trend_4h: str
+    trend_1d: str
+    trend_1w: str
+    trend_alignment_strength: int
+    # AOI snapshot
+    aoi_timeframe: str
+    aoi_low: float
+    aoi_high: float
+    aoi_classification: str
+    # Entry context
+    entry_price: float
+    atr_1h: float
+    # Scoring - imported from entry.quality to avoid circular imports
+    quality_result: "QualityResult"  # Forward reference
+    # Meta
+    is_break_candle_last: bool
+
 

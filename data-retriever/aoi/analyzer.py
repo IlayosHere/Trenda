@@ -8,7 +8,8 @@ from typing import List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
-import pandas_ta as ta
+
+from utils.indicators import calculate_atr
 
 from constants import BREAK_BEARISH, BREAK_BULLISH, SwingPoint
 from models import TrendDirection
@@ -80,7 +81,7 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
     prices = np.asarray(data["close"].values)
     last_bar_idx = len(prices) - 1
     current_price = float(prices[-1])
-    atr = _calculate_atr(data, symbol)
+    atr = _calculate_atr_in_pips(data, symbol)
     context = build_context(settings, symbol, atr)
     
     swings = extract_swings(prices, context)
@@ -98,24 +99,14 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
     )
 
-def _calculate_atr(
+def _calculate_atr_in_pips(
     data,
     symbol: str
 ) -> Optional[float]:
-    """Derive the price window to scan for AOIs using ATR multiples."""
-
-    highs = data["high"].values
-    lows = data["low"].values
-    closes = data["close"].values
-
-    df = pd.DataFrame({
-    "high": highs,
-    "low": lows,
-    "close": closes,
-    })
-
-    df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
-    current_atr = df["atr"].iloc[-1]
+    """Calculate ATR and convert to pips for AOI context building."""
+    current_atr = calculate_atr(data, length=14)
+    if current_atr == 0.0:
+        return None
     pip_size = get_pip_size(symbol)
     return price_to_pips(current_atr, pip_size)
 
