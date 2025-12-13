@@ -12,8 +12,27 @@ from .utils import (
     wick_up,
     candle_direction_with_trend
 )
+from .score_models import StageScore, QualityResult
 from models import TrendDirection
 from models.market import Candle
+
+# Weights for each stage (when S5 is present)
+WEIGHTS_WITH_S5 = {
+    'S1': 0.18, 'S2': 0.09, 'S3': 0.17, 'S4': 0.10,
+    'S5': 0.25, 'S6': 0.11, 'S7': 0.03, 'S8': 0.07
+}
+
+# Weights for each stage (when S5 is None)
+WEIGHTS_WITHOUT_S5 = {
+    'S1': 0.19, 'S2': 0.10, 'S3': 0.34, 'S4': 0.12,
+    'S6': 0.13, 'S7': 0.04, 'S8': 0.08
+}
+
+# Tier thresholds
+TIER_PRIORITY_THRESHOLD = 0.72
+TIER_NOTIFY_THRESHOLD = 0.60
+TIER_WATCHLIST_THRESHOLD = 0.45
+
 
 def compute_penetration_score(
     candles: List[Candle],
@@ -113,7 +132,7 @@ def compute_breaking_candle_quality(
 
     # 3. Big candle in trend direction
     candle_body = body_size(break_candle)
-    is_trend = candle_direction_with_trend(break_candle, trend) #TODO: check if always return 1
+    is_trend = candle_direction_with_trend(break_candle, trend)
     dir_ratio = int(is_trend) * clamp(candle_body / aoi_height)
     dir_score = min(1.0, dir_ratio / MAX_DIR_RATIO)
     
@@ -300,27 +319,46 @@ def calculate_final_score(
     S6: float,
     S7: float,
     S8: float,
-) -> float:
+) -> QualityResult:
+    """Calculate final weighted score and build QualityResult with stage details."""
+    raw_scores = {'S1': S1, 'S2': S2, 'S3': S3, 'S4': S4, 'S5': S5, 'S6': S6, 'S7': S7, 'S8': S8}
+    
     if S5 is not None:
-        score = (
-                0.18 * S1
-                + 0.09 * S2
-                + 0.17 * S3
-                + 0.10 * S4
-                + 0.25 * S5
-                + 0.11 * S6
-                + 0.03 * S7
-                + 0.07 * S8
-        )
+        weights = WEIGHTS_WITH_S5
     else:
-        score = (
-                0.19 * S1
-                + 0.10 * S2
-                + 0.34 * S3
-                + 0.12 * S4
-                + 0.13 * S6
-                + 0.04 * S7
-                + 0.08 * S8
-        )
+        weights = WEIGHTS_WITHOUT_S5
+    
+    stage_scores: list[StageScore] = []
+    final_score = 0.0
+    
+    for stage_name, weight in weights.items():
+        raw = raw_scores[stage_name]
+        if raw is None:
+            continue
+        weighted = raw * weight
+        final_score += weighted
+        stage_scores.append(StageScore(
+            stage_name=stage_name,
+            raw_score=raw,
+            weight=weight,
+            weighted_score=weighted,
+        ))
+    
+    final_score = clamp(final_score)
+    
+    # Determine tier
+    if final_score >= TIER_PRIORITY_THRESHOLD:
+        tier = "PRIORITY"
+    elif final_score >= TIER_NOTIFY_THRESHOLD:
+        tier = "NOTIFY"
+    elif final_score >= TIER_WATCHLIST_THRESHOLD:
+        tier = "WATCHLIST"
+    else:
+        tier = "NONE"
+    
+    return QualityResult(
+        final_score=final_score,
+        tier=tier,
+        stage_scores=stage_scores,
+    )
 
-    return clamp(score)

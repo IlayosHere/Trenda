@@ -13,6 +13,7 @@ from .components import (
     compute_retest_entry_quality,
     compute_wick_momentum_score,
 )
+from .score_models import QualityResult
 from models import TrendDirection
 from models.market import Candle
 
@@ -25,13 +26,17 @@ def evaluate_entry_quality(
     retest_idx: int,
     break_idx: int,
     after_break_idx: int | None,
-) -> float:
+) -> QualityResult:
+    def _empty_result() -> QualityResult:
+        """Return an empty quality result for invalid inputs."""
+        return QualityResult(final_score=0.0, tier="NONE", stage_scores=[])
+    
     trend_direction = TrendDirection.from_raw(trend)
     if trend_direction is None:
-        return 0.0
+        return _empty_result()
     aoi_height = aoi_high - aoi_low
     if aoi_height <= 0:
-        return 0.0
+        return _empty_result()
     
     relevant_candles = [
         candles[i]
@@ -40,7 +45,7 @@ def evaluate_entry_quality(
     ]
     
     if len(relevant_candles) == 0:
-        return 0.0
+        return _empty_result()
 
     retest_candle = candles[retest_idx]
     break_candle = candles[break_idx]
