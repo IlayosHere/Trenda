@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from entry.detector import run_1h_entry_scan_job
+from signal_outcome.outcome_processor import run_signal_outcome_processor
 from utils.bot_check import run_bot_check
 from jobs import run_timeframe_job
 
@@ -45,6 +46,16 @@ SCHEDULE_CONFIG = [
         "job": run_1h_entry_scan_job,
         "args": ["1H"],
         "trading_hours_only": True,
-        #False
+    },
+    {
+        "timeframe": "1H",
+        "id": "job_signal_outcome",
+        "name": "Signal outcome computation",
+        "interval_minutes": 60,
+        "offset_seconds": 120,  # 2 min delay after candle close
+        "job": run_signal_outcome_processor,
+        "args": [],
+        "trading_hours_only": False,  # Run even outside trading hours to catch up
     },
 ]
+
