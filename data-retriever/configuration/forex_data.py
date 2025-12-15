@@ -20,28 +20,28 @@ class AnalysisParams:
 
 FOREX_PAIRS = [
     "EURUSD",
-    # "GBPUSD",
-    # "USDJPY",
-    # "USDCHF",
-    # "USDCAD",
-    # "AUDUSD",
-    # "NZDUSD",
-    # "GBPCAD",
-    # "EURJPY",
-    # "GBPJPY",
-    # "AUDJPY",
-    # "CADJPY",
-    # "NZDJPY",
-    # "CHFJPY",
-    # "EURAUD",
-    # "EURNZD",
-    # "EURGBP",
-    # "EURCHF",
-    # "GBPAUD",
-    # "GBPNZD",
-    # "AUDNZD",
-    # "AUDCAD",
-    # "NZDCAD"
+    "GBPUSD",
+    "USDJPY",
+    "USDCHF",
+    "USDCAD",
+    "AUDUSD",
+    "NZDUSD",
+    "GBPCAD",
+    "EURJPY",
+    "GBPJPY",
+    "AUDJPY",
+    "CADJPY",
+    "NZDJPY",
+    "CHFJPY",
+    "EURAUD",
+    "EURNZD",
+    "EURGBP",
+    "EURCHF",
+    "GBPAUD",
+    "GBPNZD",
+    "AUDNZD",
+    "AUDCAD",
+    "NZDCAD"
     ]
 
 # 2. Define the timeframes you want to analyze
@@ -74,7 +74,7 @@ ANALYSIS_PARAMS: Mapping[str, AnalysisParams] = {
     "4H": AnalysisParams(
         lookback=100, aoi_lookback=180, distance=1, prominence=0.0004
     ),  # ~1.5 months
-    "1H": AnalysisParams(lookback=1500, distance=1, prominence=0.0004),
+    "1H": AnalysisParams(lookback=15, distance=1, prominence=0.0004),
 }
 
 
