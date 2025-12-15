@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -16,6 +17,8 @@ from configuration.broker import (
 )
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
+
+log = logging.getLogger(__name__)
 
 if BROKER_PROVIDER == BROKER_MT5:
     import MetaTrader5 as mt5
@@ -62,13 +65,13 @@ def fetch_data(
 
 def _fetch_from_mt5(symbol: str, timeframe_mt5: int | str, lookback: int) -> Optional[pd.DataFrame]:
     if mt5 is None:
-        print("  ❌ MetaTrader5 is not available in this environment.")
+        log.error("MetaTrader5 is not available in this environment.")
         return None
 
     rates = mt5.copy_rates_from_pos(symbol, int(timeframe_mt5), 0, lookback)
 
     if rates is None or len(rates) == 0:
-        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {timeframe_mt5}")
+        log.error("%s for %s on TF %s", DATA_ERROR_MSG, symbol, timeframe_mt5)
         return None
 
     local_tz = tzlocal.get_localzone_name()
@@ -83,7 +86,7 @@ def _fetch_from_mt5(symbol: str, timeframe_mt5: int | str, lookback: int) -> Opt
 
 def _fetch_from_twelvedata(symbol: str, interval: str | int, lookback: int) -> Optional[pd.DataFrame]:
     if TWELVEDATA_API_KEY is None:
-        print("  ❌ TWELVEDATA_API_KEY is not set; cannot fetch data.")
+        log.error("TWELVEDATA_API_KEY is not set; cannot fetch data.")
         return None
 
     formatted_symbol = _format_twelvedata_symbol(symbol)
@@ -103,19 +106,19 @@ def _fetch_from_twelvedata(symbol: str, interval: str | int, lookback: int) -> O
         )
         response.raise_for_status()
     except Exception as exc:
-        print(f"  ❌ Failed to fetch TwelveData candles for {symbol}: {exc}")
+        log.error("Failed to fetch TwelveData candles for %s: %s", symbol, exc)
         return None
 
     payload = response.json()
     if payload.get("status") == "error":
-        print(
-            f"  ❌ TwelveData error for {symbol}: {payload.get('message', 'Unknown error')}"
+        log.error(
+            "TwelveData error for %s: %s", symbol, payload.get('message', 'Unknown error')
         )
         return None
 
     values = payload.get("values")
     if not values:
-        print(f"  ❌ No TwelveData candles returned for {symbol} ({interval}).")
+        log.warning("No TwelveData candles returned for %s (%s).", symbol, interval)
         return None
 
     df = pd.DataFrame(values)
