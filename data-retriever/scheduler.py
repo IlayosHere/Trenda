@@ -13,10 +13,22 @@ from utils.trading_hours import describe_trading_window, is_within_trading_hours
 scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 
 STUB_FOREX_SYMBOL = "EURUSD"
+HEARTBEAT_FILE = "/tmp/healthy"
+
+def _heartbeat():
+    """Touch a file to indicate the scheduler is alive."""
+    try:
+        with open(HEARTBEAT_FILE, "w") as f:
+            f.write(datetime.now(timezone.utc).isoformat())
+    except Exception as e:
+        display.print_error(f"Heartbeat failed: {e}")
 
 def start_scheduler() -> None:
     display.print_status("Starting background scheduler...")
     display.print_status(f"Trading window (UTC): {describe_trading_window()}")
+
+    # Schedule Heartbeat
+    scheduler.add_job(_heartbeat, "interval", minutes=1, id="heartbeat", replace_existing=True)
 
     for config in SCHEDULE_CONFIG:
         try:
