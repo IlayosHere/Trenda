@@ -4,7 +4,7 @@ These functions wrap database access to provide a single place to derive
 timeframe-aligned trend bias for a symbol.
 """
 
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from constants import TREND_BEARISH, TREND_BULLISH, TREND_NEUTRAL
 from models import TrendDirection
@@ -55,3 +55,61 @@ def get_overall_trend(timeframes: Sequence[str], symbol: str) -> Optional[TrendD
         return trend_values[0]["trend"]
 
     return None
+
+
+def get_overall_trend_from_values(
+    trend_values: Mapping[str, Optional[TrendDirection]],
+    timeframes: Sequence[str] = ("4H", "1D", "1W"),
+) -> Optional[TrendDirection]:
+    """Return the middle/consensus trend from pre-computed trend values.
+    
+    This is a pure function that doesn't access the database, suitable for
+    replay mode where trends are computed from candles.
+    
+    Args:
+        trend_values: Dict mapping timeframe -> TrendDirection (e.g., {"4H": BULLISH, "1D": BULLISH, "1W": BULLISH})
+        timeframes: Ordered sequence of timeframes to check alignment
+        
+    Returns:
+        The consensus trend direction, or None if not aligned.
+    """
+    # Build ordered list of trends
+    trends = [
+        {
+            "trend": trend_values.get(tf),
+            "timeframe": tf,
+        }
+        for tf in timeframes
+    ]
+
+    if not trends or any(tv["trend"] is None for tv in trends):
+        return None
+
+    if len(trends) >= 3:
+        if (
+            trends[0]["trend"] == trends[1]["trend"]
+            or trends[1]["trend"] == trends[2]["trend"]
+        ):
+            return trends[1]["trend"]
+        return None
+
+    if len(trends) >= 2 and trends[0]["trend"] == trends[1]["trend"]:
+        return trends[0]["trend"]
+
+    return None
+
+
+def calculate_trend_alignment_strength(
+    trend_values: Mapping[str, Optional[TrendDirection]],
+    direction: TrendDirection,
+) -> int:
+    """Count how many timeframes align with the given direction.
+    
+    This is a pure function - same logic as entry.detector._calculate_trend_alignment_strength
+    but reusable without depending on that module.
+    """
+    count = 0
+    for tf_trend in trend_values.values():
+        if tf_trend == direction:
+            count += 1
+    return count

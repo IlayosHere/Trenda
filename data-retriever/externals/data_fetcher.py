@@ -31,6 +31,7 @@ def fetch_data(
     timeframe_label: str | None = None,
     now: datetime | None = None,
     closed_candles_only: bool = True,
+    end_date: datetime | None = None,
 ) -> Optional[pd.DataFrame]:
     """
     Fetch OHLC data from the configured broker, returning a dataframe of candles.
@@ -38,12 +39,16 @@ def fetch_data(
     When ``timeframe_label`` is provided, any candles whose timestamps extend
     beyond the last expected close for that timeframe are dropped to ensure only
     closed candles are returned.
+    
+    Args:
+        end_date: Optional end date for historical data fetching (TwelveData only).
+                  If provided, fetches `lookback` candles ending at this date.
     """
 
     if BROKER_PROVIDER == BROKER_MT5:
         df = _fetch_from_mt5(symbol, timeframe, lookback)
     elif BROKER_PROVIDER == BROKER_TWELVEDATA:
-        df = _fetch_from_twelvedata(symbol, timeframe, lookback)
+        df = _fetch_from_twelvedata(symbol, timeframe, lookback, end_date=end_date)
     else:  # pragma: no cover - defensive fallback
         raise ValueError(f"Unsupported broker provider {BROKER_PROVIDER!r}")
 
@@ -81,25 +86,39 @@ def _fetch_from_mt5(symbol: str, timeframe_mt5: int | str, lookback: int) -> Opt
     return df
 
 
-def _fetch_from_twelvedata(symbol: str, interval: str | int, lookback: int) -> Optional[pd.DataFrame]:
+def _fetch_from_twelvedata(
+    symbol: str,
+    interval: str | int,
+    lookback: int,
+    *,
+    end_date: datetime | None = None,
+) -> Optional[pd.DataFrame]:
     if TWELVEDATA_API_KEY is None:
         print("  ❌ TWELVEDATA_API_KEY is not set; cannot fetch data.")
         return None
 
     formatted_symbol = _format_twelvedata_symbol(symbol)
+    
+    # Build request params
+    params = {
+        "symbol": formatted_symbol,
+        "interval": interval,
+        "outputsize": lookback,
+        "apikey": TWELVEDATA_API_KEY,
+        "timezone": "UTC",
+    }
+    
+    # Add end_date for historical data fetching
+    if end_date is not None:
+        # Format as ISO string for TwelveData API
+        params["end_date"] = end_date.strftime("%Y-%m-%d %H:%M:%S")
+    
     try:
         # TwelveData documents Forex time-series access through the dedicated
         # ``/forex/time_series`` endpoint with the pair encoded as "BASE/QUOTE".
         response = requests.get(
             f"{TWELVEDATA_BASE_URL.rstrip('/')}/time_series",
-            params={
-                "symbol": formatted_symbol,
-                "interval": interval,
-                "outputsize": lookback,
-                "apikey": TWELVEDATA_API_KEY,
-                # "end_date": "2025-11-27T06:04:05"
-                "timezone": "UTC",
-            },
+            params=params,
             timeout=15,
         )
         response.raise_for_status()
