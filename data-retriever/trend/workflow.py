@@ -17,42 +17,35 @@ import utils.display as display
 from trend.structure import TrendAnalysisResult, analyze_snake_trend, get_swing_points
 
 
-def analyze_trend_by_timeframe(
-    timeframe: str, candles_by_symbol: Mapping[str, pd.DataFrame]
+def analyze_single_symbol_trend(
+    symbol: str, timeframe: str, data: pd.DataFrame | None
 ) -> None:
-    """Run trend analysis for all configured symbols for a given timeframe."""
+    """Run trend analysis for a single symbol/timeframe pair."""
+    display.print_status(f"  -> Analying trend for {symbol} ({timeframe})...")
 
-    display.print_status(f"\n--- 🔄 Running scheduled job for {timeframe} ---")
-
-    for symbol in FOREX_PAIRS:
-        display.print_status(f"  -> Updating {symbol} for {timeframe}...")
-
-        try:
-            result = analyze_symbol_by_timeframe(
-                symbol, timeframe, candles_by_symbol.get(symbol)
+    try:
+        result = analyze_symbol_by_timeframe(symbol, timeframe, data)
+        if result.trend is None:
+            display.print_status(
+                f"  -> Skipping {symbol}: unable to determine trend for {timeframe}."
             )
-            if result.trend is None:
-                display.print_status(
-                    f"  -> Skipping {symbol}: unable to determine trend for {timeframe}."
-                )
-                continue
+            return
 
-            high_price = (
-                result.structural_high.price if result.structural_high else None
-            )
-            low_price = result.structural_low.price if result.structural_low else None
-            update_trend_data(
-                symbol,
-                timeframe,
-                result.trend,
-                float(high_price) if high_price is not None else None,
-                float(low_price) if low_price is not None else None,
-            )
+        high_price = (
+            result.structural_high.price if result.structural_high else None
+        )
+        low_price = result.structural_low.price if result.structural_low else None
+        update_trend_data(
+            symbol,
+            timeframe,
+            result.trend,
+            float(high_price) if high_price is not None else None,
+            float(low_price) if low_price is not None else None,
+        )
 
-        except Exception as exc:  # pragma: no cover - defensive logging
-            display.print_error(f"Failed to analyze {symbol}/{timeframe}: {exc}")
+    except Exception as exc:  # pragma: no cover - defensive logging
+        display.print_error(f"Failed to analyze trend for {symbol}/{timeframe}: {exc}")
 
-    display.print_status(f"--- ✅ Scheduled job for {timeframe} complete ---")
 
 
 def analyze_symbol_by_timeframe(
