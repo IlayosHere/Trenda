@@ -46,7 +46,7 @@ def compute_sl_tp_hits(
     Iterates through candles once to detect all SL and TP hits efficiently.
     
     Args:
-        candles: DataFrame with 48 candles after signal
+        candles: DataFrame with candles after signal
         direction: Trade direction
         entry_price: Entry price
         aoi_effective_sl_distance_price: Effective SL distance (R value)
@@ -176,7 +176,7 @@ def _classify_rr_outcome(
     Priority order ensures highest R wins, SL only wins if it truly came first.
     """
     # If all values are None
-    if sl_bar is None and r1_bar is None and r1_5_bar is None and r2_bar is None:
+    if all(x is None for x in [sl_bar, r1_bar, r1_5_bar, r2_bar]):
         return AoiRrOutcome.NONE.value
     
     # If SL hit and it came before all R hits

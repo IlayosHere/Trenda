@@ -5,7 +5,7 @@ from scheduler import scheduler
 from externals import mt5_handler
 from scheduler import start_scheduler
 import utils.display as display
-
+from replay_runner import run
 
 def main():
     display.print_status("--- 🚀 Starting Trend Analyzer Bot ---")
@@ -17,7 +17,8 @@ def main():
         display.print_status("Using TwelveData broker configuration (MT5 disabled).")
 
     try:
-        start_scheduler()
+        run()
+        # start_scheduler()
 
         # 3. Keep the main script alive to let the scheduler run
         while True:

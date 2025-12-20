@@ -10,13 +10,37 @@ from typing import Final
 # =============================================================================
 # Replay Symbols
 # =============================================================================
-REPLAY_SYMBOLS: Final[list[str]] = ["EURUSD", "USDJPY"]
+REPLAY_SYMBOLS: Final[list[str]] = [
+    # "EURUSD",
+    # "USDJPY",
+    # "GBPUSD",
+    # "USDCHF",
+    # "USDCAD",
+    # "AUDUSD",
+    # "NZDUSD",
+    # "GBPCAD",
+    # "EURJPY",
+    # "GBPJPY",
+    # "AUDJPY",
+    "CADJPY",
+    "NZDJPY",
+    "CHFJPY",
+    "EURAUD",
+    "EURNZD",
+    "EURGBP",
+    "EURCHF",
+    "GBPAUD",
+    "GBPNZD",
+    "AUDNZD",
+    "AUDCAD",
+    "NZDCAD"
+    ]
 
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2025, 11, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2025, 11, 30, 23, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2025, 6, 10, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2025, 12, 17, 23, 0, 0, tzinfo=timezone.utc)
 
 # =============================================================================
 # Lookback Sizes (must match production: configuration/forex_data.py)
@@ -36,7 +60,7 @@ LOOKBACK_AOI_1D: Final[int] = 140
 # =============================================================================
 # Outcome Window
 # =============================================================================
-OUTCOME_WINDOW_BARS: Final[int] = 48
+OUTCOME_WINDOW_BARS: Final[int] = 168  # 7 days * 24 hours
 
 # =============================================================================
 # Execution Constants (from signal_outcome/constants.py)

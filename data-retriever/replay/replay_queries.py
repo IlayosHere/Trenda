@@ -64,11 +64,18 @@ INSERT_REPLAY_SIGNAL_OUTCOME = f"""
         entry_signal_id, window_bars,
         mfe_atr, mae_atr,
         bars_to_mfe, bars_to_mae, first_extreme,
-        return_after_3, return_after_6, return_after_12, return_after_24, return_end_window,
         bars_to_aoi_sl_hit, bars_to_r_1, bars_to_r_1_5, bars_to_r_2, aoi_rr_outcome
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
+    RETURNING id
+"""
+
+INSERT_REPLAY_CHECKPOINT_RETURN = f"""
+    INSERT INTO {SCHEMA_NAME}.checkpoint_return (
+        signal_outcome_id, bars_after, return_atr
+    )
+    VALUES (%s, %s, %s)
 """
 
 MARK_REPLAY_OUTCOME_COMPUTED = f"""
@@ -136,16 +143,21 @@ CREATE_REPLAY_SIGNAL_OUTCOME_TABLE = f"""
         bars_to_mfe INTEGER,
         bars_to_mae INTEGER,
         first_extreme VARCHAR(20),
-        return_after_3 NUMERIC,
-        return_after_6 NUMERIC,
-        return_after_12 NUMERIC,
-        return_after_24 NUMERIC,
-        return_end_window NUMERIC,
         bars_to_aoi_sl_hit INTEGER,
         bars_to_r_1 INTEGER,
         bars_to_r_1_5 INTEGER,
         bars_to_r_2 INTEGER,
         aoi_rr_outcome VARCHAR(30),
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+CREATE_REPLAY_CHECKPOINT_RETURN_TABLE = f"""
+    CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.checkpoint_return (
+        id SERIAL PRIMARY KEY,
+        signal_outcome_id INTEGER REFERENCES {SCHEMA_NAME}.signal_outcome(id) ON DELETE CASCADE,
+        bars_after INTEGER NOT NULL,
+        return_atr NUMERIC NOT NULL,
+        UNIQUE(signal_outcome_id, bars_after)
     )
 """

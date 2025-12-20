@@ -8,7 +8,6 @@ from psycopg2 import InterfaceError, OperationalError
 from psycopg2.extensions import connection as PgConnection
 from psycopg2.pool import SimpleConnectionPool
 
-from configuration import POSTGRES_DB
 import utils.display as display
 
 log = logging.getLogger(__name__)
@@ -38,6 +37,9 @@ class DBConnectionManager:
         with cls._pool_lock:
             if cls._pool:
                 return cls._pool
+
+            # Deferred import to avoid circular import
+            from configuration.database import POSTGRES_DB
 
             min_conn = int(os.getenv("DB_POOL_MIN_CONN", minconn or 1))
             max_conn = int(os.getenv("DB_POOL_MAX_CONN", maxconn or 10))

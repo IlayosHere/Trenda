@@ -10,11 +10,11 @@ from .constants import (
     FirstExtreme,
     FirstExtremeType,
 )
-from .models import OutcomeData, PendingSignal
+from .models import OutcomeData, OutcomeWithCheckpoints, CheckpointReturn, PendingSignal
 from .sl_tp_detector import compute_sl_tp_hits
 
 
-def compute_outcome(signal: PendingSignal, candles: pd.DataFrame) -> OutcomeData:
+def compute_outcome(signal: PendingSignal, candles: pd.DataFrame) -> OutcomeWithCheckpoints:
     """
     Compute outcome metrics from post-signal candles.
     
@@ -25,7 +25,7 @@ def compute_outcome(signal: PendingSignal, candles: pd.DataFrame) -> OutcomeData
         candles: DataFrame with OUTCOME_WINDOW_BARS candles after signal
         
     Returns:
-        Computed outcome data with MFE, MAE, checkpoint returns, SL/TP hits, etc.
+        OutcomeWithCheckpoints containing core outcome data and list of checkpoint returns
     """
     direction = TrendDirection.from_raw(signal.direction)
     is_bullish = direction == TrendDirection.BULLISH
@@ -41,14 +41,9 @@ def compute_outcome(signal: PendingSignal, candles: pd.DataFrame) -> OutcomeData
         mfe_atr, mae_atr, bars_to_mfe, bars_to_mae
     )
     
-    # Compute checkpoint returns
-    checkpoint_returns = _compute_checkpoint_returns(
+    # Compute checkpoint returns as list
+    checkpoint_returns = _compute_checkpoint_returns_list(
         candles, entry_price, atr, is_bullish
-    )
-    
-    # Compute end of window return
-    return_end_window = _compute_return_at_bar(
-        candles, OUTCOME_WINDOW_BARS, entry_price, atr, is_bullish
     )
     
     # Compute SL/TP hits and R:R outcome
@@ -59,24 +54,24 @@ def compute_outcome(signal: PendingSignal, candles: pd.DataFrame) -> OutcomeData
         aoi_effective_sl_distance_price=signal.aoi_effective_sl_distance_price,
     )
     
-    return OutcomeData(
+    outcome = OutcomeData(
         window_bars=OUTCOME_WINDOW_BARS,
         mfe_atr=mfe_atr,
         mae_atr=mae_atr,
         bars_to_mfe=bars_to_mfe,
         bars_to_mae=bars_to_mae,
         first_extreme=first_extreme,
-        return_after_3=checkpoint_returns.get(CHECKPOINT_BARS[0]),
-        return_after_6=checkpoint_returns.get(CHECKPOINT_BARS[1]),
-        return_after_12=checkpoint_returns.get(CHECKPOINT_BARS[2]),
-        return_after_24=checkpoint_returns.get(CHECKPOINT_BARS[3]),
-        return_end_window=return_end_window,
         # SL/TP hits
         bars_to_aoi_sl_hit=sl_tp_hits.bars_to_aoi_sl_hit,
         bars_to_r_1=sl_tp_hits.bars_to_r_1,
         bars_to_r_1_5=sl_tp_hits.bars_to_r_1_5,
         bars_to_r_2=sl_tp_hits.bars_to_r_2,
         aoi_rr_outcome=sl_tp_hits.aoi_rr_outcome,
+    )
+    
+    return OutcomeWithCheckpoints(
+        outcome=outcome,
+        checkpoint_returns=checkpoint_returns,
     )
 
 
@@ -118,7 +113,7 @@ def _compute_mae(
     """
     min_adverse = 0.0
     min_bar = OUTCOME_WINDOW_BARS  # Default if never adverse
-    
+
     for i, (_, candle) in enumerate(candles.iterrows(), start=1):
         if is_bullish:
             adverse_move = candle["low"] - entry_price
@@ -157,21 +152,26 @@ def _determine_first_extreme(
         return FirstExtreme.NONE.value
 
 
-def _compute_checkpoint_returns(
+def _compute_checkpoint_returns_list(
     candles: pd.DataFrame, entry_price: float, atr: float, is_bullish: bool
-) -> dict[int, float | None]:
+) -> list[CheckpointReturn]:
     """
-    Compute returns at checkpoint bars.
+    Compute returns at all checkpoint bars.
     
     Returns:
-        Dict mapping bar number to return in ATR units (or None if bar doesn't exist)
+        List of CheckpointReturn for each checkpoint that has data
     """
-    returns = {}
+    returns = []
     
     for checkpoint in CHECKPOINT_BARS:
-        returns[checkpoint] = _compute_return_at_bar(
+        return_atr = _compute_return_at_bar(
             candles, checkpoint, entry_price, atr, is_bullish
         )
+        if return_atr is not None:
+            returns.append(CheckpointReturn(
+                bars_after=checkpoint,
+                return_atr=return_atr,
+            ))
     
     return returns
 

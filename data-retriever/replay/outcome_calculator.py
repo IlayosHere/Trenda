@@ -8,20 +8,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
 import pandas as pd
 
 from models import TrendDirection
 from signal_outcome.outcome_calculator import compute_outcome
-from signal_outcome.models import OutcomeData, PendingSignal
-from database.executor import DBExecutor
+from signal_outcome.models import OutcomeWithCheckpoints, PendingSignal
 
 from .candle_store import CandleStore
 from .config import OUTCOME_WINDOW_BARS, BATCH_SIZE
 from .replay_queries import (
     FETCH_PENDING_REPLAY_SIGNALS,
     INSERT_REPLAY_SIGNAL_OUTCOME,
+    INSERT_REPLAY_CHECKPOINT_RETURN,
     MARK_REPLAY_OUTCOME_COMPUTED,
 )
 
@@ -121,6 +121,7 @@ class ReplayOutcomeCalculator:
     def _fetch_pending_signals(self) -> List[ReplayPendingSignal]:
         """Fetch signals where outcome_computed = FALSE from replay schema."""
         from psycopg2.extras import RealDictCursor
+        from database.executor import DBExecutor
         
         rows = DBExecutor.fetch_all(
             FETCH_PENDING_REPLAY_SIGNALS,
@@ -164,18 +165,20 @@ class ReplayOutcomeCalculator:
         )
         
         # Compute outcome using production logic
-        outcome = compute_outcome(pending, candles)
+        result = compute_outcome(pending, candles)
         
         # Persist atomically
-        return self._persist_outcome(signal.id, outcome)
+        return self._persist_outcome(signal.id, result)
     
-    def _persist_outcome(self, signal_id: int, outcome: OutcomeData) -> bool:
+    def _persist_outcome(self, signal_id: int, result: OutcomeWithCheckpoints) -> bool:
         """Persist outcome and mark signal as computed in a transaction."""
-        def _safe_float(value):
-            return float(value) if value is not None else None
+        from database.executor import DBExecutor
+        
+        outcome = result.outcome
+        checkpoint_returns = result.checkpoint_returns
         
         def _work(cursor):
-            # Insert outcome
+            # Insert outcome and get the outcome_id
             cursor.execute(
                 INSERT_REPLAY_SIGNAL_OUTCOME,
                 (
@@ -186,11 +189,6 @@ class ReplayOutcomeCalculator:
                     outcome.bars_to_mfe,
                     outcome.bars_to_mae,
                     outcome.first_extreme,
-                    _safe_float(outcome.return_after_3),
-                    _safe_float(outcome.return_after_6),
-                    _safe_float(outcome.return_after_12),
-                    _safe_float(outcome.return_after_24),
-                    _safe_float(outcome.return_end_window),
                     outcome.bars_to_aoi_sl_hit,
                     outcome.bars_to_r_1,
                     outcome.bars_to_r_1_5,
@@ -198,6 +196,17 @@ class ReplayOutcomeCalculator:
                     outcome.aoi_rr_outcome,
                 ),
             )
+            row = cursor.fetchone()
+            if not row:
+                return False
+            outcome_id = row[0]
+            
+            # Insert checkpoint returns
+            for cp in checkpoint_returns:
+                cursor.execute(
+                    INSERT_REPLAY_CHECKPOINT_RETURN,
+                    (outcome_id, cp.bars_after, float(cp.return_atr)),
+                )
             
             # Mark as computed
             cursor.execute(MARK_REPLAY_OUTCOME_COMPUTED, (signal_id,))

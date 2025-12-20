@@ -7,7 +7,7 @@ then persists to the replay schema with idempotency checks.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 
 import pandas as pd
 
@@ -17,9 +17,6 @@ from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
 from entry.sl_calculator import compute_aoi_sl_distances
 from utils.indicators import calculate_atr
-from utils.candles import prepare_candles
-from database.executor import DBExecutor
-from database.validation import DBValidator
 
 from .market_state import SymbolState
 from .candle_store import CandleStore
@@ -188,6 +185,8 @@ class ReplaySignalDetector:
     
     def _signal_exists(self, signal_time: datetime) -> bool:
         """Check if a signal already exists for this symbol/time."""
+        from database.executor import DBExecutor
+        
         row = DBExecutor.fetch_one(
             CHECK_SIGNAL_EXISTS,
             (self._symbol, signal_time),
@@ -197,6 +196,9 @@ class ReplaySignalDetector:
     
     def _store_signal(self, signal: SignalData) -> Optional[int]:
         """Persist signal to replay schema."""
+        from database.executor import DBExecutor
+        from database.validation import DBValidator
+        
         normalized_symbol = DBValidator.validate_symbol(self._symbol)
         if not normalized_symbol:
             return None

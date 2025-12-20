@@ -122,16 +122,11 @@ class CandleStore:
         
         # Calculate required lookbacks for each timeframe
         # 1H: needs lookback + outcome window + buffer
-        lookback_1h = max(
-            LOOKBACK_1H,
-            LOOKBACK_4H * 4,  # 4H trend needs this many 1H candles
-            LOOKBACK_AOI_4H * 4,  # 4H AOI needs this many 1H candles
-        ) + OUTCOME_WINDOW_BARS + CANDLE_FETCH_BUFFER
         
         # Calculate total hours in replay window
         #TODO: change it
         replay_hours = int((end_date - start_date).total_seconds() / 3600) + 1
-        total_1h_candles = lookback_1h + replay_hours + OUTCOME_WINDOW_BARS
+        total_1h_candles = replay_hours + OUTCOME_WINDOW_BARS
         
         # Fetch 1H candles with end_date
         self._fetch_and_store(TIMEFRAME_1H, total_1h_candles, fetch_func, fetch_end_date)

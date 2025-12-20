@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Final, Literal
 
 # --- Outcome Window ---
-OUTCOME_WINDOW_BARS: Final[int] = 48
+OUTCOME_WINDOW_BARS: Final[int] = 168  # 7 days * 24 hours
 
 # --- Batch Processing ---
 BATCH_SIZE: Final[int] = 100
@@ -14,15 +14,28 @@ CANDLE_FETCH_BUFFER: Final[int] = 2000  #TODO: change  back Extra candles to fet
 TIMEFRAME_1H: Final[str] = "1H"
 
 # --- Checkpoint Returns ---
+# Checkpoints: 3h, 6h, 12h, 24h, 48h, then daily (72h, 96h, 120h, 144h, 168h)
 CHECKPOINT_BAR_3: Final[int] = 3
 CHECKPOINT_BAR_6: Final[int] = 6
 CHECKPOINT_BAR_12: Final[int] = 12
 CHECKPOINT_BAR_24: Final[int] = 24
+CHECKPOINT_BAR_48: Final[int] = 48
+CHECKPOINT_BAR_72: Final[int] = 72    # Day 3
+CHECKPOINT_BAR_96: Final[int] = 96    # Day 4
+CHECKPOINT_BAR_120: Final[int] = 120  # Day 5
+CHECKPOINT_BAR_144: Final[int] = 144  # Day 6
+CHECKPOINT_BAR_168: Final[int] = 168  # Day 7 (end of window)
 CHECKPOINT_BARS: Final[tuple[int, ...]] = (
     CHECKPOINT_BAR_3,
     CHECKPOINT_BAR_6,
     CHECKPOINT_BAR_12,
     CHECKPOINT_BAR_24,
+    CHECKPOINT_BAR_48,
+    CHECKPOINT_BAR_72,
+    CHECKPOINT_BAR_96,
+    CHECKPOINT_BAR_120,
+    CHECKPOINT_BAR_144,
+    CHECKPOINT_BAR_168,
 )
 
 # --- Weekend Days (for trading hours) ---
@@ -76,4 +89,5 @@ class AoiRrOutcome(str, Enum):
     TP2_BEFORE_SL = "TP2_BEFORE_SL"
     SL_BEFORE_ANY_TP = "SL_BEFORE_ANY_TP"
     NONE = "NONE"
+
 
