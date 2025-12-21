@@ -66,6 +66,30 @@ def _load_trading_window() -> tuple[Set[int], Set[int]]:
 TRADING_DAYS, TRADING_HOURS = _load_trading_window()
 
 
+def is_market_open(now: datetime | None = None) -> bool:
+    """
+    Return True if the forex market is open.
+    
+    Forex market hours: Sunday 22:00 UTC to Friday 22:00 UTC.
+    - Sunday (weekday=6): open from 22:00 UTC onwards
+    - Monday-Thursday (weekday=0-3): open all day
+    - Friday (weekday=4): open until 22:00 UTC
+    - Saturday (weekday=5): closed all day
+    """
+    current = now or datetime.now(timezone.utc)
+    weekday = current.weekday()
+    hour = current.hour
+    
+    if weekday == 5:  # Saturday - closed
+        return False
+    if weekday == 6:  # Sunday - open from 22:00 UTC
+        return hour >= 22
+    if weekday == 4:  # Friday - open until 22:00 UTC
+        return hour < 22
+    # Monday-Thursday - open all day
+    return True
+
+
 def is_within_trading_hours(now: datetime | None = None) -> bool:
     """Return True when the provided UTC datetime falls inside the trading window."""
 

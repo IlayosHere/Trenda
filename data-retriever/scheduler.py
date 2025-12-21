@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from externals.data_fetcher import fetch_data
 import utils.display as display
 from configuration import SCHEDULE_CONFIG
-from utils.trading_hours import describe_trading_window, is_within_trading_hours
+from utils.trading_hours import describe_trading_window, is_market_open, is_within_trading_hours
 
 # Create a single, global scheduler instance
 scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
@@ -60,6 +60,7 @@ def _prepare_job(config: Dict[str, Any]):
     offset_seconds = config.get("offset_seconds", 0)
     job_name = config.get("name", config["id"])
     trading_hours_only = config.get("trading_hours_only", False)
+    market_hours_only = config.get("market_hours_only", False)
 
     args: List[Any] = list(config.get("args", []))
     if not args and config.get("timeframes"):
@@ -67,16 +68,23 @@ def _prepare_job(config: Dict[str, Any]):
 
     kwargs = config.get("kwargs", {})
 
-    wrapped_job = _wrap_with_trading_hours(job, job_name, trading_hours_only, args, kwargs)
+    wrapped_job = _wrap_with_trading_hours(job, job_name, trading_hours_only, market_hours_only, args, kwargs)
     next_run_time = compute_first_run_time(config.get("timeframe"), interval_minutes, offset_seconds)
     return wrapped_job, next_run_time
 
 
-def _wrap_with_trading_hours(job, job_name: str, trading_hours_only: bool, args: List[Any], kwargs: Dict[str, Any]):
+def _wrap_with_trading_hours(job, job_name: str, trading_hours_only: bool, market_hours_only: bool, args: List[Any], kwargs: Dict[str, Any]):
     def _runner():
+        # Check trading hours (specific hour-by-hour window)
         if trading_hours_only and not is_within_trading_hours():
             display.print_status(
                 f"⏩ Skipping '{job_name}': outside configured trading hours."
+            )
+            return
+        # Check market hours (Sunday 22:00 UTC to Friday 22:00 UTC)
+        if market_hours_only and not is_market_open():
+            display.print_status(
+                f"⏩ Skipping '{job_name}': forex market is closed."
             )
             return
         try:
