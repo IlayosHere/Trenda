@@ -4,6 +4,9 @@ from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from externals.data_fetcher import fetch_data
 from models import TrendDirection
 from utils.candles import dataframe_to_candles
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def run_bot_check(timeframe: str) -> None:
     for symbol in FOREX_PAIRS:
@@ -30,7 +33,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # GBPAUD: 2025-12-10 09:00:00
     time = "2025-12-10 23:00:00+00:00"
     last_index = find_candles_by_time(indexed_data, time)
-    print(last_index)
+    logger.debug(f"Last index found: {last_index}")
     last_index_id = last_index["id"].values[0]
     count = 7 # remember to change
     nums = list(range(last_index_id, last_index_id + count))
@@ -86,7 +89,7 @@ def evaluate_selected_entry(
         after_break_idx=after_break_idx,
     )
 
-    print(f"Entry quality score: {score:.4f}")
+    logger.info(f"Entry quality score: {score:.4f}")
     return score
     
 def find_candles_by_time(df: pd.DataFrame, time_value, time_col="time"):

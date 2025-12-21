@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 import os
 from typing import Iterable, Set
 
-import utils.display as display
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 DEFAULT_TRADING_DAYS = "0-4"  # Monday=0, Sunday=6
 DEFAULT_TRADING_HOURS = "4-15"  # 24/7 by default
@@ -49,13 +51,13 @@ def _load_trading_window() -> tuple[Set[int], Set[int]]:
     hours = _parse_range_list(raw_hours, max_value=23)
 
     if not days:
-        display.print_error(
+        logger.error(
             "TRADING_DAYS is misconfigured; defaulting to Monday-Friday (0-4)."
         )
         days = _parse_range_list(DEFAULT_TRADING_DAYS, max_value=6)
 
     if not hours:
-        display.print_error(
+        logger.error(
             "TRADING_HOURS_UTC is misconfigured; defaulting to 24/7 (0-23)."
         )
         hours = _parse_range_list(DEFAULT_TRADING_HOURS, max_value=23)

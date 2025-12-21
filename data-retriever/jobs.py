@@ -11,7 +11,9 @@ from configuration import (
     require_analysis_params,
     require_aoi_lookback,
 )
-import utils.display as display
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 from externals.data_fetcher import fetch_data
 from trend.workflow import analyze_trend_by_timeframe
 
@@ -25,7 +27,7 @@ def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.D
 
     candles: dict[str, pd.DataFrame] = {}
     for symbol in FOREX_PAIRS:
-        display.print_status(
+        logger.info(
             f"  -> Fetching {lookback} closed candles for {symbol} on {timeframe}..."
         )
         data = fetch_data(
@@ -35,13 +37,13 @@ def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.D
             timeframe_label=timeframe,
         )
         if data is None:
-            display.print_error(
-                f"  ❌ No candle data returned for {symbol} on timeframe {timeframe}."
+            logger.error(
+                f"No candle data returned for {symbol} on timeframe {timeframe}."
             )
             continue
         if data.empty:
-            display.print_error(
-                f"  ❌ No closed candles available for {symbol} on timeframe {timeframe}."
+            logger.error(
+                f"No closed candles available for {symbol} on timeframe {timeframe}."
             )
             continue
         candles[symbol] = data
@@ -77,7 +79,7 @@ def _run_timeframe_analysis(
 def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
     """Fetch candles once and run analyses for a timeframe."""
 
-    display.print_status(f"\n--- 🔄 Running {timeframe} timeframe job ---")
+    logger.info(f"--- 🔄 Running {timeframe} timeframe job ---")
     analysis_params = require_analysis_params(timeframe)
     trend_lookback = analysis_params.lookback
     aoi_lookback = require_aoi_lookback(timeframe) if include_aoi else None
@@ -93,5 +95,5 @@ def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
         trend_candles=trend_candles,
         aoi_candles=aoi_candles,
     )
-    display.print_status(f"--- ✅ {timeframe} timeframe job complete ---\n")
+    logger.info(f"--- ✅ {timeframe} timeframe job complete ---")
 

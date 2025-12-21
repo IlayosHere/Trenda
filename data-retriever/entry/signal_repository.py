@@ -1,6 +1,8 @@
 from typing import Any, Mapping, Optional, Sequence
 
-import utils.display as display
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 from database.executor import DBExecutor
 from database.helpers import required_trend, value_from_candle
@@ -23,7 +25,7 @@ def store_entry_signal(
     if not normalized_symbol:
         return None
     if not isinstance(trade_quality, (int, float)):
-        display.print_error("DB_VALIDATION: trade_quality must be numeric")
+        logger.error("DB_VALIDATION: trade_quality must be numeric")
         return None
     if not DBValidator.validate_nullable_float(aoi_high, "aoi_high") or not DBValidator.validate_nullable_float(
         aoi_low, "aoi_low"
@@ -37,12 +39,12 @@ def store_entry_signal(
             required_trend(trend_snapshot, "1W"),
         )
     except (TypeError, ValueError) as exc:
-        display.print_error(f"DB_VALIDATION: invalid trend snapshot - {exc}")
+        logger.error(f"DB_VALIDATION: invalid trend snapshot - {exc}")
         return None
 
     def _validate_candle_value(value: Any, field: str) -> Optional[float]:
         if not isinstance(value, (int, float)):
-            display.print_error(f"DB_VALIDATION: candle {field} must be numeric")
+            logger.error(f"DB_VALIDATION: candle {field} must be numeric")
             return None
         return float(value)
 

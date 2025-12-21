@@ -1,6 +1,8 @@
 from typing import List
 
-import utils.display as display
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 from database.executor import DBExecutor
 from database.queries import CLEAR_AOIS, FETCH_TRADABLE_AOIS, UPSERT_AOIS
@@ -37,7 +39,7 @@ def store_aois(
             return
         aoi_type = aoi.classification
         if not isinstance(aoi_type, str) or not aoi_type:
-            display.print_error("DB_VALIDATION: AOI classification must be a non-empty string")
+            logger.error("DB_VALIDATION: AOI classification must be a non-empty string")
             return
         param_sets.append(
             (

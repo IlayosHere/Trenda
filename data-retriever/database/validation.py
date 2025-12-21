@@ -1,6 +1,8 @@
 from typing import Optional, Union
 
-import utils.display as display
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 from models import AOIZone
 
 
@@ -8,17 +10,17 @@ class DBValidator:
     @staticmethod
     def validate_symbol(symbol: str) -> Optional[str]:
         if not isinstance(symbol, str) or not symbol.strip():
-            display.print_error("DB_VALIDATION: symbol must be a non-empty string")
+            logger.error("DB_VALIDATION: symbol must be a non-empty string")
             return None
 
         normalized = symbol.strip().upper()
 
         if len(normalized) > 20:
-            display.print_error("DB_VALIDATION: symbol must be 20 characters or fewer")
+            logger.error("DB_VALIDATION: symbol must be 20 characters or fewer")
             return None
 
         if not normalized.isalnum():
-            display.print_error("DB_VALIDATION: symbol must be alphanumeric")
+            logger.error("DB_VALIDATION: symbol must be alphanumeric")
             return None
 
         return normalized
@@ -26,17 +28,17 @@ class DBValidator:
     @staticmethod
     def validate_timeframe(timeframe: str) -> Optional[str]:
         if not isinstance(timeframe, str) or not timeframe.strip():
-            display.print_error("DB_VALIDATION: timeframe must be a non-empty string")
+            logger.error("DB_VALIDATION: timeframe must be a non-empty string")
             return None
 
         normalized = timeframe.strip().upper()
 
         if len(normalized) > 20:
-            display.print_error("DB_VALIDATION: timeframe must be 20 characters or fewer")
+            logger.error("DB_VALIDATION: timeframe must be 20 characters or fewer")
             return None
 
         if not normalized.isalnum():
-            display.print_error("DB_VALIDATION: timeframe must be alphanumeric")
+            logger.error("DB_VALIDATION: timeframe must be alphanumeric")
             return None
 
         return normalized
@@ -46,7 +48,7 @@ class DBValidator:
         if value is None:
             return True
         if not isinstance(value, (int, float)):
-            display.print_error(f"DB_VALIDATION: {field} must be a number or None")
+            logger.error(f"DB_VALIDATION: {field} must be a number or None")
             return False
         return True
 

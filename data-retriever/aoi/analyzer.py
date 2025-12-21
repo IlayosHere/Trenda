@@ -18,7 +18,9 @@ from configuration import (
     require_analysis_params,
 )
 from aoi.aoi_repository import clear_aois, store_aois
-import utils.display as display
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 from utils.forex import get_pip_size, price_to_pips
 from trend.structure import (
     _check_for_structure_break,
@@ -37,26 +39,26 @@ def analyze_aoi_by_timeframe(
 ) -> None:
     settings = AOI_CONFIGS.get(timeframe)
     if settings is None:
-        display.print_status(
+        logger.info(
             f"\n--- ⚠️ Skipping AOI analysis for {timeframe}: no configuration found ---"
         )
         return
 
-    display.print_status(f"\n--- 🔄 Running AOI analysis for {settings.timeframe} ---")
+    logger.info(f"\n--- 🔄 Running AOI analysis for {settings.timeframe} ---")
 
     for symbol in FOREX_PAIRS:
-        display.print_status(f"  -> Processing {symbol}...")
+        logger.info(f"  -> Processing {symbol}...")
         try:
             clear_aois(symbol, timeframe)
             symbol_candles = candles_by_symbol.get(symbol)
             if symbol_candles is None:
-                display.print_error(
+                logger.error(
                     f"  ❌ No candle data provided for {symbol} on {timeframe}."
                 )
                 continue
             _process_symbol(settings, symbol, symbol_candles)
         except Exception as err:
-            display.print_error(f"  -> Failed for {symbol}: {err}")
+            logger.error(f"  -> Failed for {symbol}: {err}")
 
 
 def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> None:
@@ -65,7 +67,7 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
     )
 
     if trend_direction is None:
-        display.print_status(
+        logger.info(
             f"  ⚠️ Skipping {symbol}: trends not aligned across {settings.trend_alignment_timeframes}."
         )
         return
@@ -74,7 +76,7 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
     require_aoi_lookback(settings.timeframe)
 
     if data is None or "close" not in data:
-        display.print_error(f"  ❌ No price data for {symbol}.")
+        logger.error(f"  ❌ No price data for {symbol}.")
         return
 
     prices = np.asarray(data["close"].values)
@@ -94,7 +96,7 @@ def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> N
     ]
 
     store_aois(symbol, settings.timeframe, top_zones)
-    display.print_status(
+    logger.info(
         f"  ✅ Stored {len(top_zones)} AOIs for {symbol} ({settings.timeframe})."
     )
 
