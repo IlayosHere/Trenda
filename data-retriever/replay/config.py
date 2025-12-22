@@ -11,17 +11,17 @@ from typing import Final
 # Replay Symbols
 # =============================================================================
 REPLAY_SYMBOLS: Final[list[str]] = [
-    # "EURUSD",
-    # "USDJPY",
-    # "GBPUSD",
-    # "USDCHF",
-    # "USDCAD",
-    # "AUDUSD",
-    # "NZDUSD",
-    # "GBPCAD",
-    # "EURJPY",
-    # "GBPJPY",
-    # "AUDJPY",
+    "EURUSD",
+    "USDJPY",
+    "GBPUSD",
+    "USDCHF",
+    "USDCAD",
+    "AUDUSD",
+    "NZDUSD",
+    "GBPCAD",
+    "EURJPY",
+    "GBPJPY",
+    "AUDJPY",
     "CADJPY",
     "NZDJPY",
     "CHFJPY",
@@ -39,8 +39,8 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2025, 6, 10, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2025, 12, 17, 23, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2025, 6, 17, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2025, 12, 10, 23, 0, 0, tzinfo=timezone.utc)
 
 # =============================================================================
 # Lookback Sizes (must match production: configuration/forex_data.py)
@@ -113,3 +113,19 @@ TWELVEDATA_INTERVALS: Final[dict[str, str]] = {
 # =============================================================================
 BATCH_SIZE: Final[int] = 100
 CANDLE_FETCH_BUFFER: Final[int] = 50  # Extra candles for weekend gaps
+
+# =============================================================================
+# Pre-Entry Context Windows
+# =============================================================================
+# Main lookback window for most pre-entry metrics
+PRE_ENTRY_LOOKBACK_BARS: Final[int] = 20
+
+# Short-term impulse window for detecting sudden moves
+PRE_ENTRY_IMPULSE_BARS: Final[int] = 5
+
+# Window for large bar ratio computation
+PRE_ENTRY_LARGE_BAR_WINDOW: Final[int] = 10
+
+# Long window for ATR ratio baseline (median ATR comparison)
+PRE_ENTRY_LONG_ATR_WINDOW: Final[int] = 200
+

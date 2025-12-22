@@ -6,6 +6,9 @@ Mirrors production queries from database/queries.py.
 
 from .config import SCHEMA_NAME
 
+# Import SL/TP constants from the canonical source
+from entry.sl_calculator import SL_MODEL_VERSION, TP_MODEL_VERSION, TP_R_MULTIPLIER
+
 # =============================================================================
 # Entry Signal Queries
 # =============================================================================
@@ -13,8 +16,13 @@ from .config import SCHEMA_NAME
 CHECK_SIGNAL_EXISTS = f"""
     SELECT EXISTS(
         SELECT 1 FROM {SCHEMA_NAME}.entry_signal
-        WHERE symbol = %s AND signal_time = %s
+        WHERE symbol = %s AND signal_time = %s AND sl_model_version = %s AND tp_model_version = %s
     )
+"""
+
+GET_SIGNAL_ID = f"""
+    SELECT id FROM {SCHEMA_NAME}.entry_signal
+    WHERE symbol = %s AND signal_time = %s AND sl_model_version = %s AND tp_model_version = %s
 """
 
 INSERT_REPLAY_ENTRY_SIGNAL = f"""
@@ -25,10 +33,13 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         entry_price, atr_1h,
         final_score, tier,
         is_break_candle_last,
-        aoi_sl_tolerance_atr, aoi_raw_sl_distance_price, aoi_raw_sl_distance_atr,
-        aoi_effective_sl_distance_price, aoi_effective_sl_distance_atr
+        sl_model_version, tp_model_version,
+        aoi_structural_sl_distance_price, aoi_structural_sl_distance_atr,
+        effective_sl_distance_price, effective_sl_distance_atr,
+        effective_tp_distance_atr, effective_tp_distance_price,
+        trade_profile
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -43,9 +54,10 @@ INSERT_REPLAY_ENTRY_SIGNAL_SCORE = f"""
 # Signal Outcome Queries
 # =============================================================================
 
+# Note: effective_tp_distance_price is computed dynamically in Python (SL × 2.25)
 FETCH_PENDING_REPLAY_SIGNALS = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
-           aoi_low, aoi_high, aoi_effective_sl_distance_price
+           aoi_low, aoi_high, effective_sl_distance_price
     FROM {SCHEMA_NAME}.entry_signal
     WHERE outcome_computed = FALSE
     ORDER BY signal_time ASC
@@ -54,7 +66,7 @@ FETCH_PENDING_REPLAY_SIGNALS = f"""
 
 FETCH_SIGNAL_BY_ID = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
-           aoi_low, aoi_high, aoi_effective_sl_distance_price
+           aoi_low, aoi_high, effective_sl_distance_price
     FROM {SCHEMA_NAME}.entry_signal
     WHERE id = %s
 """
@@ -64,9 +76,10 @@ INSERT_REPLAY_SIGNAL_OUTCOME = f"""
         entry_signal_id, window_bars,
         mfe_atr, mae_atr,
         bars_to_mfe, bars_to_mae, first_extreme,
-        bars_to_aoi_sl_hit, bars_to_r_1, bars_to_r_1_5, bars_to_r_2, aoi_rr_outcome
+        realized_r, exit_reason, bars_to_exit,
+        mfe_r, mae_r, bars_to_tp, bars_to_sl
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
     RETURNING id
 """
@@ -111,11 +124,15 @@ CREATE_REPLAY_ENTRY_SIGNAL_TABLE = f"""
         final_score NUMERIC,
         tier VARCHAR(20),
         is_break_candle_last BOOLEAN,
-        aoi_sl_tolerance_atr NUMERIC,
-        aoi_raw_sl_distance_price NUMERIC,
-        aoi_raw_sl_distance_atr NUMERIC,
-        aoi_effective_sl_distance_price NUMERIC,
-        aoi_effective_sl_distance_atr NUMERIC,
+        sl_model_version TEXT NOT NULL,
+        tp_model_version TEXT NOT NULL,
+        aoi_structural_sl_distance_price NUMERIC,
+        aoi_structural_sl_distance_atr NUMERIC,
+        effective_sl_distance_price NUMERIC,
+        effective_sl_distance_atr NUMERIC,
+        effective_tp_distance_atr NUMERIC NOT NULL,
+        effective_tp_distance_price NUMERIC NOT NULL,
+        trade_profile TEXT,
         outcome_computed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(symbol, signal_time)
@@ -148,6 +165,13 @@ CREATE_REPLAY_SIGNAL_OUTCOME_TABLE = f"""
         bars_to_r_1_5 INTEGER,
         bars_to_r_2 INTEGER,
         aoi_rr_outcome VARCHAR(30),
+        realized_r NUMERIC,
+        exit_reason TEXT,
+        bars_to_exit INTEGER,
+        mfe_r NUMERIC,
+        mae_r NUMERIC,
+        bars_to_tp INTEGER,
+        bars_to_sl INTEGER,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
 """
@@ -161,3 +185,48 @@ CREATE_REPLAY_CHECKPOINT_RETURN_TABLE = f"""
         UNIQUE(signal_outcome_id, bars_after)
     )
 """
+
+# =============================================================================
+# Pre-Entry Context Queries
+# =============================================================================
+
+INSERT_REPLAY_PRE_ENTRY_CONTEXT = f"""
+    INSERT INTO {SCHEMA_NAME}.pre_entry_context (
+        entry_signal_id,
+        lookback_bars, impulse_bars,
+        pre_atr, pre_atr_ratio, pre_range_atr, pre_range_to_atr_ratio,
+        pre_net_move_atr, pre_total_move_atr, pre_efficiency, pre_counter_bar_ratio,
+        pre_aoi_touch_count, pre_bars_in_aoi, pre_last_touch_distance_atr,
+        pre_impulse_net_atr, pre_impulse_efficiency, pre_large_bar_ratio,
+        pre_overlap_ratio, pre_wick_ratio
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id) DO NOTHING
+"""
+
+CREATE_REPLAY_PRE_ENTRY_CONTEXT_TABLE = f"""
+    CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.pre_entry_context (
+        entry_signal_id INTEGER PRIMARY KEY
+            REFERENCES {SCHEMA_NAME}.entry_signal(id) ON DELETE CASCADE,
+        lookback_bars INTEGER NOT NULL,
+        impulse_bars INTEGER NOT NULL,
+        pre_atr NUMERIC,
+        pre_atr_ratio NUMERIC,
+        pre_range_atr NUMERIC,
+        pre_range_to_atr_ratio NUMERIC,
+        pre_net_move_atr NUMERIC,
+        pre_total_move_atr NUMERIC,
+        pre_efficiency NUMERIC,
+        pre_counter_bar_ratio NUMERIC,
+        pre_aoi_touch_count INTEGER,
+        pre_bars_in_aoi INTEGER,
+        pre_last_touch_distance_atr NUMERIC,
+        pre_impulse_net_atr NUMERIC,
+        pre_impulse_efficiency NUMERIC,
+        pre_large_bar_ratio NUMERIC,
+        pre_overlap_ratio NUMERIC,
+        pre_wick_ratio NUMERIC,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+

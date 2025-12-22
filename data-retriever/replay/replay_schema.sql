@@ -41,12 +41,22 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     tier VARCHAR(20),
     is_break_candle_last BOOLEAN,
     
-    -- SL distance data
-    aoi_sl_tolerance_atr NUMERIC,
-    aoi_raw_sl_distance_price NUMERIC,
-    aoi_raw_sl_distance_atr NUMERIC,
-    aoi_effective_sl_distance_price NUMERIC,
-    aoi_effective_sl_distance_atr NUMERIC,
+    -- SL/TP model versions
+    sl_model_version TEXT NOT NULL,
+    tp_model_version TEXT NOT NULL,
+    
+    -- SL distance data (renamed from aoi_raw/aoi_effective)
+    aoi_structural_sl_distance_price NUMERIC,
+    aoi_structural_sl_distance_atr NUMERIC,
+    effective_sl_distance_price NUMERIC,
+    effective_sl_distance_atr NUMERIC,
+    
+    -- TP distance data
+    effective_tp_distance_atr NUMERIC NOT NULL,
+    effective_tp_distance_price NUMERIC NOT NULL,
+    
+    -- Trade profile
+    trade_profile TEXT,
     
     -- Processing flags
     outcome_computed BOOLEAN DEFAULT FALSE,
@@ -87,21 +97,28 @@ CREATE TABLE IF NOT EXISTS trenda_replay.signal_outcome (
     -- Window info (168 bars = 7 days)
     window_bars INTEGER,
     
-    -- MFE/MAE
+    -- MFE/MAE (in ATR units - legacy)
     mfe_atr NUMERIC,
     mae_atr NUMERIC,
     bars_to_mfe INTEGER,
     bars_to_mae INTEGER,
     first_extreme VARCHAR(20),
     
-    -- SL/TP hits (bar number or NULL)
+    -- Legacy SL/TP hits (kept but no longer written to)
     bars_to_aoi_sl_hit INTEGER,
     bars_to_r_1 INTEGER,
     bars_to_r_1_5 INTEGER,
     bars_to_r_2 INTEGER,
-    
-    -- R:R outcome classification
     aoi_rr_outcome VARCHAR(30),
+    
+    -- New outcome fields
+    realized_r NUMERIC,                -- Actual R return based on exit
+    exit_reason TEXT,                  -- 'TP', 'SL', or 'TIME'
+    bars_to_exit INTEGER,              -- Bars from entry to exit
+    mfe_r NUMERIC,                     -- MFE normalized by effective SL (in R units)
+    mae_r NUMERIC,                     -- MAE normalized by effective SL (in R units)
+    bars_to_tp INTEGER,                -- Bars to TP hit (or NULL)
+    bars_to_sl INTEGER,                -- Bars to SL hit (or NULL)
     
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -124,6 +141,48 @@ CREATE INDEX IF NOT EXISTS idx_replay_checkpoint_return_outcome_id
 ON trenda_replay.checkpoint_return (signal_outcome_id);
 
 -- =============================================================================
+-- Pre-Entry Context Table
+-- =============================================================================
+-- Stores pre-entry observable facts computed at replay time, before the entry candle.
+-- All metric columns are nullable for replay-safe operation.
+CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context (
+    entry_signal_id INTEGER PRIMARY KEY
+        REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
+
+    -- metadata (window sizes used for computation)
+    lookback_bars INTEGER NOT NULL,
+    impulse_bars INTEGER NOT NULL,
+
+    -- volatility & range
+    pre_atr NUMERIC,
+    pre_atr_ratio NUMERIC,
+    pre_range_atr NUMERIC,
+    pre_range_to_atr_ratio NUMERIC,
+
+    -- directional pressure
+    pre_net_move_atr NUMERIC,
+    pre_total_move_atr NUMERIC,
+    pre_efficiency NUMERIC,
+    pre_counter_bar_ratio NUMERIC,
+
+    -- AOI interaction
+    pre_aoi_touch_count INTEGER,
+    pre_bars_in_aoi INTEGER,
+    pre_last_touch_distance_atr NUMERIC,
+
+    -- impulse / energy
+    pre_impulse_net_atr NUMERIC,
+    pre_impulse_efficiency NUMERIC,
+    pre_large_bar_ratio NUMERIC,
+
+    -- microstructure
+    pre_overlap_ratio NUMERIC,
+    pre_wick_ratio NUMERIC,
+
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================================================
 -- Utility: Drop and recreate all tables (use with caution!)
 -- =============================================================================
 -- To reset the replay schema:
@@ -131,25 +190,3 @@ ON trenda_replay.checkpoint_return (signal_outcome_id);
 -- DROP SCHEMA IF EXISTS trenda_replay CASCADE;
 -- Then re-run this DDL file.
 -- =============================================================================
-
--- SELECT ess.stage_name, avg(lt.bars_to_aoi_sl_hit)
--- FROM trenda_replay.losing_trades lt
--- JOIN trenda_replay.entry_signal_score ess ON ess.entry_signal_id = lt.id
--- WHERE EXTRACT(DOW FROM signal_time) BETWEEN 2 AND 4
--- AND EXTRACT(HOUR FROM signal_time) BETWEEN 7 AND 17
--- AND final_score > 0.5
--- GROUP BY ess.stage_name
-
--- SELECT lt.symbol, lt.aoi_low, lt.aoi_high, lt.signal_time,
--- 	lt.bars_to_aoi_sl_hit, lt.bars_to_r_1, lt.bars_to_r_1_5
--- FROM trenda_replay.losing_trades lt
--- WHERE EXTRACT(DOW FROM signal_time) BETWEEN 2 AND 4
--- AND EXTRACT(HOUR FROM signal_time) BETWEEN 7 AND 17
--- AND lt.aoi_rr_outcome != 'SL_BEFORE_ANY_TP'
--- AND final_score > 0.65
-
-
-
-
-
--
