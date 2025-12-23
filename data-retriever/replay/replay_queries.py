@@ -230,3 +230,54 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_TABLE = f"""
     )
 """
 
+# =============================================================================
+# Pre-Entry Context V2 Queries (Market Environment)
+# =============================================================================
+
+INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
+    INSERT INTO {SCHEMA_NAME}.pre_entry_context_v2 (
+        entry_signal_id,
+        htf_range_position_daily, htf_range_position_weekly,
+        distance_to_daily_high_atr, distance_to_daily_low_atr,
+        distance_to_weekly_high_atr, distance_to_weekly_low_atr,
+        distance_to_next_htf_obstacle_atr,
+        prev_session_high, prev_session_low,
+        distance_to_prev_session_high_atr, distance_to_prev_session_low_atr,
+        trend_age_bars_1h, trend_age_impulses,
+        recent_trend_payoff_atr_24h, recent_trend_payoff_atr_48h,
+        session_directional_bias,
+        aoi_time_since_last_touch, aoi_last_reaction_strength,
+        distance_from_last_impulse_atr
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id) DO NOTHING
+"""
+
+CREATE_REPLAY_PRE_ENTRY_CONTEXT_V2_TABLE = f"""
+    CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.pre_entry_context_v2 (
+        entry_signal_id INTEGER PRIMARY KEY
+            REFERENCES {SCHEMA_NAME}.entry_signal(id) ON DELETE CASCADE,
+        htf_range_position_daily NUMERIC,
+        htf_range_position_weekly NUMERIC,
+        distance_to_daily_high_atr NUMERIC,
+        distance_to_daily_low_atr NUMERIC,
+        distance_to_weekly_high_atr NUMERIC,
+        distance_to_weekly_low_atr NUMERIC,
+        distance_to_next_htf_obstacle_atr NUMERIC,
+        prev_session_high NUMERIC,
+        prev_session_low NUMERIC,
+        distance_to_prev_session_high_atr NUMERIC,
+        distance_to_prev_session_low_atr NUMERIC,
+        trend_age_bars_1h INTEGER,
+        trend_age_impulses INTEGER,
+        recent_trend_payoff_atr_24h NUMERIC,
+        recent_trend_payoff_atr_48h NUMERIC,
+        session_directional_bias NUMERIC,
+        aoi_time_since_last_touch INTEGER,
+        aoi_last_reaction_strength NUMERIC,
+        distance_from_last_impulse_atr NUMERIC,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+

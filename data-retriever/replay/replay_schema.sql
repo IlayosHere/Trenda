@@ -183,6 +183,51 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context (
 );
 
 -- =============================================================================
+-- Pre-Entry Context V2 Table (Market Environment)
+-- =============================================================================
+-- Stores market environment metrics computed at replay time, before the entry candle.
+-- Captures location, maturity, regime, and space factors.
+CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
+    entry_signal_id INTEGER PRIMARY KEY
+        REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
+
+    -- HTF Range Position (where price sits within completed ranges)
+    htf_range_position_daily NUMERIC,     -- (entry - daily_low) / (daily_high - daily_low)
+    htf_range_position_weekly NUMERIC,    -- (entry - weekly_low) / (weekly_high - weekly_low)
+    
+    -- Distance to HTF Boundaries (room to move, in ATR units)
+    distance_to_daily_high_atr NUMERIC,
+    distance_to_daily_low_atr NUMERIC,
+    distance_to_weekly_high_atr NUMERIC,
+    distance_to_weekly_low_atr NUMERIC,
+    distance_to_next_htf_obstacle_atr NUMERIC,  -- min of relevant distances based on direction
+    
+    -- Session Context (previous session high/low using fixed UTC windows)
+    prev_session_high NUMERIC,
+    prev_session_low NUMERIC,
+    distance_to_prev_session_high_atr NUMERIC,
+    distance_to_prev_session_low_atr NUMERIC,
+    
+    -- Trend Maturity
+    trend_age_bars_1h INTEGER,            -- bars since trend_alignment >= 2
+    trend_age_impulses INTEGER,           -- count of directional runs >= 0.8 ATR
+    recent_trend_payoff_atr_24h NUMERIC,  -- (close_now - close_24h_ago) / atr
+    recent_trend_payoff_atr_48h NUMERIC,  -- (close_now - close_48h_ago) / atr
+    
+    -- Session Directional Bias
+    session_directional_bias NUMERIC,     -- (session_close - session_open) / atr
+    
+    -- AOI Freshness
+    aoi_time_since_last_touch INTEGER,    -- bars since last AOI overlap before signal
+    aoi_last_reaction_strength NUMERIC,   -- MFE in ATR after last AOI exit (NULL if fresh)
+    
+    -- Momentum Chase Detection
+    distance_from_last_impulse_atr NUMERIC,  -- distance from last large candle close
+    
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================================================
 -- Utility: Drop and recreate all tables (use with caution!)
 -- =============================================================================
 -- To reset the replay schema:

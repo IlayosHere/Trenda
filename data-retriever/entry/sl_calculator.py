@@ -6,8 +6,8 @@ from models import TrendDirection
 
 
 # --- SL/TP Model Constants ---
-SL_MODEL_VERSION = 'AOI_MAX_ATR_2_5_v1'
-TP_MODEL_VERSION = 'TP_SINGLE_2_25R_v1'
+SL_MODEL_VERSION = 'HARD_GATES_CHECK'
+TP_MODEL_VERSION = 'HARD_GATES_CHECK'
 
 # Volatility floor: SL is never less than this many ATR
 MIN_SL_ATR = 2.5

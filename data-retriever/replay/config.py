@@ -39,8 +39,8 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2025, 6, 17, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2025, 12, 10, 23, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2025, 6, 17, 23, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2025, 12, 8, 23, 0, 0, tzinfo=timezone.utc)
 
 # =============================================================================
 # Lookback Sizes (must match production: configuration/forex_data.py)
@@ -129,3 +129,26 @@ PRE_ENTRY_LARGE_BAR_WINDOW: Final[int] = 10
 # Long window for ATR ratio baseline (median ATR comparison)
 PRE_ENTRY_LONG_ATR_WINDOW: Final[int] = 200
 
+# =============================================================================
+# Pre-Entry Context V2 Configuration
+# =============================================================================
+# Impulse detection threshold (directional push >= this ATR)
+PRE_ENTRY_V2_IMPULSE_THRESHOLD_ATR: Final[float] = 0.8
+
+# Large bar multiplier (body >= multiplier × average body size)
+PRE_ENTRY_V2_LARGE_BAR_MULTIPLIER: Final[float] = 1.5
+
+# Lookback for AOI reaction strength after exit
+PRE_ENTRY_V2_AOI_REACTION_LOOKBACK: Final[int] = 100
+
+# Lookback for impulse counting
+PRE_ENTRY_V2_IMPULSE_LOOKBACK: Final[int] = 50
+
+# Session definitions (UTC hours)
+# Asia: 00:00-06:00, London: 06:00-12:00, NY: 12:00-18:00
+SESSION_ASIA_START: Final[int] = 0
+SESSION_ASIA_END: Final[int] = 6
+SESSION_LONDON_START: Final[int] = 6
+SESSION_LONDON_END: Final[int] = 12
+SESSION_NY_START: Final[int] = 12
+SESSION_NY_END: Final[int] = 18

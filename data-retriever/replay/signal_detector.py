@@ -27,11 +27,14 @@ from .replay_queries import (
     INSERT_REPLAY_ENTRY_SIGNAL,
     INSERT_REPLAY_ENTRY_SIGNAL_SCORE,
     INSERT_REPLAY_PRE_ENTRY_CONTEXT,
+    INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2,
 )
 from .pre_entry_context import PreEntryContextCalculator, PreEntryContextData
+from .pre_entry_context_v2 import PreEntryContextV2Calculator, PreEntryContextV2Data
+from .signal_gates import check_all_gates
 
-SL_MODEL_VERSION = 'AOI_MAX_ATR_2_5_v1'
-TP_MODEL_VERSION = 'TP_SINGLE_2_25R_v1'
+SL_MODEL_VERSION = 'HARD_GATES_CHECK'
+TP_MODEL_VERSION = 'HARD_GATES_CHECK'
 
 class ReplaySignalDetector:
     """Detects entry signals during replay using production logic.
@@ -104,6 +107,7 @@ class ReplaySignalDetector:
                 trend_snapshot=trend_snapshot,
                 trend_alignment=trend_alignment,
                 atr_1h=atr_1h,
+                state=state,
             )
             if signal_id:
                 inserted_ids.append(signal_id)
@@ -118,6 +122,7 @@ class ReplaySignalDetector:
         trend_snapshot: dict,
         trend_alignment: int,
         atr_1h: float,
+        state: SymbolState,
     ) -> Optional[int]:
         """Scan a single AOI for entry pattern and store if found."""
         # Find entry pattern
@@ -148,18 +153,35 @@ class ReplaySignalDetector:
         entry_price = pattern.candles[-1].close
         signal_time = pattern.candles[-1].time
         
-        # Check for duplicate - if exists, still try to add pre_entry_context
+        # Check for duplicate - if exists, skip
         existing_signal_id = self._get_existing_signal_id(signal_time)
         if existing_signal_id:
-            # Signal exists, but still compute pre_entry_context if missing
-            self._store_pre_entry_context(
-                signal_id=existing_signal_id,
-                signal_time=signal_time,
-                direction=direction,
-                aoi_low=aoi.lower,
-                aoi_high=aoi.upper,
-            )
-            return None  # Signal wasn't newly inserted
+            return None  # Signal already exists
+        
+        # Compute V2 context FIRST (needed for gate checks)
+        context_v2 = self._compute_pre_entry_context_v2(
+            signal_time=signal_time,
+            direction=direction,
+            entry_price=entry_price,
+            atr_1h=atr_1h,
+            aoi_low=aoi.lower,
+            aoi_high=aoi.upper,
+            state=state,
+        )
+        
+        if context_v2 is None:
+            return None  # Insufficient data for context
+        
+        # Run signal gates - reject if any gate fails
+        gate_result = check_all_gates(
+            signal_time=signal_time,
+            direction=direction,
+            context_v2=context_v2,
+        )
+        
+        if not gate_result.passed:
+            # Signal rejected by gate, do not store
+            return None
         
         # Compute SL/TP distances using NEW logic:
         # effective_sl = max(structural, 2.5 ATR)
@@ -186,15 +208,9 @@ class ReplaySignalDetector:
             sl_tp_data=sl_tp_data,
         )
         
-        # Compute and store pre-entry context if signal was stored
+        # Store V2 context (already computed, just persist)
         if signal_id:
-            self._store_pre_entry_context(
-                signal_id=signal_id,
-                signal_time=signal_time,
-                direction=direction,
-                aoi_low=aoi.lower,
-                aoi_high=aoi.upper,
-            )
+            self._persist_pre_entry_context_v2(signal_id, context_v2)
         
         return signal_id
     
@@ -356,4 +372,61 @@ class ReplaySignalDetector:
             context="store_pre_entry_context",
         )
 
+    def _compute_pre_entry_context_v2(
+        self,
+        signal_time: datetime,
+        direction: TrendDirection,
+        entry_price: float,
+        atr_1h: float,
+        aoi_low: float,
+        aoi_high: float,
+        state: SymbolState,
+    ) -> Optional[PreEntryContextV2Data]:
+        """Compute pre-entry context V2 (market environment) for gate checks."""
+        calculator = PreEntryContextV2Calculator(
+            candle_store=self._store,
+            signal_time=signal_time,
+            direction=direction,
+            entry_price=entry_price,
+            atr_1h=atr_1h,
+            aoi_low=aoi_low,
+            aoi_high=aoi_high,
+            state=state,
+        )
+        return calculator.compute()
+
+    def _persist_pre_entry_context_v2(
+        self,
+        signal_id: int,
+        context: PreEntryContextV2Data,
+    ) -> None:
+        """Persist already-computed pre-entry context V2 to database."""
+        from database.executor import DBExecutor
+        
+        DBExecutor.execute_non_query(
+            INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2,
+            (
+                signal_id,
+                context.htf_range_position_daily,
+                context.htf_range_position_weekly,
+                context.distance_to_daily_high_atr,
+                context.distance_to_daily_low_atr,
+                context.distance_to_weekly_high_atr,
+                context.distance_to_weekly_low_atr,
+                context.distance_to_next_htf_obstacle_atr,
+                context.prev_session_high,
+                context.prev_session_low,
+                context.distance_to_prev_session_high_atr,
+                context.distance_to_prev_session_low_atr,
+                context.trend_age_bars_1h,
+                context.trend_age_impulses,
+                context.recent_trend_payoff_atr_24h,
+                context.recent_trend_payoff_atr_48h,
+                context.session_directional_bias,
+                context.aoi_time_since_last_touch,
+                context.aoi_last_reaction_strength,
+                context.distance_from_last_impulse_atr,
+            ),
+            context="store_pre_entry_context_v2",
+        )
 
