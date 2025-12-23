@@ -54,6 +54,8 @@ class PreEntryContextV2Data:
     distance_to_daily_low_atr: Optional[float] = None
     distance_to_weekly_high_atr: Optional[float] = None
     distance_to_weekly_low_atr: Optional[float] = None
+    distance_to_4h_high_atr: Optional[float] = None
+    distance_to_4h_low_atr: Optional[float] = None
     distance_to_next_htf_obstacle_atr: Optional[float] = None
     
     # Session Context
@@ -160,6 +162,8 @@ class PreEntryContextV2Calculator:
             distance_to_daily_low_atr=_to_python_float(htf_distances.get("daily_low")),
             distance_to_weekly_high_atr=_to_python_float(htf_distances.get("weekly_high")),
             distance_to_weekly_low_atr=_to_python_float(htf_distances.get("weekly_low")),
+            distance_to_4h_high_atr=_to_python_float(htf_distances.get("4h_high")),
+            distance_to_4h_low_atr=_to_python_float(htf_distances.get("4h_low")),
             distance_to_next_htf_obstacle_atr=_to_python_float(htf_distances.get("next_obstacle")),
             # Session
             prev_session_high=_to_python_float(session_metrics.get("high")),
@@ -210,8 +214,18 @@ class PreEntryContextV2Calculator:
         return result
     
     def _compute_htf_distances(self) -> dict:
-        """Compute distances to daily/weekly high/low in ATR units."""
+        """Compute distances to 4H/daily/weekly high/low in ATR units."""
         result = {}
+        
+        # Get last closed 4H candle
+        candles_4h = self._store.get_4h_candles().get_candles_up_to(self._signal_time)
+        if candles_4h is not None and len(candles_4h) > 0:
+            last_4h = candles_4h.iloc[-1]
+            h4_high = float(last_4h["high"])
+            h4_low = float(last_4h["low"])
+            
+            result["4h_high"] = abs(h4_high - self._entry_price) / self._atr_1h
+            result["4h_low"] = abs(self._entry_price - h4_low) / self._atr_1h
         
         # Get last closed daily candle
         daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
@@ -233,16 +247,18 @@ class PreEntryContextV2Calculator:
             result["weekly_high"] = abs(weekly_high - self._entry_price) / self._atr_1h
             result["weekly_low"] = abs(self._entry_price - weekly_low) / self._atr_1h
         
-        # Compute next obstacle based on direction
+        # Compute next obstacle based on direction (includes 4H, daily, weekly)
         if self._is_long:
             # Long: obstacle is to the upside (highs)
             candidates = [
+                result.get("4h_high"),
                 result.get("daily_high"),
                 result.get("weekly_high"),
             ]
         else:
             # Short: obstacle is to the downside (lows)
             candidates = [
+                result.get("4h_low"),
                 result.get("daily_low"),
                 result.get("weekly_low"),
             ]

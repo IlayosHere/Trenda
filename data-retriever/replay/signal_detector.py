@@ -173,15 +173,16 @@ class ReplaySignalDetector:
             return None  # Insufficient data for context
         
         # Run signal gates - reject if any gate fails
-        gate_result = check_all_gates(
-            signal_time=signal_time,
-            direction=direction,
-            context_v2=context_v2,
-        )
-        
-        if not gate_result.passed:
-            # Signal rejected by gate, do not store
-            return None
+        # GATES SUPPRESSED - uncomment to enable filtering
+        # gate_result = check_all_gates(
+        #     signal_time=signal_time,
+        #     direction=direction,
+        #     context_v2=context_v2,
+        # )
+        # 
+        # if not gate_result.passed:
+        #     # Signal rejected by gate, do not store
+        #     return None
         
         # Compute SL/TP distances using NEW logic:
         # effective_sl = max(structural, 2.5 ATR)
@@ -413,6 +414,8 @@ class ReplaySignalDetector:
                 context.distance_to_daily_low_atr,
                 context.distance_to_weekly_high_atr,
                 context.distance_to_weekly_low_atr,
+                context.distance_to_4h_high_atr,
+                context.distance_to_4h_low_atr,
                 context.distance_to_next_htf_obstacle_atr,
                 context.prev_session_high,
                 context.prev_session_low,

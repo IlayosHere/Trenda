@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     
     -- Constraints
-    UNIQUE(symbol, signal_time)
+    UNIQUE(symbol, signal_time, aoi_low, aoi_high,sl_model_version,tp_model_version )
 );
 
 -- Index for pending outcome computation
@@ -200,6 +200,8 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     distance_to_daily_low_atr NUMERIC,
     distance_to_weekly_high_atr NUMERIC,
     distance_to_weekly_low_atr NUMERIC,
+    distance_to_4h_high_atr NUMERIC,
+    distance_to_4h_low_atr NUMERIC,
     distance_to_next_htf_obstacle_atr NUMERIC,  -- min of relevant distances based on direction
     
     -- Session Context (previous session high/low using fixed UTC windows)

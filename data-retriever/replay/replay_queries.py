@@ -240,6 +240,7 @@ INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
         htf_range_position_daily, htf_range_position_weekly,
         distance_to_daily_high_atr, distance_to_daily_low_atr,
         distance_to_weekly_high_atr, distance_to_weekly_low_atr,
+        distance_to_4h_high_atr, distance_to_4h_low_atr,
         distance_to_next_htf_obstacle_atr,
         prev_session_high, prev_session_low,
         distance_to_prev_session_high_atr, distance_to_prev_session_low_atr,
@@ -249,7 +250,7 @@ INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
         aoi_time_since_last_touch, aoi_last_reaction_strength,
         distance_from_last_impulse_atr
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
 """
 
@@ -263,6 +264,8 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_V2_TABLE = f"""
         distance_to_daily_low_atr NUMERIC,
         distance_to_weekly_high_atr NUMERIC,
         distance_to_weekly_low_atr NUMERIC,
+        distance_to_4h_high_atr NUMERIC,
+        distance_to_4h_low_atr NUMERIC,
         distance_to_next_htf_obstacle_atr NUMERIC,
         prev_session_high NUMERIC,
         prev_session_low NUMERIC,
