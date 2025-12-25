@@ -6,6 +6,7 @@ class ExecutionManager:
     """Manages the execution flow from signal to MT5 trade."""
 
     DEFAULT_LOT_SIZE = 0.01
+    DEFAULT_DEVIATION = 20
 
     @classmethod
     def process_signal(
@@ -54,6 +55,7 @@ class ExecutionManager:
             volume=cls.DEFAULT_LOT_SIZE,
             sl=sl,
             tp=tp,
+            deviation=cls.DEFAULT_DEVIATION,
             comment=comment
         )
 

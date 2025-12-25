@@ -25,7 +25,7 @@ def shutdown_mt5():
     _mt5_initialized = False
 
 
-def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 0.0, tp: float = 0.0, comment: str = ""):
+def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 0.0, tp: float = 0.0, deviation: int = 20, comment: str = ""):
     """Places a market order in MT5."""
     if not initialize_mt5():
         return None
@@ -56,7 +56,7 @@ def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 
         "price": price,                       # Current market price for execution
         "sl": sl,                             # Stop Loss price level
         "tp": tp,                             # Take Profit price level
-        "deviation": 20,                      # Max allowed slippage in points
+        "deviation": deviation,                      # Max allowed slippage in points
         "magic": MT5_MAGIC_NUMBER,            # Unique ID to identify trades from this bot
         "comment": comment,                   # Personal note for the trade (e.g., "Trenda Strategy")
         "type_time": mt5.ORDER_TIME_GTC,      # Order duration: Good 'Til Cancelled
