@@ -56,7 +56,7 @@ def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 
         "price": price,                       # Current market price for execution
         "sl": sl,                             # Stop Loss price level
         "tp": tp,                             # Take Profit price level
-        "deviation": deviation,                      # Max allowed slippage in points
+        "deviation": deviation,               # Max allowed slippage in points
         "magic": MT5_MAGIC_NUMBER,            # Unique ID to identify trades from this bot
         "comment": comment,                   # Personal note for the trade (e.g., "Trenda Strategy")
         "type_time": mt5.ORDER_TIME_GTC,      # Order duration: Good 'Til Cancelled
