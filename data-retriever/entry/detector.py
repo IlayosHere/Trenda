@@ -9,6 +9,7 @@ from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
 from aoi.aoi_repository import fetch_tradable_aois
 from entry.signal_repository import store_entry_signal
+from execution.manager import ExecutionManager
 from externals.data_fetcher import fetch_data
 from models import AOIZone, TrendDirection
 from models.market import Candle, SignalData
@@ -74,6 +75,16 @@ def run_1h_entry_scan_job(
                 )
                 display.print_status(
                     f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                )
+
+                # Trigger execution
+                ExecutionManager.process_signal(
+                    signal_id=entry_id,
+                    symbol=symbol,
+                    direction=direction,
+                    aoi_low=aoi.lower,
+                    aoi_high=aoi.upper,
+                    trade_quality=signal.trade_quality, #Unnecessary, if we want we can remove this part
                 )
 
 

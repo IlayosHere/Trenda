@@ -13,3 +13,6 @@ BROKER_PROVIDER: BrokerProvider = os.getenv("BROKER_PROVIDER")
 
 TWELVEDATA_API_KEY: str | None = os.getenv("TWELVEDATA_API_KEY")
 TWELVEDATA_BASE_URL: str = os.getenv("TWELVEDATA_BASE_URL", "https://api.twelvedata.com")
+
+# MT5 Config
+MT5_MAGIC_NUMBER: int = int(os.getenv("MT5_MAGIC_NUMBER", "123456"))

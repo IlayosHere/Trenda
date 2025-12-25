@@ -12,6 +12,7 @@ from .broker import (
     BROKER_TWELVEDATA,
     TWELVEDATA_API_KEY,
     TWELVEDATA_BASE_URL,
+    MT5_MAGIC_NUMBER,
 )
 from .scheduler import SCHEDULE_CONFIG
 
@@ -28,4 +29,5 @@ __all__ = [
     "BROKER_TWELVEDATA",
     "TWELVEDATA_API_KEY",
     "TWELVEDATA_BASE_URL",
+    "MT5_MAGIC_NUMBER",
 ]
