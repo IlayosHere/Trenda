@@ -87,6 +87,14 @@ class PreEntryContextV2Data:
     # AOI Position Inside HTF Range
     aoi_midpoint_range_position_daily: Optional[float] = None
     aoi_midpoint_range_position_weekly: Optional[float] = None
+    
+    # Break Candle Metrics
+    break_impulse_range_atr: Optional[float] = None      # (high - low) / atr_1h
+    break_impulse_body_atr: Optional[float] = None       # abs(close - open) / atr_1h
+    break_close_location: Optional[float] = None         # bullish: (close-low)/(high-low), bearish: (high-close)/(high-low)
+    
+    # Retest Candle Metrics
+    retest_candle_body_penetration: Optional[float] = None  # combined body ratio and penetration depth
 
 
 def _to_python_float(value) -> Optional[float]:
@@ -125,6 +133,8 @@ class PreEntryContextV2Calculator:
         aoi_high: float,
         aoi_timeframe: str,
         state: "SymbolState",
+        break_candle: Optional[dict] = None,      # {open, high, low, close}
+        retest_candle: Optional[dict] = None,     # {open, high, low, close}
     ):
         self._store = candle_store
         self._signal_time = signal_time
@@ -137,6 +147,8 @@ class PreEntryContextV2Calculator:
         self._aoi_timeframe = aoi_timeframe
         self._state = state
         self._is_long = direction == TrendDirection.BULLISH
+        self._break_candle = break_candle
+        self._retest_candle = retest_candle
     
     def compute(self) -> Optional[PreEntryContextV2Data]:
         """Compute all pre-entry market environment metrics.
@@ -202,6 +214,12 @@ class PreEntryContextV2Calculator:
             # AOI Position in HTF Range
             aoi_midpoint_range_position_daily=_to_python_float(aoi_position.get("daily")),
             aoi_midpoint_range_position_weekly=_to_python_float(aoi_position.get("weekly")),
+            # Break Candle Metrics
+            break_impulse_range_atr=_to_python_float(self._compute_break_impulse_range()),
+            break_impulse_body_atr=_to_python_float(self._compute_break_impulse_body()),
+            break_close_location=_to_python_float(self._compute_break_close_location()),
+            # Retest Candle Metrics
+            retest_candle_body_penetration=_to_python_float(self._compute_retest_body_penetration()),
         )
     
     def _compute_htf_range_positions(self) -> dict:
@@ -716,3 +734,89 @@ class PreEntryContextV2Calculator:
                 result["weekly"] = (aoi_mid - range_low) / range_size
         
         return result
+    
+    def _compute_break_impulse_range(self) -> Optional[float]:
+        """Compute break candle range size in ATR units.
+        
+        break_impulse_range_atr = (high - low) / atr_1h
+        """
+        if self._break_candle is None or self._atr_1h <= 0:
+            return None
+        
+        candle_range = self._break_candle["high"] - self._break_candle["low"]
+        return candle_range / self._atr_1h
+    
+    def _compute_break_impulse_body(self) -> Optional[float]:
+        """Compute break candle body size in ATR units.
+        
+        break_impulse_body_atr = abs(close - open) / atr_1h
+        """
+        if self._break_candle is None or self._atr_1h <= 0:
+            return None
+        
+        body = abs(self._break_candle["close"] - self._break_candle["open"])
+        return body / self._atr_1h
+    
+    def _compute_break_close_location(self) -> Optional[float]:
+        """Compute break candle close location within its range.
+        
+        Measures follow-through conviction.
+        For bullish: (close - low) / (high - low)
+        For bearish: (high - close) / (high - low)
+        """
+        if self._break_candle is None:
+            return None
+        
+        high = self._break_candle["high"]
+        low = self._break_candle["low"]
+        close = self._break_candle["close"]
+        candle_range = high - low
+        
+        if candle_range <= 0:
+            return None
+        
+        if self._is_long:
+            return (close - low) / candle_range
+        else:
+            return (high - close) / candle_range
+    
+    def _compute_retest_body_penetration(self) -> Optional[float]:
+        """Compute retest candle body penetration score.
+        
+        Combines body size relative to AOI height and penetration depth.
+        retest_candle_body_penetration = penetration * 0.5 + body_aoi_ratio * 0.5
+        """
+        if self._retest_candle is None:
+            return None
+        
+        aoi_height = self._aoi_high - self._aoi_low
+        if aoi_height <= 0:
+            return None
+        
+        # Body size
+        body = abs(self._retest_candle["close"] - self._retest_candle["open"])
+        body_aoi_ratio = body / aoi_height
+        
+        # Penetration depth into AOI
+        high = self._retest_candle["high"]
+        low = self._retest_candle["low"]
+        
+        if self._is_long:
+            # Bullish: How far did low penetrate into AOI (below aoi_high)?
+            if low >= self._aoi_high:
+                penetration = 0.0  # Didn't enter AOI
+            elif low <= self._aoi_low:
+                penetration = 1.0  # Fully penetrated
+            else:
+                penetration = (self._aoi_high - low) / aoi_height
+        else:
+            # Bearish: How far did high penetrate into AOI (above aoi_low)?
+            if high <= self._aoi_low:
+                penetration = 0.0  # Didn't enter AOI
+            elif high >= self._aoi_high:
+                penetration = 1.0  # Fully penetrated
+            else:
+                penetration = (high - self._aoi_low) / aoi_height
+        
+        # Combined score: 50% penetration + 50% body ratio
+        return penetration * 0.5 + body_aoi_ratio * 0.5

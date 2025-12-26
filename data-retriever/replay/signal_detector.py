@@ -156,6 +156,24 @@ class ReplaySignalDetector:
         signal_time = pattern.candles[-1].time
         retest_time = pattern.candles[0].time  # Retest is first candle in pattern
         
+        # Extract break candle data (for pre_entry_context_v2 metrics)
+        break_candle_obj = pattern.candles[break_index]
+        break_candle = {
+            "open": break_candle_obj.open,
+            "high": break_candle_obj.high,
+            "low": break_candle_obj.low,
+            "close": break_candle_obj.close,
+        }
+        
+        # Extract retest candle data (first candle in pattern)
+        retest_candle_obj = pattern.candles[0]
+        retest_candle = {
+            "open": retest_candle_obj.open,
+            "high": retest_candle_obj.high,
+            "low": retest_candle_obj.low,
+            "close": retest_candle_obj.close,
+        }
+        
         # Check for duplicate - if exists, skip
         existing_signal_id = self._get_existing_signal_id(signal_time)
         if existing_signal_id:
@@ -172,6 +190,8 @@ class ReplaySignalDetector:
             aoi_high=aoi.upper,
             aoi_timeframe=aoi.timeframe or "",
             state=state,
+            break_candle=break_candle,
+            retest_candle=retest_candle,
         )
         
         if context_v2 is None:
@@ -424,6 +444,8 @@ class ReplaySignalDetector:
         aoi_high: float,
         aoi_timeframe: str,
         state: SymbolState,
+        break_candle: Optional[dict] = None,
+        retest_candle: Optional[dict] = None,
     ) -> Optional[PreEntryContextV2Data]:
         """Compute pre-entry context V2 (market environment) for gate checks."""
         calculator = PreEntryContextV2Calculator(
@@ -437,6 +459,8 @@ class ReplaySignalDetector:
             aoi_high=aoi_high,
             aoi_timeframe=aoi_timeframe,
             state=state,
+            break_candle=break_candle,
+            retest_candle=retest_candle,
         )
         return calculator.compute()
 
@@ -477,6 +501,11 @@ class ReplaySignalDetector:
                 context.htf_range_size_weekly_atr,
                 context.aoi_midpoint_range_position_daily,
                 context.aoi_midpoint_range_position_weekly,
+                # New break/retest candle metrics
+                context.break_impulse_range_atr,
+                context.break_impulse_body_atr,
+                context.break_close_location,
+                context.retest_candle_body_penetration,
             ),
             context="store_pre_entry_context_v2",
         )

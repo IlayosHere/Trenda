@@ -208,6 +208,14 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     aoi_midpoint_range_position_daily NUMERIC,   -- (aoi_mid - range_low) / (range_high - range_low)
     aoi_midpoint_range_position_weekly NUMERIC,  -- same for weekly
     
+    -- Break Candle Metrics
+    break_impulse_range_atr NUMERIC,            -- (high - low) / atr_1h
+    break_impulse_body_atr NUMERIC,             -- abs(close - open) / atr_1h
+    break_close_location NUMERIC,               -- bullish: (close-low)/(high-low), bearish: (high-close)/(high-low)
+    
+    -- Retest Candle Metrics
+    retest_candle_body_penetration NUMERIC,     -- combined body ratio and penetration depth
+    
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

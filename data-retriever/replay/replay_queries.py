@@ -267,9 +267,11 @@ INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
         aoi_time_since_last_touch, aoi_last_reaction_strength,
         distance_from_last_impulse_atr,
         htf_range_size_daily_atr, htf_range_size_weekly_atr,
-        aoi_midpoint_range_position_daily, aoi_midpoint_range_position_weekly
+        aoi_midpoint_range_position_daily, aoi_midpoint_range_position_weekly,
+        break_impulse_range_atr, break_impulse_body_atr,
+        break_close_location, retest_candle_body_penetration
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
 """
 
