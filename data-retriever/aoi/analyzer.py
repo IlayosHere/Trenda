@@ -32,31 +32,28 @@ from aoi.scoring import apply_directional_weighting_and_classify
 from trend.bias import get_overall_trend
 
 
-def analyze_aoi_by_timeframe(
-    timeframe: str, candles_by_symbol: Mapping[str, pd.DataFrame]
+def analyze_single_symbol_aoi(
+    symbol: str, timeframe: str, data: pd.DataFrame | None
 ) -> None:
     settings = AOI_CONFIGS.get(timeframe)
     if settings is None:
         display.print_status(
-            f"\n--- ⚠️ Skipping AOI analysis for {timeframe}: no configuration found ---"
+            f"  ⚠️ Skipping AOI analysis for {symbol} ({timeframe}): no configuration found"
         )
         return
 
-    display.print_status(f"\n--- 🔄 Running AOI analysis for {settings.timeframe} ---")
-
-    for symbol in FOREX_PAIRS:
-        display.print_status(f"  -> Processing {symbol}...")
-        try:
-            clear_aois(symbol, timeframe)
-            symbol_candles = candles_by_symbol.get(symbol)
-            if symbol_candles is None:
-                display.print_error(
-                    f"  ❌ No candle data provided for {symbol} on {timeframe}."
-                )
-                continue
-            _process_symbol(settings, symbol, symbol_candles)
-        except Exception as err:
-            display.print_error(f"  -> Failed for {symbol}: {err}")
+    display.print_status(f"  -> Analying AOI for {symbol} ({timeframe})...")
+    
+    try:
+        clear_aois(symbol, timeframe)
+        if data is None:
+            display.print_error(
+                f"  ❌ No candle data provided for {symbol} on {timeframe}."
+            )
+            return
+        _process_symbol(settings, symbol, data)
+    except Exception as err:
+        display.print_error(f"  -> Failed AOI for {symbol}: {err}")
 
 
 def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> None:
