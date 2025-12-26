@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 import os
 from typing import Iterable, Set
@@ -66,6 +66,37 @@ def _load_trading_window() -> tuple[Set[int], Set[int]]:
 
 
 TRADING_DAYS, TRADING_HOURS = _load_trading_window()
+
+
+def is_market_open(now: datetime | None = None) -> bool:
+    """
+    Return True if the forex market is open.
+
+    Forex market hours (NY time):
+    - Sunday: open from 17:00
+    - Monday–Thursday: open all day
+    - Friday: open until 17:00
+    - Saturday: closed
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    ny_time = now.astimezone(ZoneInfo("America/New_York"))
+
+    weekday = ny_time.weekday()
+    hour = ny_time.hour
+
+    if weekday == 5:      # Saturday
+        return False
+    if weekday == 6:      # Sunday
+        return hour >= 17
+    if weekday == 4:      # Friday
+        return hour < 17
+
+    return True            # Monday–Thursday
 
 
 def is_within_trading_hours(now: datetime | None = None) -> bool:

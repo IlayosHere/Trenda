@@ -34,31 +34,29 @@ from aoi.scoring import apply_directional_weighting_and_classify
 from trend.bias import get_overall_trend
 
 
-def analyze_aoi_by_timeframe(
-    timeframe: str, candles_by_symbol: Mapping[str, pd.DataFrame]
+def analyze_single_symbol_aoi(
+    symbol: str, timeframe: str, data: pd.DataFrame | None
 ) -> None:
     settings = AOI_CONFIGS.get(timeframe)
     if settings is None:
+
         logger.info(
             f"\n--- ⚠️ Skipping AOI analysis for {timeframe}: no configuration found ---"
         )
         return
 
     logger.info(f"\n--- 🔄 Running AOI analysis for {settings.timeframe} ---")
-
-    for symbol in FOREX_PAIRS:
-        logger.info(f"  -> Processing {symbol}...")
-        try:
-            clear_aois(symbol, timeframe)
-            symbol_candles = candles_by_symbol.get(symbol)
-            if symbol_candles is None:
-                logger.error(
-                    f"  ❌ No candle data provided for {symbol} on {timeframe}."
-                )
-                continue
-            _process_symbol(settings, symbol, symbol_candles)
-        except Exception as err:
-            logger.error(f"  -> Failed for {symbol}: {err}")
+    
+    try:
+        clear_aois(symbol, timeframe)
+        if data is None:
+            logger.error(
+                f"  ❌ No candle data provided for {symbol} on {timeframe}."
+            )
+            return
+        _process_symbol(settings, symbol, data)
+    except Exception as err:
+        logger.error(f"  -> Failed for {symbol}: {err}")
 
 
 def _process_symbol(settings: AOISettings, symbol: str, data: pd.DataFrame) -> None:
@@ -122,21 +120,21 @@ def _calculate_atr(
     return price_to_pips(current_atr, pip_size)
 
 def filter_noisy_points(swings: List[SwingPoint]) -> List[SwingPoint]:
-    structual_swing_points = []
+    structural_swing_points = []
     current_high, current_low = _find_initial_structure(swings)
     for index, swing in enumerate(swings):
-        strcutual_break = _check_for_structure_break(swing, current_high, current_low)
-        if (strcutual_break == BREAK_BULLISH):
+        structural_break = _check_for_structure_break(swing, current_high, current_low)
+        if (structural_break == BREAK_BULLISH):
             current_low = _find_corresponding_structural_swing(BREAK_BULLISH, index, swings)
             current_high = swing
-            structual_swing_points.append(swing)
-            if (current_low not in structual_swing_points):
-                structual_swing_points.append(current_low)
-        elif (strcutual_break == BREAK_BEARISH):
+            structural_swing_points.append(swing)
+            if (current_low not in structural_swing_points):
+                structural_swing_points.append(current_low)
+        elif (structural_break == BREAK_BEARISH):
             current_high = _find_corresponding_structural_swing(BREAK_BEARISH, index, swings)
             current_low = swing
-            structual_swing_points.append(swing)
-            if (current_high not in structual_swing_points):
-                structual_swing_points.append(current_high)
+            structural_swing_points.append(swing)
+            if (current_high not in structural_swing_points):
+                structural_swing_points.append(current_high)
            
-    return structual_swing_points
+    return structural_swing_points
