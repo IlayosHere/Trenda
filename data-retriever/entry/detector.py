@@ -13,7 +13,7 @@ from externals.data_fetcher import fetch_data
 from models import AOIZone, TrendDirection
 from models.market import Candle, SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from configuration.forex_data import TIMEFRAMES
 from apscheduler.schedulers.background import BackgroundScheduler
 from externals.data_fetcher import fetch_data
-from utils.logger import get_logger
+from logger import get_logger
 from configuration import SCHEDULE_CONFIG
 from utils.trading_hours import describe_trading_window, is_market_open, is_within_trading_hours
 
@@ -30,7 +30,7 @@ def start_scheduler() -> None:
     logger.info(f"Trading window (UTC): {describe_trading_window()}")
 
     # Schedule Heartbeat
-    scheduler.add_job(_heartbeat, "interval", minutes=1, id="heartbeat", replace_existing=True)
+    scheduler.add_job(_heartbeat, "interval", hours=1, id="heartbeat", replace_existing=True)
 
     for config in SCHEDULE_CONFIG:
         try:

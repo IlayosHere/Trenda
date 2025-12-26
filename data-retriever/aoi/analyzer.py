@@ -18,7 +18,7 @@ from configuration import (
     require_analysis_params,
 )
 from aoi.aoi_repository import clear_aois, store_aois
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 from utils.forex import get_pip_size, price_to_pips

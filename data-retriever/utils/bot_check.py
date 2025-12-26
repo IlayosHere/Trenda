@@ -4,7 +4,7 @@ from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
 from externals.data_fetcher import fetch_data
 from models import TrendDirection
 from utils.candles import dataframe_to_candles
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 

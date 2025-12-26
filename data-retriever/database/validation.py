@@ -1,6 +1,6 @@
 from typing import Optional, Union
 
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 from models import AOIZone

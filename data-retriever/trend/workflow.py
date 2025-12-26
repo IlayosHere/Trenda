@@ -13,7 +13,7 @@ import pandas as pd
 from configuration import FOREX_PAIRS, require_analysis_params
 from constants import DATA_ERROR_MSG
 from trend.trend_repository import update_trend_data
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 from trend.structure import TrendAnalysisResult, analyze_snake_trend, get_swing_points

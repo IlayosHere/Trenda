@@ -65,12 +65,12 @@ services:
     environment:
       - DB_HOST=postgres
     healthcheck:
-      # Check if heartbeat file was modified in the last minute
-      test: [ "CMD-SHELL", "find /tmp/healthy -mmin -1 | grep -q ." ]
-      interval: 60s
+      # Check if heartbeat file was modified in the last 65 minutes (1h + margin)
+      test: [ "CMD-SHELL", "find /tmp/healthy -mmin -65 | grep -q ." ]
+      interval: 5m
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 5m
 
 volumes:
   postgres_data:

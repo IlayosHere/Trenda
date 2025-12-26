@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import os
 from typing import Iterable, Set
 
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 

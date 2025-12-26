@@ -4,7 +4,7 @@ from configuration import BROKER_PROVIDER, BROKER_MT5
 from scheduler import scheduler
 from externals import mt5_handler
 from scheduler import start_scheduler
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 

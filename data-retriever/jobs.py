@@ -11,7 +11,7 @@ from configuration import (
     require_analysis_params,
     require_aoi_lookback,
 )
-from utils.logger import get_logger
+from logger import get_logger
 
 logger = get_logger(__name__)
 from externals.data_fetcher import fetch_data
