@@ -79,6 +79,14 @@ class PreEntryContextV2Data:
     
     # Momentum Chase
     distance_from_last_impulse_atr: Optional[float] = None
+    
+    # HTF Range Size (compressed vs expanded markets)
+    htf_range_size_daily_atr: Optional[float] = None
+    htf_range_size_weekly_atr: Optional[float] = None
+    
+    # AOI Position Inside HTF Range
+    aoi_midpoint_range_position_daily: Optional[float] = None
+    aoi_midpoint_range_position_weekly: Optional[float] = None
 
 
 def _to_python_float(value) -> Optional[float]:
@@ -109,20 +117,24 @@ class PreEntryContextV2Calculator:
         self,
         candle_store: "CandleStore",
         signal_time: datetime,
+        retest_time: datetime,
         direction: TrendDirection,
         entry_price: float,
         atr_1h: float,
         aoi_low: float,
         aoi_high: float,
+        aoi_timeframe: str,
         state: "SymbolState",
     ):
         self._store = candle_store
         self._signal_time = signal_time
+        self._retest_time = retest_time
         self._direction = direction
         self._entry_price = entry_price
         self._atr_1h = atr_1h
         self._aoi_low = aoi_low
         self._aoi_high = aoi_high
+        self._aoi_timeframe = aoi_timeframe
         self._state = state
         self._is_long = direction == TrendDirection.BULLISH
     
@@ -152,6 +164,8 @@ class PreEntryContextV2Calculator:
         session_bias = self._compute_session_directional_bias(candles_before)
         aoi_freshness = self._compute_aoi_freshness(candles_before)
         momentum = self._compute_momentum_chase(candles_before)
+        htf_range_size = self._compute_htf_range_size()
+        aoi_position = self._compute_aoi_position_in_htf_range()
         
         return PreEntryContextV2Data(
             # HTF Range Position
@@ -182,6 +196,12 @@ class PreEntryContextV2Calculator:
             aoi_last_reaction_strength=_to_python_float(aoi_freshness.get("reaction")),
             # Momentum
             distance_from_last_impulse_atr=_to_python_float(momentum),
+            # HTF Range Size
+            htf_range_size_daily_atr=_to_python_float(htf_range_size.get("daily")),
+            htf_range_size_weekly_atr=_to_python_float(htf_range_size.get("weekly")),
+            # AOI Position in HTF Range
+            aoi_midpoint_range_position_daily=_to_python_float(aoi_position.get("daily")),
+            aoi_midpoint_range_position_weekly=_to_python_float(aoi_position.get("weekly")),
         )
     
     def _compute_htf_range_positions(self) -> dict:
@@ -381,33 +401,97 @@ class PreEntryContextV2Calculator:
         return result
     
     def _estimate_trend_age(self, candles: pd.DataFrame) -> int:
-        """Estimate how many bars the trend has been active.
+        """Estimate how many hours the trend has been fully aligned (all 3 TFs).
         
-        Approximation: count bars where price movement is directionally aligned.
+        Logic:
+        1. Check if all 3 TFs (4H, 1D, 1W) are currently aligned with direction
+        2. If not all aligned, return 0
+        3. For each TF, find when the trend flipped to current direction (scanning backwards)
+        4. Return hours from the most recent flip to signal_time
         """
-        if len(candles) < 2:
+        # Check if all 3 TFs are aligned
+        if self._state.trend_4h != self._direction:
+            return 0
+        if self._state.trend_1d != self._direction:
+            return 0
+        if self._state.trend_1w != self._direction:
             return 0
         
-        # Simple heuristic: count consecutive bars with aligned closes
-        age = 0
-        for i in range(len(candles) - 1, 0, -1):
-            current = candles.iloc[i]
-            prev = candles.iloc[i - 1]
+        # Find when each TF trend flipped to current direction
+        flip_time_4h = self._find_trend_flip_time("4H")
+        flip_time_1d = self._find_trend_flip_time("1D")
+        flip_time_1w = self._find_trend_flip_time("1W")
+        
+        # If any flip time is None (no flip found), use a very old time
+        flip_times = []
+        if flip_time_4h:
+            flip_times.append(flip_time_4h)
+        if flip_time_1d:
+            flip_times.append(flip_time_1d)
+        if flip_time_1w:
+            flip_times.append(flip_time_1w)
+        
+        if not flip_times:
+            return 0
+        
+        # The trend age is determined by the most recent flip (latest time = youngest trend)
+        most_recent_flip = max(flip_times)
+        
+        # Calculate hours from flip to signal_time
+        hours = (self._signal_time - most_recent_flip).total_seconds() / 3600
+        return max(0, int(hours))
+    
+    def _find_trend_flip_time(self, timeframe: str) -> Optional[datetime]:
+        """Find when the trend on a specific TF flipped to the current direction.
+        
+        Scans backwards through TF candles to find where the trend changed.
+        Uses simple higher-highs/lower-lows logic as a proxy for trend.
+        """
+        # Get candles for the timeframe
+        if timeframe == "4H":
+            tf_candles = self._store.get_4h_candles().get_candles_up_to(self._signal_time)
+            lookback = 50  # ~8 days
+        elif timeframe == "1D":
+            tf_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+            lookback = 30  # ~1 month
+        elif timeframe == "1W":
+            tf_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+            lookback = 20  # ~5 months
+        else:
+            return None
+        
+        if tf_candles is None or len(tf_candles) < 3:
+            return None
+        
+        # Limit lookback
+        tf_candles = tf_candles.tail(lookback)
+        
+        # Scan backwards to find where trend flipped
+        # For bullish: look for where we transitioned from lower-lows to higher-lows
+        # For bearish: look for where we transitioned from higher-highs to lower-highs
+        for i in range(len(tf_candles) - 2, 1, -1):
+            current = tf_candles.iloc[i]
+            prev = tf_candles.iloc[i - 1]
+            prev2 = tf_candles.iloc[i - 2]
             
             if self._is_long:
-                # Long: current close >= previous close
-                if current["close"] < prev["close"] * 0.998:  # Small tolerance
-                    break
+                # Bullish: higher lows forming
+                current_hl = current["low"] > prev["low"]
+                prev_ll = prev["low"] < prev2["low"]
+                if prev_ll and current_hl:
+                    # Found flip point
+                    return pd.Timestamp(current["time"]).to_pydatetime()
             else:
-                # Short: current close <= previous close
-                if current["close"] > prev["close"] * 1.002:
-                    break
-            
-            age += 1
-            if age >= 200:  # Cap at 200 bars
-                break
+                # Bearish: lower highs forming
+                current_lh = current["high"] < prev["high"]
+                prev_hh = prev["high"] > prev2["high"]
+                if prev_hh and current_lh:
+                    # Found flip point
+                    return pd.Timestamp(current["time"]).to_pydatetime()
         
-        return age
+        # No flip found in lookback - trend has been established longer
+        # Return the earliest candle time as a fallback
+        return pd.Timestamp(tf_candles.iloc[0]["time"]).to_pydatetime()
     
     def _count_impulses(self, candles: pd.DataFrame) -> int:
         """Count directional impulse runs in the lookback window.
@@ -468,19 +552,30 @@ class PreEntryContextV2Calculator:
         
         return bias
     
-    def _compute_aoi_freshness(self, candles: pd.DataFrame) -> dict:
-        """Compute AOI interaction metrics.
+    def _compute_aoi_freshness(self, candles_1h: pd.DataFrame) -> dict:
+        """Compute AOI interaction metrics using 1H candles.
         
-        aoi_time_since_last_touch: Bars since last AOI overlap
-        aoi_last_reaction_strength: MFE in ATR after last AOI exit
+        aoi_time_since_last_touch: 1H bars from last touch to retest bar
+        aoi_last_reaction_strength: MFE after previous reaction (not current trade)
+        
+        Uses retest_time (not signal_time) as the reference point.
         """
         result = {}
         
-        # Find last bar that overlapped AOI
+        # Use 1H candles up to retest_time
+        candles = candles_1h[candles_1h["time"] < self._retest_time].copy()
+        
+        if candles is None or len(candles) < 2:
+            result["bars_since"] = None
+            result["reaction"] = None
+            return result
+        
+        # Find previous 1H candle that touched AOI (scanning backwards)
         last_touch_idx = None
         for i in range(len(candles) - 1, -1, -1):
             row = candles.iloc[i]
-            if row["high"] >= self._aoi_low and row["low"] <= self._aoi_high:
+            if ((row["low"] <= self._aoi_high and row["low"] >= self._aoi_low)
+              or (row["high"] <= self._aoi_high and row["high"] >= self._aoi_low)):
                 last_touch_idx = i
                 break
         
@@ -490,35 +585,43 @@ class PreEntryContextV2Calculator:
             result["reaction"] = None
             return result
         
-        # Bars since last touch
+        # aoi_time_since_last_touch = 1H bars between last touch and retest bar
         result["bars_since"] = len(candles) - 1 - last_touch_idx
         
-        # Find the exit from AOI and compute reaction strength
+        # Find exit candle: first 1H bar fully outside AOI after last touch
         exit_idx = None
-        for i in range(last_touch_idx, len(candles)):
+        for i in range(last_touch_idx + 1, len(candles)):
             row = candles.iloc[i]
             if row["high"] < self._aoi_low or row["low"] > self._aoi_high:
                 exit_idx = i
                 break
         
-        if exit_idx is None or exit_idx >= len(candles) - 1:
+        if exit_idx is None:
             result["reaction"] = None
             return result
         
-        # Compute MFE after exit (looking forward, but within available candles)
-        lookback_end = min(exit_idx + PRE_ENTRY_V2_AOI_REACTION_LOOKBACK, len(candles))
-        post_exit_candles = candles.iloc[exit_idx:lookback_end]
+        # Find next AOI touch after exit (to limit reaction window)
+        next_touch_idx = None
+        for i in range(exit_idx + 1, len(candles)):
+            row = candles.iloc[i]
+            if row["high"] >= self._aoi_low and row["low"] <= self._aoi_high:
+                next_touch_idx = i
+                break
         
-        if len(post_exit_candles) == 0:
+        # Reaction window: exit_candle to next_touch or end of available candles
+        reaction_end = next_touch_idx if next_touch_idx else len(candles)
+        reaction_candles = candles.iloc[exit_idx:reaction_end]
+        
+        if len(reaction_candles) == 0:
             result["reaction"] = None
             return result
         
         exit_close = float(candles.iloc[exit_idx]["close"])
         
         if self._is_long:
-            mfe = float(post_exit_candles["high"].max()) - exit_close
+            mfe = float(reaction_candles["high"].max()) - exit_close
         else:
-            mfe = exit_close - float(post_exit_candles["low"].min())
+            mfe = exit_close - float(reaction_candles["low"].min())
         
         result["reaction"] = mfe / self._atr_1h if self._atr_1h > 0 else None
         
@@ -556,3 +659,60 @@ class PreEntryContextV2Calculator:
                     return distance
         
         return None
+    
+    def _compute_htf_range_size(self) -> dict:
+        """Compute HTF range size (compressed vs expanded markets).
+        
+        Daily: (max(high) - min(low)) / atr over last 20 daily candles
+        Weekly: (max(high) - min(low)) / atr over last 12 weekly candles
+        """
+        result = {}
+        
+        # Daily range size over last 20 candles
+        daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+        if daily_candles is not None and len(daily_candles) >= 20:
+            last_20_daily = daily_candles.tail(20)
+            range_high = float(last_20_daily["high"].max())
+            range_low = float(last_20_daily["low"].min())
+            result["daily"] = (range_high - range_low) / self._atr_1h
+        
+        # Weekly range size over last 12 candles
+        weekly_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+        if weekly_candles is not None and len(weekly_candles) >= 12:
+            last_12_weekly = weekly_candles.tail(12)
+            range_high = float(last_12_weekly["high"].max())
+            range_low = float(last_12_weekly["low"].min())
+            result["weekly"] = (range_high - range_low) / self._atr_1h
+        
+        return result
+    
+    def _compute_aoi_position_in_htf_range(self) -> dict:
+        """Compute AOI midpoint position inside HTF range.
+        
+        Position = (aoi_mid - range_low) / (range_high - range_low)
+        Normalized 0–1 where 0 = edge low, 1 = edge high
+        """
+        result = {}
+        aoi_mid = (self._aoi_low + self._aoi_high) / 2
+        
+        # Daily range (last 20 candles)
+        daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+        if daily_candles is not None and len(daily_candles) >= 20:
+            last_20_daily = daily_candles.tail(20)
+            range_high = float(last_20_daily["high"].max())
+            range_low = float(last_20_daily["low"].min())
+            range_size = range_high - range_low
+            if range_size > 0:
+                result["daily"] = (aoi_mid - range_low) / range_size
+        
+        # Weekly range (last 12 candles)
+        weekly_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+        if weekly_candles is not None and len(weekly_candles) >= 12:
+            last_12_weekly = weekly_candles.tail(12)
+            range_high = float(last_12_weekly["high"].max())
+            range_low = float(last_12_weekly["low"].min())
+            range_size = range_high - range_low
+            if range_size > 0:
+                result["weekly"] = (aoi_mid - range_low) / range_size
+        
+        return result

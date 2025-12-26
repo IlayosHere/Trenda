@@ -58,6 +58,23 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     -- Trade profile
     trade_profile TEXT,
     
+    -- Conflicted TF (NULL if all 3 aligned, '4H'/'1D'/'1W' for the odd one out)
+    conflicted_tf VARCHAR(10),
+    
+    -- Retest depth metrics
+    max_retest_penetration_atr NUMERIC,
+    bars_between_retest_and_break INTEGER,
+    
+    -- Session encoding
+    hour_of_day_utc INTEGER,
+    session_bucket VARCHAR(20),
+    
+    -- AOI decay
+    aoi_touch_count_since_creation INTEGER,
+    
+    -- Trade grouping (groups break + after-break signals together)
+    trade_id VARCHAR(50),
+    
     -- Processing flags
     outcome_computed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -140,49 +157,6 @@ CREATE TABLE IF NOT EXISTS trenda_replay.checkpoint_return (
 CREATE INDEX IF NOT EXISTS idx_replay_checkpoint_return_outcome_id 
 ON trenda_replay.checkpoint_return (signal_outcome_id);
 
--- =============================================================================
--- Pre-Entry Context Table
--- =============================================================================
--- Stores pre-entry observable facts computed at replay time, before the entry candle.
--- All metric columns are nullable for replay-safe operation.
-CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context (
-    entry_signal_id INTEGER PRIMARY KEY
-        REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
-
-    -- metadata (window sizes used for computation)
-    lookback_bars INTEGER NOT NULL,
-    impulse_bars INTEGER NOT NULL,
-
-    -- volatility & range
-    pre_atr NUMERIC,
-    pre_atr_ratio NUMERIC,
-    pre_range_atr NUMERIC,
-    pre_range_to_atr_ratio NUMERIC,
-
-    -- directional pressure
-    pre_net_move_atr NUMERIC,
-    pre_total_move_atr NUMERIC,
-    pre_efficiency NUMERIC,
-    pre_counter_bar_ratio NUMERIC,
-
-    -- AOI interaction
-    pre_aoi_touch_count INTEGER,
-    pre_bars_in_aoi INTEGER,
-    pre_last_touch_distance_atr NUMERIC,
-
-    -- impulse / energy
-    pre_impulse_net_atr NUMERIC,
-    pre_impulse_efficiency NUMERIC,
-    pre_large_bar_ratio NUMERIC,
-
-    -- microstructure
-    pre_overlap_ratio NUMERIC,
-    pre_wick_ratio NUMERIC,
-
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
--- =============================================================================
 -- Pre-Entry Context V2 Table (Market Environment)
 -- =============================================================================
 -- Stores market environment metrics computed at replay time, before the entry candle.
@@ -225,6 +199,14 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     
     -- Momentum Chase Detection
     distance_from_last_impulse_atr NUMERIC,  -- distance from last large candle close
+    
+    -- HTF Range Size (compressed vs expanded markets)
+    htf_range_size_daily_atr NUMERIC,        -- (max(high) - min(low)) / atr over last 20 daily candles
+    htf_range_size_weekly_atr NUMERIC,       -- (max(high) - min(low)) / atr over last 12 weekly candles
+    
+    -- AOI Position Inside HTF Range
+    aoi_midpoint_range_position_daily NUMERIC,   -- (aoi_mid - range_low) / (range_high - range_low)
+    aoi_midpoint_range_position_weekly NUMERIC,  -- same for weekly
     
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

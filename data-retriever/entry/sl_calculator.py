@@ -4,10 +4,8 @@ from dataclasses import dataclass
 
 from models import TrendDirection
 
-
-# --- SL/TP Model Constants ---
-SL_MODEL_VERSION = 'HARD_GATES_CHECK'
-TP_MODEL_VERSION = 'HARD_GATES_CHECK'
+# Import SL/TP model versions from replay config (single source of truth)
+from replay.config import SL_MODEL_VERSION, TP_MODEL_VERSION
 
 # Volatility floor: SL is never less than this many ATR
 MIN_SL_ATR = 2.5

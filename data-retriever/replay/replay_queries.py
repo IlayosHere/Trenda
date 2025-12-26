@@ -4,10 +4,10 @@ All queries target the trenda_replay schema instead of trenda.
 Mirrors production queries from database/queries.py.
 """
 
-from .config import SCHEMA_NAME
+from .config import SCHEMA_NAME, SL_MODEL_VERSION, TP_MODEL_VERSION
 
-# Import SL/TP constants from the canonical source
-from entry.sl_calculator import SL_MODEL_VERSION, TP_MODEL_VERSION, TP_R_MULTIPLIER
+# Import TP_R_MULTIPLIER from sl_calculator
+from entry.sl_calculator import TP_R_MULTIPLIER
 
 # =============================================================================
 # Entry Signal Queries
@@ -25,6 +25,15 @@ GET_SIGNAL_ID = f"""
     WHERE symbol = %s AND signal_time = %s AND sl_model_version = %s AND tp_model_version = %s
 """
 
+# Find trade_id from a signal 1 hour earlier (for grouping break + after-break signals)
+GET_RELATED_SIGNAL_TRADE_ID = f"""
+    SELECT trade_id FROM {SCHEMA_NAME}.entry_signal
+    WHERE symbol = %s 
+    AND signal_time = %s - INTERVAL '1 hour'
+    AND trade_id IS NOT NULL
+    LIMIT 1
+"""
+
 INSERT_REPLAY_ENTRY_SIGNAL = f"""
     INSERT INTO {SCHEMA_NAME}.entry_signal (
         symbol, signal_time, direction,
@@ -37,9 +46,14 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         aoi_structural_sl_distance_price, aoi_structural_sl_distance_atr,
         effective_sl_distance_price, effective_sl_distance_atr,
         effective_tp_distance_atr, effective_tp_distance_price,
-        trade_profile
+        trade_profile,
+        conflicted_tf,
+        max_retest_penetration_atr, bars_between_retest_and_break,
+        hour_of_day_utc, session_bucket,
+        aoi_touch_count_since_creation,
+        trade_id
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -55,11 +69,14 @@ INSERT_REPLAY_ENTRY_SIGNAL_SCORE = f"""
 # =============================================================================
 
 # Note: effective_tp_distance_price is computed dynamically in Python (SL × 2.25)
+# Only fetch signals matching current model versions
 FETCH_PENDING_REPLAY_SIGNALS = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
            aoi_low, aoi_high, effective_sl_distance_price
     FROM {SCHEMA_NAME}.entry_signal
     WHERE outcome_computed = FALSE
+      AND sl_model_version = '{SL_MODEL_VERSION}'
+      AND tp_model_version = '{TP_MODEL_VERSION}'
     ORDER BY signal_time ASC
     LIMIT %s
 """
@@ -248,9 +265,11 @@ INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
         recent_trend_payoff_atr_24h, recent_trend_payoff_atr_48h,
         session_directional_bias,
         aoi_time_since_last_touch, aoi_last_reaction_strength,
-        distance_from_last_impulse_atr
+        distance_from_last_impulse_atr,
+        htf_range_size_daily_atr, htf_range_size_weekly_atr,
+        aoi_midpoint_range_position_daily, aoi_midpoint_range_position_weekly
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
 """
 
@@ -279,6 +298,10 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_V2_TABLE = f"""
         aoi_time_since_last_touch INTEGER,
         aoi_last_reaction_strength NUMERIC,
         distance_from_last_impulse_atr NUMERIC,
+        htf_range_size_daily_atr NUMERIC,
+        htf_range_size_weekly_atr NUMERIC,
+        aoi_midpoint_range_position_daily NUMERIC,
+        aoi_midpoint_range_position_weekly NUMERIC,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
 """

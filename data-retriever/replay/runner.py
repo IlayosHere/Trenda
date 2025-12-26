@@ -8,8 +8,8 @@ Single entrypoint to run full replay simulation. Coordinates:
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timedelta
+from typing import Optional, List, Tuple
 
 from .config import (
     REPLAY_SYMBOLS,
@@ -17,12 +17,40 @@ from .config import (
     REPLAY_END_DATE,
     SCHEMA_NAME,
     OUTCOME_WINDOW_BARS,
+    MAX_CHUNK_DAYS,
 )
 from .candle_store import load_symbol_candles
 from .timeframe_alignment import TimeframeAligner
 from .market_state import MarketStateManager
 from .signal_detector import ReplaySignalDetector
 from .outcome_calculator import ReplayOutcomeCalculator
+
+
+def _generate_date_chunks(
+    start_date: datetime, 
+    end_date: datetime, 
+    chunk_days: int = MAX_CHUNK_DAYS
+) -> List[Tuple[datetime, datetime]]:
+    """Split a date range into chunks to avoid TwelveData's 5000 candle limit.
+    
+    Args:
+        start_date: Overall start date
+        end_date: Overall end date
+        chunk_days: Maximum days per chunk (default: MAX_CHUNK_DAYS)
+        
+    Returns:
+        List of (chunk_start, chunk_end) tuples
+    """
+    chunks = []
+    current_start = start_date
+    
+    while current_start < end_date:
+        # Calculate chunk end (start + chunk_days or end_date)
+        chunk_end = min(current_start + timedelta(days=chunk_days), end_date)
+        chunks.append((current_start, chunk_end))
+        current_start = chunk_end
+    
+    return chunks
 
 
 class ReplayStats:
@@ -50,6 +78,9 @@ def run_replay(
 ) -> ReplayStats:
     """Run the offline replay simulation.
     
+    For long date ranges (>MAX_CHUNK_DAYS), the range is automatically split 
+    into chunks to avoid TwelveData's 5000 candle limit.
+    
     Args:
         symbols: List of forex symbols to replay (default: REPLAY_SYMBOLS)
         start_date: Replay start date (default: REPLAY_START_DATE)
@@ -65,6 +96,9 @@ def run_replay(
     start_date = start_date or REPLAY_START_DATE
     end_date = end_date or REPLAY_END_DATE
     
+    # Generate date chunks for long ranges
+    chunks = _generate_date_chunks(start_date, end_date)
+    
     stats = ReplayStats()
     
     display.print_status("\n" + "=" * 60)
@@ -72,16 +106,25 @@ def run_replay(
     display.print_status("=" * 60)
     display.print_status(f"  Symbols: {', '.join(symbols)}")
     display.print_status(f"  Window: {start_date.isoformat()} to {end_date.isoformat()}")
+    if len(chunks) > 1:
+        display.print_status(f"  Chunks: {len(chunks)} (max {MAX_CHUNK_DAYS} days each)")
     display.print_status(f"  Schema: {SCHEMA_NAME}")
     display.print_status("=" * 60 + "\n")
     
-    # Process each symbol
+    # Process each symbol, chunk by chunk
     for symbol in symbols:
-        symbol_stats = _replay_symbol(symbol, start_date, end_date)
-        stats.candles_processed += symbol_stats.candles_processed
-        stats.signals_inserted += symbol_stats.signals_inserted
-        stats.outcomes_computed += symbol_stats.outcomes_computed
-        stats.errors += symbol_stats.errors
+        for chunk_idx, (chunk_start, chunk_end) in enumerate(chunks):
+            if len(chunks) > 1:
+                display.print_status(
+                    f"\n📦 Chunk {chunk_idx + 1}/{len(chunks)}: "
+                    f"{chunk_start.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')}"
+                )
+            
+            symbol_stats = _replay_symbol(symbol, chunk_start, chunk_end)
+            stats.candles_processed += symbol_stats.candles_processed
+            stats.signals_inserted += symbol_stats.signals_inserted
+            stats.outcomes_computed += symbol_stats.outcomes_computed
+            stats.errors += symbol_stats.errors
     
     display.print_status("\n" + "=" * 60)
     display.print_status("✅ REPLAY COMPLETE")
