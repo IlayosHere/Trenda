@@ -11,7 +11,9 @@ from configuration import (
     require_analysis_params,
     require_aoi_lookback,
 )
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 from externals.data_fetcher import fetch_data
 from trend import analyze_single_symbol_trend
 
@@ -34,9 +36,9 @@ def _process_symbol_pipeline(
             lookback,
             timeframe_label=timeframe,
         )
-        
+       
         if data is None or data.empty:
-            display.print_error(f"  ❌ No data for {symbol} ({timeframe})")
+            logger.error(f"  ❌ No data for {symbol} ({timeframe})")
             return
 
         # 2. Slice Data & Run Trend Analysis
@@ -51,7 +53,7 @@ def _process_symbol_pipeline(
             analyze_single_symbol_aoi(symbol, timeframe, aoi_data)
 
     except Exception as exc:
-        display.print_error(f"  ❌ Critical error processing {symbol}: {exc}")
+        logger.error(f"  ❌ Critical error processing {symbol}: {exc}")
 
 
 def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
@@ -61,13 +63,14 @@ def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
     prevent a single failure from halting the entire job.
     """
     
-    display.print_status(f"\n--- 🔄 Starting Parallel Job: {timeframe} ---")
+    logger.info(f"\n--- 🔄 Starting Parallel Job: {timeframe} ---")
     
     broker_timeframe = TIMEFRAMES.get(timeframe)
     if broker_timeframe is None:
-        display.print_error(f"Unknown timeframe {timeframe}")
+        logger.error(f"Unknown timeframe {timeframe}")
         return
 
+    logger.info(f"--- 🔄 Running {timeframe} timeframe job ---")
     analysis_params = require_analysis_params(timeframe)
     trend_lookback = analysis_params.lookback
     aoi_lookback = require_aoi_lookback(timeframe) if include_aoi else None
@@ -77,7 +80,7 @@ def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
 
     # Parallel Execution
     workers = len(FOREX_PAIRS)
-    display.print_status(f"  -> Dispatching {workers} threads for {timeframe} job...")
+    logger.info(f"  -> Dispatching {workers} threads for {timeframe} job...")
     
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
@@ -100,6 +103,6 @@ def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
                 future.result()
             except Exception as e:
                 symbol = futures.get(future, "Unknown")
-                display.print_error(f"Thread for {symbol} crashed: {e}")
+                logger.error(f"Thread for {symbol} crashed: {e}")
 
-    display.print_status(f"--- ✅ Parallel Job {timeframe} Complete ---\n")
+    logger.info(f"--- ✅ Parallel Job {timeframe} Complete ---\n")

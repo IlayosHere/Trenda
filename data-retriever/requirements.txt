@@ -1,0 +1,9 @@
+MetaTrader5
+APScheduler
+pandas
+python-dotenv
+psycopg2-binary
+requests
+numpy
+pandas_ta
+scipy

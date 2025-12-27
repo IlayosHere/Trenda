@@ -67,7 +67,7 @@ def fetch_all_trend_data() -> Optional[List[Dict[str, Any]]]:
 
 def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     """Fetch AOI data along with trend levels for a specific symbol/timeframe."""
-
+    VALIDATED_TIMEFRAME = "4H"
     normalized_symbol = validate_symbol(symbol)
     if not normalized_symbol:
         log.error("API Repo: Invalid symbol provided for AOI lookup")
@@ -92,7 +92,7 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         ORDER BY lower_bound ASC
     """
 
-    normalized_timeframe = validate_timeframe("4H")
+    normalized_timeframe = validate_timeframe(VALIDATED_TIMEFRAME)
     if not normalized_timeframe:
         return None
 
