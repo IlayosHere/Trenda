@@ -109,7 +109,7 @@ def check_high_impact_events(pair, target_date_str):
              return {"exists": False, "events": [], "error": "Rate limit hit (429). Please wait and try again."}
         return {"exists": False, "events": [], "error": str(e)}
     except Exception as e:
-        print(f"Error checking economic calendar: {e}")
+        logger.error(f"Error checking economic calendar: {e}")
         return {"exists": False, "events": [], "error": str(e)}
 
 # Example usage with a single pair and a single date
@@ -118,15 +118,15 @@ def check_high_impact_events(pair, target_date_str):
 #     # Use today's date for current week feed
 #     test_date = datetime.now().strftime("%Y-%m-%d")
     
-#     print(f"Checking high-impact events for {test_pair} around {test_date}...")
+#     logger.info(f"Checking high-impact events for {test_pair} around {test_date}...")
 #     result = check_high_impact_events(test_pair, test_date)
     
 #     if result["exists"]:
-#         print(f"Found {len(result['events'])} high-impact event(s):")
+#         logger.info(f"Found {len(result['events'])} high-impact event(s):")
 #         for ev in result["events"]:
-#             print(f"- {ev['name']} ({ev['date']}) for {ev['currency']}")
+#             logger.info(f"- {ev['name']} ({ev['date']}) for {ev['currency']}")
 #     else:
 #         if "error" in result:
-#             print(f"Error: {result['error']}")
+#             logger.error(f"Error: {result['error']}")
 #         else:
-#             print("No high-impact events found.")
+#             logger.info("No high-impact events found.")

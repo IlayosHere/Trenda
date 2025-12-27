@@ -84,7 +84,7 @@ def check_high_impact_events(pair, target_date_str):
         }
         
     except Exception as e:
-        print(f"Error checking economic calendar: {e}")
+        logger.error(f"Error checking economic calendar: {e}")
         return {"exists": False, "events": [], "error": str(e)}
 
 # Example usage with a single pair and a single date
@@ -92,12 +92,15 @@ def check_high_impact_events(pair, target_date_str):
 #     test_pair = "USDAUD"
 #     test_date = "2022-01-30"
     
-#     print(f"Checking {test_pair} for events around {test_date} (±2 days)...")
+#     logger.info(f"Checking {test_pair} for events around {test_date} (±2 days)...")
 #     res = check_high_impact_events(test_pair, test_date)
     
 #     if res["exists"]:
-#         print(f"Found {len(res['events'])} event(s):")
+#         logger.info(f"Found {len(res['events'])} event(s):")
 #         for ev in res["events"]:
-#             print(f"- {ev['currency']}: {ev['name']} ({ev['date']})")
+#             logger.info(f"- {ev['currency']}: {ev['name']} ({ev['date']})")
 #     else:
-#         print("No events found.")
+#         if "error" in res:
+#             logger.error(f"Error: {res['error']}")
+#         else:
+#             logger.info("No events found.")
