@@ -31,7 +31,7 @@ def check_high_impact_events(pair, target_date_str):
         if _forex_calendar_df is None:
             # Get the path to the local CSV file (in the same directory as this script)
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            file_path = os.path.join(base_dir, "forex_factory_cache.csv")
+            file_path = os.path.join(base_dir, "forex_past_events.csv")
             
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"Economic calendar CSV not found at: {file_path}")
