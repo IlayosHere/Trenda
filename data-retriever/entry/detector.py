@@ -13,17 +13,17 @@ from externals.data_fetcher import fetch_data
 from models import AOIZone, TrendDirection
 from models.market import Candle, SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
+from alerts.whatsapp import send_whatsapp_message
 from logger import get_logger
 
 logger = get_logger(__name__)
-
 
 DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
 
 
 def run_1h_entry_scan_job(
-    timeframe: str,
-    trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
+        timeframe: str,
+        trend_alignment_timeframes: Sequence[str] = DEFAULT_TREND_ALIGNMENT,
 ) -> None:
     """Scheduled 1H entry scan across all forex pairs and tradable AOIs."""
 
@@ -74,9 +74,13 @@ def run_1h_entry_scan_job(
                     candles=signal.candles,
                     trade_quality=signal.trade_quality,
                 )
-                logger.info(
-                    f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
+                output_line = (
+                    f"    ✅ Entry signal {entry_id} found for {symbol} "
+                    f"at AOI {aoi.lower}-{aoi.upper} "
+                    f"with quality of {signal.trade_quality}."
                 )
+                logger.info(output_line)
+                send_whatsapp_message(output_line)
 
 
 def _collect_trend_snapshot(
@@ -84,10 +88,11 @@ def _collect_trend_snapshot(
 ) -> Mapping[str, Optional[TrendDirection]]:
     return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
 
+
 def scan_1h_for_entry(
-    direction: TrendDirection,
-    aoi: AOIZone,
-    candles_1h: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]],
+        direction: TrendDirection,
+        aoi: AOIZone,
+        candles_1h: Union[pd.DataFrame, Sequence[Union[Candle, Mapping[str, Any]]]],
 ) -> Optional[SignalData]:
     direction = TrendDirection.from_raw(direction)
     if direction is None:
