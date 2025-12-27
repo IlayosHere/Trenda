@@ -1,29 +1,42 @@
-import MetaTrader5 as mt5
-from configuration import MT5_MAGIC_NUMBER
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
 
+from configuration import MT5_MAGIC_NUMBER
+from logger import get_logger
+
+logger = get_logger(__name__)
+
+# Flag to track if MT5 has been initialized in this session
 _mt5_initialized = False
 
 def initialize_mt5():
-    """Initializes and checks the MT5 connection only once."""
+    """Initializes and checks the MT5 connection only once per session."""
     global _mt5_initialized
+    
+    if mt5 is None:
+        logger.warning("MetaTrader5 package not found. Skipping initialization.")
+        return False
+        
     if _mt5_initialized:
         return True
 
     if not mt5.initialize():
-        print(f"MT5 initialization failed. Error: {mt5.last_error()}")
+        logger.error(f"MT5 initialization failed. Error: {mt5.last_error()}")
         return False
     
-    print("MT5 initialized successfully.")
+    logger.info("✅ MT5 initialized successfully.")
     _mt5_initialized = True
     return True
 
-
 def shutdown_mt5():
+    """Shuts down the MT5 connection and resets state."""
     global _mt5_initialized
-    print("Shutting down MT5 connection...")
-    mt5.shutdown()
+    if mt5 is not None:
+        logger.info("Shutting down MT5 connection...")
+        mt5.shutdown()
     _mt5_initialized = False
-
 
 def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 0.0, tp: float = 0.0, deviation: int = 20, comment: str = ""):
     """Places a market order in MT5."""
@@ -32,18 +45,18 @@ def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 
 
     symbol_info = mt5.symbol_info(symbol)
     if symbol_info is None:
-        print(f"Symbol {symbol} not found.")
+        logger.error(f"Symbol {symbol} not found.")
         return None
 
     if not symbol_info.visible:
         if not mt5.symbol_select(symbol, True):
-            print(f"Failed to select symbol {symbol}.")
+            logger.error(f"Failed to select symbol {symbol}.")
             return None
 
     # Determine execution price
-    tick = mt5.symbol_info_tick(symbol) #function used to get the latest price data
+    tick = mt5.symbol_info_tick(symbol)
     if tick is None:
-        print(f"Failed to get tick info for {symbol}. Error: {mt5.last_error()}")
+        logger.error(f"Failed to get tick info for {symbol}. Error: {mt5.last_error()}")
         return None
 
     price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
@@ -65,12 +78,12 @@ def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 
 
     result = mt5.order_send(request)
     if result is None:
-        print(f"Order send failed for {symbol}. Result is None.")
+        logger.error(f"Order send failed for {symbol}. Result is None.")
         return None
 
     if result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f"Order failed for {symbol}. Retcode: {result.retcode}, Error: {mt5.last_error()}")
+        logger.error(f"Order failed for {symbol}. Retcode: {result.retcode}, Error: {mt5.last_error()}")
         return result
 
-    print(f"Market order placed successfully for {symbol}. Ticket: {result.order}")
+    logger.info(f"🚀 Market order placed successfully for {symbol}. Ticket: {result.order}")
     return result

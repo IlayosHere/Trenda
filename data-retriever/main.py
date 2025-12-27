@@ -4,17 +4,19 @@ from configuration import BROKER_PROVIDER, BROKER_MT5
 from scheduler import scheduler
 from externals import mt5_handler
 from scheduler import start_scheduler
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def main():
-    display.print_status("--- 🚀 Starting Trend Analyzer Bot ---")
+    logger.info("--- 🚀 Starting Trend Analyzer Bot ---")
 
     if BROKER_PROVIDER == BROKER_MT5:
         if not mt5_handler.initialize_mt5():
             return  # Exit if MT5 can't start
     else:
-        display.print_status("Using TwelveData broker configuration (MT5 disabled).")
+        logger.info("Using TwelveData broker configuration (MT5 disabled).")
 
     try:
         start_scheduler()
@@ -25,7 +27,7 @@ def main():
             time.sleep(3600)
 
     except Exception as e:
-        display.print_error(f"An unexpected error occurred in main: {e}")
+        logger.error(f"An unexpected error occurred in main: {e}")
 
     finally:
         # 4. Always shut down MT5 and scheduler

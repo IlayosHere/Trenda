@@ -1,10 +1,12 @@
 from __future__ import annotations
-
+from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 import os
 from typing import Iterable, Set
 
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 DEFAULT_TRADING_DAYS = "0-4"  # Monday=0, Sunday=6
 DEFAULT_TRADING_HOURS = "4-15"  # 24/7 by default
@@ -49,13 +51,13 @@ def _load_trading_window() -> tuple[Set[int], Set[int]]:
     hours = _parse_range_list(raw_hours, max_value=23)
 
     if not days:
-        display.print_error(
+        logger.error(
             "TRADING_DAYS is misconfigured; defaulting to Monday-Friday (0-4)."
         )
         days = _parse_range_list(DEFAULT_TRADING_DAYS, max_value=6)
 
     if not hours:
-        display.print_error(
+        logger.error(
             "TRADING_HOURS_UTC is misconfigured; defaulting to 24/7 (0-23)."
         )
         hours = _parse_range_list(DEFAULT_TRADING_HOURS, max_value=23)
@@ -64,6 +66,37 @@ def _load_trading_window() -> tuple[Set[int], Set[int]]:
 
 
 TRADING_DAYS, TRADING_HOURS = _load_trading_window()
+
+
+def is_market_open(now: datetime | None = None) -> bool:
+    """
+    Return True if the forex market is open.
+
+    Forex market hours (NY time):
+    - Sunday: open from 17:00
+    - Monday–Thursday: open all day
+    - Friday: open until 17:00
+    - Saturday: closed
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    ny_time = now.astimezone(ZoneInfo("America/New_York"))
+
+    weekday = ny_time.weekday()
+    hour = ny_time.hour
+
+    if weekday == 5:      # Saturday
+        return False
+    if weekday == 6:      # Sunday
+        return hour >= 17
+    if weekday == 4:      # Friday
+        return hour < 17
+
+    return True            # Monday–Thursday
 
 
 def is_within_trading_hours(now: datetime | None = None) -> bool:
