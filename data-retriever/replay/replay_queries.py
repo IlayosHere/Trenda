@@ -43,17 +43,13 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         final_score, tier,
         is_break_candle_last,
         sl_model_version, tp_model_version,
-        aoi_structural_sl_distance_price, aoi_structural_sl_distance_atr,
-        effective_sl_distance_price, effective_sl_distance_atr,
-        effective_tp_distance_atr, effective_tp_distance_price,
-        trade_profile,
         conflicted_tf,
         max_retest_penetration_atr, bars_between_retest_and_break,
         hour_of_day_utc, session_bucket,
         aoi_touch_count_since_creation,
         trade_id
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -68,11 +64,10 @@ INSERT_REPLAY_ENTRY_SIGNAL_SCORE = f"""
 # Signal Outcome Queries
 # =============================================================================
 
-# Note: effective_tp_distance_price is computed dynamically in Python (SL × 2.25)
 # Only fetch signals matching current model versions
 FETCH_PENDING_REPLAY_SIGNALS = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
-           aoi_low, aoi_high, effective_sl_distance_price
+           aoi_low, aoi_high
     FROM {SCHEMA_NAME}.entry_signal
     WHERE outcome_computed = FALSE
       AND sl_model_version = '{SL_MODEL_VERSION}'
@@ -83,7 +78,7 @@ FETCH_PENDING_REPLAY_SIGNALS = f"""
 
 FETCH_SIGNAL_BY_ID = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
-           aoi_low, aoi_high, effective_sl_distance_price
+           aoi_low, aoi_high
     FROM {SCHEMA_NAME}.entry_signal
     WHERE id = %s
 """
@@ -92,11 +87,9 @@ INSERT_REPLAY_SIGNAL_OUTCOME = f"""
     INSERT INTO {SCHEMA_NAME}.signal_outcome (
         entry_signal_id, window_bars,
         mfe_atr, mae_atr,
-        bars_to_mfe, bars_to_mae, first_extreme,
-        realized_r, exit_reason, bars_to_exit,
-        mfe_r, mae_r, bars_to_tp, bars_to_sl
+        bars_to_mfe, bars_to_mae, first_extreme
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
     RETURNING id
 """
@@ -143,16 +136,16 @@ CREATE_REPLAY_ENTRY_SIGNAL_TABLE = f"""
         is_break_candle_last BOOLEAN,
         sl_model_version TEXT NOT NULL,
         tp_model_version TEXT NOT NULL,
-        aoi_structural_sl_distance_price NUMERIC,
-        aoi_structural_sl_distance_atr NUMERIC,
-        effective_sl_distance_price NUMERIC,
-        effective_sl_distance_atr NUMERIC,
-        effective_tp_distance_atr NUMERIC NOT NULL,
-        effective_tp_distance_price NUMERIC NOT NULL,
-        trade_profile TEXT,
+        conflicted_tf VARCHAR(10),
+        max_retest_penetration_atr NUMERIC,
+        bars_between_retest_and_break INTEGER,
+        hour_of_day_utc INTEGER,
+        session_bucket VARCHAR(20),
+        aoi_touch_count_since_creation INTEGER,
+        trade_id VARCHAR(50),
         outcome_computed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(symbol, signal_time)
+        UNIQUE(symbol, signal_time, aoi_low, aoi_high, sl_model_version, tp_model_version)
     )
 """
 
@@ -177,18 +170,6 @@ CREATE_REPLAY_SIGNAL_OUTCOME_TABLE = f"""
         bars_to_mfe INTEGER,
         bars_to_mae INTEGER,
         first_extreme VARCHAR(20),
-        bars_to_aoi_sl_hit INTEGER,
-        bars_to_r_1 INTEGER,
-        bars_to_r_1_5 INTEGER,
-        bars_to_r_2 INTEGER,
-        aoi_rr_outcome VARCHAR(30),
-        realized_r NUMERIC,
-        exit_reason TEXT,
-        bars_to_exit INTEGER,
-        mfe_r NUMERIC,
-        mae_r NUMERIC,
-        bars_to_tp INTEGER,
-        bars_to_sl INTEGER,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
 """
@@ -309,3 +290,46 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_V2_TABLE = f"""
 """
 
 
+# =============================================================================
+# Signal Path Extremes Queries
+# =============================================================================
+
+INSERT_SIGNAL_PATH_EXTREME = f"""
+    INSERT INTO {SCHEMA_NAME}.signal_path_extremes (
+        entry_signal_id, bar_index, return_atr_at_bar,
+        mfe_atr_to_here, mae_atr_to_here,
+        mfe_atr_high_low, mae_atr_high_low
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id, bar_index) DO NOTHING
+"""
+
+# =============================================================================
+# Entry SL Geometry Queries
+# =============================================================================
+
+INSERT_ENTRY_SL_GEOMETRY = f"""
+    INSERT INTO {SCHEMA_NAME}.entry_sl_geometry (
+        entry_signal_id, direction,
+        aoi_far_edge_atr, aoi_near_edge_atr, aoi_height_atr, aoi_age_bars,
+        signal_candle_opposite_extreme_atr, signal_candle_range_atr, signal_candle_body_atr
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id) DO NOTHING
+"""
+
+# =============================================================================
+# Exit Simulation Queries
+# =============================================================================
+
+INSERT_EXIT_SIMULATION = f"""
+    INSERT INTO {SCHEMA_NAME}.exit_simulation (
+        entry_signal_id, sl_model, rr_multiple,
+        sl_atr, tp_atr,
+        exit_reason, exit_bar, return_atr, return_r,
+        mfe_atr, mae_atr, bars_to_sl_hit, bars_to_tp_hit,
+        is_bad_pre48
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id, sl_model, rr_multiple) DO NOTHING
+"""

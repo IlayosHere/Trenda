@@ -23,8 +23,10 @@ from .replay_queries import (
     INSERT_REPLAY_SIGNAL_OUTCOME,
     INSERT_REPLAY_CHECKPOINT_RETURN,
     MARK_REPLAY_OUTCOME_COMPUTED,
-    TP_R_MULTIPLIER,
 )
+from .path_extremes import PathExtremesCalculator, persist_path_extremes
+from .sl_geometry import SLGeometryCalculator, persist_sl_geometry
+from .exit_simulator import ExitSimulator, persist_exit_simulations
 
 
 @dataclass
@@ -39,31 +41,20 @@ class ReplayPendingSignal:
     atr_1h: float
     aoi_low: float
     aoi_high: float
-    effective_sl_distance_price: float  # Renamed from aoi_effective_sl_distance_price
-    effective_tp_distance_price: float  # New field
     signal_1h_index: Optional[int] = None
 
 
 @dataclass
 class ReplayOutcomeResult:
-    """Computed outcome result for replay with new fields."""
+    """Computed outcome result for replay."""
     
-    # Core outcome from production calculator
+    # Core outcome
     window_bars: int
     mfe_atr: float
     mae_atr: float
     bars_to_mfe: int
     bars_to_mae: int
     first_extreme: str
-    
-    # New outcome fields
-    realized_r: Optional[float]
-    exit_reason: Optional[str]  # 'TP', 'SL', 'TIME'
-    bars_to_exit: Optional[int]
-    mfe_r: float  # MFE in R units (normalized by effective SL)
-    mae_r: float  # MAE in R units (normalized by effective SL)
-    bars_to_tp: Optional[int]
-    bars_to_sl: Optional[int]
     
     # Checkpoint returns
     checkpoint_returns: list
@@ -159,10 +150,6 @@ class ReplayOutcomeCalculator:
         
         signals = []
         for row in rows:
-            sl_dist = float(row["effective_sl_distance_price"])
-            # TP distance is always computed from SL using 2.25R multiplier
-            tp_dist = sl_dist * TP_R_MULTIPLIER
-            
             signals.append(ReplayPendingSignal(
                 id=row["id"],
                 symbol=row["symbol"],
@@ -172,8 +159,6 @@ class ReplayOutcomeCalculator:
                 atr_1h=float(row["atr_1h"]),
                 aoi_low=float(row["aoi_low"]),
                 aoi_high=float(row["aoi_high"]),
-                effective_sl_distance_price=sl_dist,
-                effective_tp_distance_price=tp_dist,
             ))
         return signals
     
@@ -184,9 +169,8 @@ class ReplayOutcomeCalculator:
     ) -> bool:
         """Compute outcome and persist to replay schema."""
         direction = TrendDirection.from_raw(signal.direction)
-        is_bullish = direction == TrendDirection.BULLISH
         
-        # Use production logic for base outcome
+        # Use production logic for base outcome (MFE/MAE in ATR units)
         pending = PendingSignal(
             id=signal.id,
             symbol=signal.symbol,
@@ -196,141 +180,101 @@ class ReplayOutcomeCalculator:
             atr_1h=signal.atr_1h,
             aoi_low=signal.aoi_low,
             aoi_high=signal.aoi_high,
-            aoi_effective_sl_distance_price=signal.effective_sl_distance_price,
+            aoi_effective_sl_distance_price=signal.atr_1h,  # Placeholder, not used
         )
         
         base_result = compute_outcome(pending, candles)
         outcome = base_result.outcome
         
-        # Compute new outcome fields
-        replay_result = self._compute_new_outcome_fields(
-            signal=signal,
-            candles=candles,
-            base_outcome=outcome,
+        # Build simplified result
+        replay_result = ReplayOutcomeResult(
+            window_bars=outcome.window_bars,
+            mfe_atr=outcome.mfe_atr,
+            mae_atr=outcome.mae_atr,
+            bars_to_mfe=outcome.bars_to_mfe,
+            bars_to_mae=outcome.bars_to_mae,
+            first_extreme=outcome.first_extreme,
             checkpoint_returns=base_result.checkpoint_returns,
-            is_bullish=is_bullish,
         )
         
-        # Persist atomically
-        return self._persist_outcome(signal.id, replay_result)
+        # Persist main outcome atomically
+        success = self._persist_outcome(signal.id, replay_result)
+        
+        if success:
+            # Compute and persist exit simulation data
+            self._compute_exit_simulation_data(
+                signal_id=signal.id,
+                signal=signal,
+                candles=candles,
+                direction=direction,
+            )
+        
+        return success
     
-    def _compute_new_outcome_fields(
+    def _compute_exit_simulation_data(
         self,
+        signal_id: int,
         signal: ReplayPendingSignal,
         candles: pd.DataFrame,
-        base_outcome,
-        checkpoint_returns: list,
-        is_bullish: bool,
-    ) -> ReplayOutcomeResult:
-        """Compute the new outcome fields (realized_r, exit_reason, etc.)."""
-        entry_price = signal.entry_price
-        sl_distance = signal.effective_sl_distance_price
-        tp_distance = signal.effective_tp_distance_price
+        direction: TrendDirection,
+    ) -> None:
+        """Compute and persist exit simulation data (path, geometry, simulations)."""
+        # Get signal candle index
+        signal_idx = self._signal_indices.get(signal_id)
+        if signal_idx is None:
+            return
         
-        # Compute SL and TP price levels
-        if is_bullish:
-            sl_price = entry_price - sl_distance
-            tp_price = entry_price + tp_distance
-        else:
-            sl_price = entry_price + sl_distance
-            tp_price = entry_price - tp_distance
+        # Get the signal candle (last candle at signal time)
+        signal_candle_data = self._store.get_1h_candles().get_candle_at_index(signal_idx)
+        if signal_candle_data is None:
+            return
         
-        # Detect SL/TP hits with single TP
-        bars_to_sl = None
-        bars_to_tp = None
-        mfe_price = 0.0
-        mae_price = 0.0
+        signal_candle = {
+            "open": float(signal_candle_data["open"]),
+            "high": float(signal_candle_data["high"]),
+            "low": float(signal_candle_data["low"]),
+            "close": float(signal_candle_data["close"]),
+        }
         
-        for bar_num, (_, candle) in enumerate(candles.iterrows(), start=1):
-            high = candle["high"]
-            low = candle["low"]
-            
-            # Track MFE/MAE in price terms
-            if is_bullish:
-                favorable = high - entry_price
-                adverse = entry_price - low
-            else:
-                favorable = entry_price - low
-                adverse = high - entry_price
-            
-            mfe_price = max(mfe_price, favorable)
-            mae_price = max(mae_price, adverse)
-            
-            # Check SL hit
-            if bars_to_sl is None:
-                if is_bullish and low <= sl_price:
-                    bars_to_sl = bar_num
-                elif not is_bullish and high >= sl_price:
-                    bars_to_sl = bar_num
-            
-            # Check TP hit
-            if bars_to_tp is None:
-                if is_bullish and high >= tp_price:
-                    bars_to_tp = bar_num
-                elif not is_bullish and low <= tp_price:
-                    bars_to_tp = bar_num
-        
-        # Compute MFE/MAE in R units (normalized by SL distance)
-        mfe_r = mfe_price / sl_distance if sl_distance > 0 else 0.0
-        mae_r = mae_price / sl_distance if sl_distance > 0 else 0.0
-        
-        # Determine exit reason and bars to exit
-        exit_reason, bars_to_exit, realized_r = self._determine_exit(
-            bars_to_sl=bars_to_sl,
-            bars_to_tp=bars_to_tp,
-            window_bars=OUTCOME_WINDOW_BARS,
-            tp_r_multiplier=TP_R_MULTIPLIER,
+        # 1. Compute path extremes (bars 1-72)
+        path_calc = PathExtremesCalculator(
+            candle_store=self._store,
+            entry_candle_idx=signal_idx,
+            entry_price=signal.entry_price,
+            atr_at_entry=signal.atr_1h,
+            direction=direction,
         )
+        path_rows = path_calc.compute()
+        if path_rows:
+            persist_path_extremes(signal_id, path_rows)
         
-        return ReplayOutcomeResult(
-            window_bars=base_outcome.window_bars,
-            mfe_atr=base_outcome.mfe_atr,
-            mae_atr=base_outcome.mae_atr,
-            bars_to_mfe=base_outcome.bars_to_mfe,
-            bars_to_mae=base_outcome.bars_to_mae,
-            first_extreme=base_outcome.first_extreme,
-            realized_r=realized_r,
-            exit_reason=exit_reason,
-            bars_to_exit=bars_to_exit,
-            mfe_r=mfe_r,
-            mae_r=mae_r,
-            bars_to_tp=bars_to_tp,
-            bars_to_sl=bars_to_sl,
-            checkpoint_returns=checkpoint_returns,
+        # 2. Compute SL geometry
+        geometry_calc = SLGeometryCalculator(
+            entry_price=signal.entry_price,
+            atr_at_entry=signal.atr_1h,
+            direction=direction,
+            aoi_low=signal.aoi_low,
+            aoi_high=signal.aoi_high,
+            signal_candle=signal_candle,
+            signal_time=signal.signal_time,
         )
-    
-    def _determine_exit(
-        self,
-        bars_to_sl: Optional[int],
-        bars_to_tp: Optional[int],
-        window_bars: int,
-        tp_r_multiplier: float,
-    ) -> tuple[Optional[str], Optional[int], Optional[float]]:
-        """Determine the exit reason, bars to exit, and realized R."""
-        # Neither SL nor TP hit
-        if bars_to_sl is None and bars_to_tp is None:
-            return 'TIME', window_bars, None
-        
-        # Only SL hit
-        if bars_to_sl is not None and bars_to_tp is None:
-            return 'SL', bars_to_sl, -1.0
-        
-        # Only TP hit
-        if bars_to_tp is not None and bars_to_sl is None:
-            return 'TP', bars_to_tp, tp_r_multiplier
-        
-        # Both hit - determine which came first
-        if bars_to_tp <= bars_to_sl:
-            return 'TP', bars_to_tp, tp_r_multiplier
-        else:
-            return 'SL', bars_to_sl, -1.0
+        geometry = geometry_calc.compute()
+        if geometry:
+            persist_sl_geometry(signal_id, geometry)
+            
+            # 3. Run exit simulator (requires both path and geometry)
+            if path_rows:
+                simulator = ExitSimulator(geometry=geometry, path_extremes=path_rows)
+                sim_rows = simulator.simulate_all()
+                if sim_rows:
+                    persist_exit_simulations(signal_id, sim_rows)
     
     def _persist_outcome(self, signal_id: int, result: ReplayOutcomeResult) -> bool:
         """Persist outcome and mark signal as computed in a transaction."""
         from database.executor import DBExecutor
         
         def _work(cursor):
-            # Insert outcome with new schema (no legacy columns)
+            # Insert outcome with simplified schema
             cursor.execute(
                 INSERT_REPLAY_SIGNAL_OUTCOME,
                 (
@@ -341,14 +285,6 @@ class ReplayOutcomeCalculator:
                     result.bars_to_mfe,
                     result.bars_to_mae,
                     result.first_extreme,
-                    # New fields
-                    result.realized_r,
-                    result.exit_reason,
-                    result.bars_to_exit,
-                    float(result.mfe_r),
-                    float(result.mae_r),
-                    result.bars_to_tp,
-                    result.bars_to_sl,
                 ),
             )
             row = cursor.fetchone()

@@ -15,7 +15,6 @@ from models import AOIZone, TrendDirection
 from models.market import Candle, SignalData
 from entry.pattern_finder import find_entry_pattern
 from entry.quality import evaluate_entry_quality
-from entry.sl_calculator import compute_sl_tp_distances
 from utils.indicators import calculate_atr
 
 from .market_state import SymbolState
@@ -209,17 +208,6 @@ class ReplaySignalDetector:
         #     # Signal rejected by gate, do not store
         #     return None
         
-        # Compute SL/TP distances using NEW logic:
-        # effective_sl = max(structural, 2.5 ATR)
-        # effective_tp = 2.25 × effective_sl
-        sl_tp_data = compute_sl_tp_distances(
-            direction=direction,
-            entry_price=entry_price,
-            aoi_low=aoi.lower,
-            aoi_high=aoi.upper,
-            atr_1h=atr_1h,
-        )
-        
         # Compute new entry_signal fields
         retest_idx = 0  # First candle is retest
         max_retest_penetration_atr = self._compute_max_retest_penetration(
@@ -244,7 +232,8 @@ class ReplaySignalDetector:
             atr_1h=atr_1h,
             quality_result=quality_result,
             is_break_candle_last=pattern.is_break_candle_last,
-            sl_tp_data=sl_tp_data,
+            sl_model_version=SL_MODEL_VERSION,
+            tp_model_version=TP_MODEL_VERSION,
             conflicted_tf=conflicted_tf,
             max_retest_penetration_atr=max_retest_penetration_atr,
             bars_between_retest_and_break=bars_between_retest_and_break,
@@ -293,7 +282,8 @@ class ReplaySignalDetector:
         atr_1h: float,
         quality_result,
         is_break_candle_last: bool,
-        sl_tp_data,
+        sl_model_version: str,
+        tp_model_version: str,
         conflicted_tf: Optional[str],
         max_retest_penetration_atr: Optional[float],
         bars_between_retest_and_break: int,
@@ -332,20 +322,11 @@ class ReplaySignalDetector:
                     quality_result.tier,
                     is_break_candle_last,
                     # Model versions
-                    sl_tp_data.sl_model_version,
-                    sl_tp_data.tp_model_version,
-                    # SL distances
-                    sl_tp_data.aoi_structural_sl_distance_price,
-                    sl_tp_data.aoi_structural_sl_distance_atr,
-                    sl_tp_data.effective_sl_distance_price,
-                    sl_tp_data.effective_sl_distance_atr,
-                    # TP distances
-                    sl_tp_data.effective_tp_distance_atr,
-                    sl_tp_data.effective_tp_distance_price,
-                    # Trade profile
-                    sl_tp_data.trade_profile,
-                    # New fields
+                    sl_model_version,
+                    tp_model_version,
+                    # Conflicted TF
                     conflicted_tf,
+                    # Entry metrics
                     max_retest_penetration_atr,
                     bars_between_retest_and_break,
                     hour_of_day_utc,
@@ -511,43 +492,68 @@ class ReplaySignalDetector:
         )
     
     def _get_replay_trend_direction(self, state: SymbolState) -> Optional[TrendDirection]:
-        """Get trend direction with 2/3 TF support (not necessarily consecutive).
+        """Get trend direction with consecutive TF alignment requirement.
         
-        For replay, we allow signals when at least 2 of 3 TFs agree on direction.
+        For replay, we require at least 2 consecutive TFs to align:
+        - 4H + 1D aligned (1W can differ)
+        - 1D + 1W aligned (4H can differ)
+        - All 3 TFs aligned
+        
+        Returns:
+            TrendDirection if consecutive alignment found, None otherwise
         """
-        trends = [state.trend_4h, state.trend_1d, state.trend_1w]
-        bullish_count = sum(1 for t in trends if t == TrendDirection.BULLISH)
-        bearish_count = sum(1 for t in trends if t == TrendDirection.BEARISH)
+        trend_4h = state.trend_4h
+        trend_1d = state.trend_1d
+        trend_1w = state.trend_1w
         
-        if bullish_count >= 2:
-            return TrendDirection.BULLISH
-        elif bearish_count >= 2:
-            return TrendDirection.BEARISH
+        # Check all 3 aligned
+        if trend_4h == trend_1d == trend_1w:
+            if trend_4h in (TrendDirection.BULLISH, TrendDirection.BEARISH):
+                return trend_4h
+        
+        # Check 4H + 1D aligned (consecutive)
+        if trend_4h == trend_1d:
+            if trend_4h in (TrendDirection.BULLISH, TrendDirection.BEARISH):
+                return trend_4h
+        
+        # Check 1D + 1W aligned (consecutive)
+        if trend_1d == trend_1w:
+            if trend_1d in (TrendDirection.BULLISH, TrendDirection.BEARISH):
+                return trend_1d
+        
+        # No consecutive alignment
         return None
     
     def _get_conflicted_tf(self, state: SymbolState, direction: TrendDirection) -> Optional[str]:
         """Get the conflicted TF (the one that disagrees with direction).
         
+        With consecutive alignment requirement, only 4H or 1W can conflict:
+        - If 4H + 1D aligned → 1W conflicts
+        - If 1D + 1W aligned → 4H conflicts
+        - If all 3 aligned → None
+        
         Returns:
             None if all 3 TFs aligned
             '4H' if 4H differs from direction
-            '1D' if 1D differs
             '1W' if 1W differs
         """
-        conflicts = []
-        if state.trend_4h != direction:
-            conflicts.append("4H")
-        if state.trend_1d != direction:
-            conflicts.append("1D")
-        if state.trend_1w != direction:
-            conflicts.append("1W")
+        trend_4h = state.trend_4h
+        trend_1d = state.trend_1d
+        trend_1w = state.trend_1w
         
-        if len(conflicts) == 0:
-            return None  # All aligned
-        elif len(conflicts) == 1:
-            return conflicts[0]
-        else:
-            return None  # Should not happen with 2/3 rule
+        # All 3 aligned
+        if trend_4h == trend_1d == trend_1w:
+            return None
+        
+        # 4H + 1D aligned, 1W differs
+        if trend_4h == trend_1d == direction:
+            return "1W"
+        
+        # 1D + 1W aligned, 4H differs
+        if trend_1d == trend_1w == direction:
+            return "4H"
+        
+        return None
     
     def _compute_max_retest_penetration(
         self,

@@ -45,20 +45,7 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     sl_model_version TEXT NOT NULL,
     tp_model_version TEXT NOT NULL,
     
-    -- SL distance data (renamed from aoi_raw/aoi_effective)
-    aoi_structural_sl_distance_price NUMERIC,
-    aoi_structural_sl_distance_atr NUMERIC,
-    effective_sl_distance_price NUMERIC,
-    effective_sl_distance_atr NUMERIC,
-    
-    -- TP distance data
-    effective_tp_distance_atr NUMERIC NOT NULL,
-    effective_tp_distance_price NUMERIC NOT NULL,
-    
-    -- Trade profile
-    trade_profile TEXT,
-    
-    -- Conflicted TF (NULL if all 3 aligned, '4H'/'1D'/'1W' for the odd one out)
+    -- Conflicted TF (NULL if all 3 aligned, '4H'/'1W' for the odd one out, never '1D')
     conflicted_tf VARCHAR(10),
     
     -- Retest depth metrics
@@ -111,31 +98,15 @@ CREATE TABLE IF NOT EXISTS trenda_replay.signal_outcome (
     id SERIAL PRIMARY KEY,
     entry_signal_id INTEGER UNIQUE REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
     
-    -- Window info (168 bars = 7 days)
+    -- Window info (72 bars = 3 days)
     window_bars INTEGER,
     
-    -- MFE/MAE (in ATR units - legacy)
+    -- MFE/MAE (in ATR units)
     mfe_atr NUMERIC,
     mae_atr NUMERIC,
     bars_to_mfe INTEGER,
     bars_to_mae INTEGER,
     first_extreme VARCHAR(20),
-    
-    -- Legacy SL/TP hits (kept but no longer written to)
-    bars_to_aoi_sl_hit INTEGER,
-    bars_to_r_1 INTEGER,
-    bars_to_r_1_5 INTEGER,
-    bars_to_r_2 INTEGER,
-    aoi_rr_outcome VARCHAR(30),
-    
-    -- New outcome fields
-    realized_r NUMERIC,                -- Actual R return based on exit
-    exit_reason TEXT,                  -- 'TP', 'SL', or 'TIME'
-    bars_to_exit INTEGER,              -- Bars from entry to exit
-    mfe_r NUMERIC,                     -- MFE normalized by effective SL (in R units)
-    mae_r NUMERIC,                     -- MAE normalized by effective SL (in R units)
-    bars_to_tp INTEGER,                -- Bars to TP hit (or NULL)
-    bars_to_sl INTEGER,                -- Bars to SL hit (or NULL)
     
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -143,11 +114,11 @@ CREATE TABLE IF NOT EXISTS trenda_replay.signal_outcome (
 -- =============================================================================
 -- Checkpoint Return Table (returns at each checkpoint)
 -- =============================================================================
--- Stores returns at: 3h, 6h, 12h, 24h, 48h, 72h, 96h, 120h, 144h, 168h
+-- Stores returns at: 3h, 6h, 12h, 24h, 48h, 72h
 CREATE TABLE IF NOT EXISTS trenda_replay.checkpoint_return (
     id SERIAL PRIMARY KEY,
     signal_outcome_id INTEGER REFERENCES trenda_replay.signal_outcome(id) ON DELETE CASCADE,
-    bars_after INTEGER NOT NULL,      -- e.g., 3, 6, 12, 24, 48, 72, 96, 120, 144, 168
+    bars_after INTEGER NOT NULL,      -- e.g., 3, 6, 12, 24, 48, 72
     return_atr NUMERIC NOT NULL,      -- Return in ATR units at this checkpoint
     
     UNIQUE(signal_outcome_id, bars_after)
@@ -218,6 +189,84 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =============================================================================
+-- Signal Path Extremes Table (per-bar return/MFE/MAE for bars 1-72)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS trenda_replay.signal_path_extremes (
+    entry_signal_id INTEGER REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
+    bar_index INTEGER NOT NULL,  -- 1 to 72
+    return_atr_at_bar NUMERIC,   -- Signed return at bar close
+    mfe_atr_to_here NUMERIC,     -- Max favorable excursion up to this bar
+    mae_atr_to_here NUMERIC,     -- Max adverse excursion up to this bar (negative)
+    mfe_atr_high_low NUMERIC,    -- Intrabar MFE using high/low
+    mae_atr_high_low NUMERIC,    -- Intrabar MAE using high/low
+    PRIMARY KEY (entry_signal_id, bar_index)
+);
+
+-- Index for path lookup
+CREATE INDEX IF NOT EXISTS idx_signal_path_extremes_signal
+ON trenda_replay.signal_path_extremes (entry_signal_id);
+
+-- =============================================================================
+-- Entry SL Geometry Table (SL-relevant distances at entry)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS trenda_replay.entry_sl_geometry (
+    entry_signal_id INTEGER PRIMARY KEY
+        REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
+    direction VARCHAR(10) NOT NULL,
+    
+    -- AOI-based geometry
+    aoi_far_edge_atr NUMERIC,    -- Distance from entry to far edge of AOI
+    aoi_near_edge_atr NUMERIC,   -- Distance from entry to near edge of AOI
+    aoi_height_atr NUMERIC,      -- Vertical height of AOI
+    aoi_age_bars INTEGER,        -- Bars since AOI creation
+    
+    -- Signal candle geometry
+    signal_candle_opposite_extreme_atr NUMERIC,  -- Distance to opposite extreme
+    signal_candle_range_atr NUMERIC,             -- Total candle range
+    signal_candle_body_atr NUMERIC,              -- Candle body size
+    
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================================================================
+-- Exit Simulation Table (one row per signal × sl_model × rr_multiple)
+-- =============================================================================a
+CREATE TABLE IF NOT EXISTS trenda_replay.exit_simulation (
+    id SERIAL PRIMARY KEY,
+    entry_signal_id INTEGER REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
+    
+    -- Configuration
+    sl_model VARCHAR(30) NOT NULL,
+    rr_multiple NUMERIC NOT NULL,
+    
+    -- Resolved SL/TP
+    sl_atr NUMERIC NOT NULL,
+    tp_atr NUMERIC NOT NULL,
+    
+    -- Exit result
+    exit_reason VARCHAR(10),     -- SL, TP, TIMEOUT
+    exit_bar INTEGER,
+    return_atr NUMERIC,
+    return_r NUMERIC,
+    
+    -- Path diagnostics
+    mfe_atr NUMERIC,
+    mae_atr NUMERIC,
+    bars_to_sl_hit INTEGER,
+    bars_to_tp_hit INTEGER,
+    
+    -- Bad trade flag
+    is_bad_pre48 BOOLEAN,        -- TRUE if mae ≤ -sl_atr before bar 48
+    
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(entry_signal_id, sl_model, rr_multiple)
+);
+
+-- Index for simulation lookup
+CREATE INDEX IF NOT EXISTS idx_exit_simulation_signal
+ON trenda_replay.exit_simulation (entry_signal_id);
 
 -- =============================================================================
 -- Utility: Drop and recreate all tables (use with caution!)
