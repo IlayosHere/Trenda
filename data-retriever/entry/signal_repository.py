@@ -1,15 +1,19 @@
 from typing import Any, Mapping, Optional, Sequence
 
-import utils.display as display
+from logger import get_logger
 
-from .db import execute_transaction, validate_nullable_float, validate_symbol
-from .helpers import required_trend, value_from_candle
-from .queries import INSERT_ENTRY_CANDLE, INSERT_ENTRY_SIGNAL, INSERT_TREND_SNAPSHOT
+logger = get_logger(__name__)
+
+from database.executor import DBExecutor
+from database.helpers import required_trend, value_from_candle
+from database.queries import INSERT_ENTRY_CANDLE, INSERT_ENTRY_SIGNAL, INSERT_TREND_SNAPSHOT
+from database.validation import DBValidator
+from models import TrendDirection
 
 
 def store_entry_signal(
     symbol: str,
-    trend_snapshot: Mapping[str, Optional[str]],
+    trend_snapshot: Mapping[str, Optional[TrendDirection]],
     aoi_high: float,
     aoi_low: float,
     signal_time,
@@ -17,13 +21,13 @@ def store_entry_signal(
     trade_quality: float,
 ) -> Optional[int]:
     """Persist an entry signal and its supporting candles."""
-    normalized_symbol = validate_symbol(symbol)
+    normalized_symbol = DBValidator.validate_symbol(symbol)
     if not normalized_symbol:
         return None
     if not isinstance(trade_quality, (int, float)):
-        display.print_error("DB_VALIDATION: trade_quality must be numeric")
+        logger.error("DB_VALIDATION: trade_quality must be numeric")
         return None
-    if not validate_nullable_float(aoi_high, "aoi_high") or not validate_nullable_float(
+    if not DBValidator.validate_nullable_float(aoi_high, "aoi_high") or not DBValidator.validate_nullable_float(
         aoi_low, "aoi_low"
     ):
         return None
@@ -35,12 +39,12 @@ def store_entry_signal(
             required_trend(trend_snapshot, "1W"),
         )
     except (TypeError, ValueError) as exc:
-        display.print_error(f"DB_VALIDATION: invalid trend snapshot - {exc}")
+        logger.error(f"DB_VALIDATION: invalid trend snapshot - {exc}")
         return None
 
     def _validate_candle_value(value: Any, field: str) -> Optional[float]:
         if not isinstance(value, (int, float)):
-            display.print_error(f"DB_VALIDATION: candle {field} must be numeric")
+            logger.error(f"DB_VALIDATION: candle {field} must be numeric")
             return None
         return float(value)
 
@@ -78,4 +82,4 @@ def store_entry_signal(
         cursor.executemany(INSERT_ENTRY_CANDLE, candle_rows)
         return signal_id
 
-    return execute_transaction(_persist, context="store_entry_signal")
+    return DBExecutor.execute_transaction(_persist, context="store_entry_signal")

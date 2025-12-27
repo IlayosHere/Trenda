@@ -1,97 +1,108 @@
 from __future__ import annotations
 
-from typing import Mapping
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 
-from aoi import analyze_aoi_by_timeframe
+from aoi import analyze_single_symbol_aoi
 from configuration import (
     FOREX_PAIRS,
     TIMEFRAMES,
     require_analysis_params,
     require_aoi_lookback,
 )
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 from externals.data_fetcher import fetch_data
-from trend.workflow import analyze_trend_by_timeframe
+from trend import analyze_single_symbol_trend
 
 
-def _fetch_closed_candles(timeframe: str, *, lookback: int) -> Mapping[str, pd.DataFrame]:
-    """Fetch closed candles for all symbols for the given timeframe."""
-
-    mt5_timeframe = TIMEFRAMES.get(timeframe)
-    if mt5_timeframe is None:
-        raise KeyError(f"Unknown timeframe {timeframe!r} requested for candle fetch.")
-
-    candles: dict[str, pd.DataFrame] = {}
-    for symbol in FOREX_PAIRS:
-        display.print_status(
-            f"  -> Fetching {lookback} closed candles for {symbol} on {timeframe}..."
-        )
+def _process_symbol_pipeline(
+    symbol: str, 
+    timeframe: str, 
+    lookback: int, 
+    include_aoi: bool,
+    broker_timeframe: str,
+    trend_lookback: int,
+    aoi_lookback: int | None
+) -> None:
+    """Fetch and analyze data for a single symbol in its own thread."""
+    try:
+        # 1. Fetch
         data = fetch_data(
             symbol,
-            mt5_timeframe,
+            broker_timeframe,
             lookback,
             timeframe_label=timeframe,
         )
-        if data is None:
-            display.print_error(
-                f"  ❌ No candle data returned for {symbol} on timeframe {timeframe}."
-            )
-            continue
-        if data.empty:
-            display.print_error(
-                f"  ❌ No closed candles available for {symbol} on timeframe {timeframe}."
-            )
-            continue
-        candles[symbol] = data
-    return candles
+       
+        if data is None or data.empty:
+            logger.error(f"  ❌ No data for {symbol} ({timeframe})")
+            return
 
+        # 2. Slice Data & Run Trend Analysis
+        trend_data = data.tail(trend_lookback)
+        analyze_single_symbol_trend(symbol, timeframe, trend_data)
 
-def _limit_candles(
-    candles: Mapping[str, pd.DataFrame], *, count: int | None
-) -> Mapping[str, pd.DataFrame]:
-    """Return only the latest ``count`` candles for each symbol."""
+        # 3. Slice Data & Run AOI Analysis (if requested)
+        if include_aoi and aoi_lookback:
+            # AOI usually needs a different lookback or the same, but we slice explicitly
+            # to match original logic where we had specific subsets.
+            aoi_data = data.tail(aoi_lookback)
+            analyze_single_symbol_aoi(symbol, timeframe, aoi_data)
 
-    if count is None:
-        return candles
-
-    return {symbol: df.tail(count) for symbol, df in candles.items()}
-
-
-def _run_timeframe_analysis(
-    timeframe: str,
-    *,
-    include_aoi: bool,
-    trend_candles: Mapping[str, pd.DataFrame],
-    aoi_candles: Mapping[str, pd.DataFrame] | None,
-) -> None:
-    """Run AOI (when requested) and trend analysis for the provided candles."""
-
-    if include_aoi:
-        analyze_aoi_by_timeframe(timeframe, aoi_candles or {})
-
-    analyze_trend_by_timeframe(timeframe, trend_candles)
+    except Exception as exc:
+        logger.error(f"  ❌ Critical error processing {symbol}: {exc}")
 
 
 def run_timeframe_job(timeframe: str, *, include_aoi: bool) -> None:
-    """Fetch candles once and run analyses for a timeframe."""
+    """Run parallel fetch & analysis for all symbols.
+    
+    Each symbol is processed in its own thread to ensure isolation and 
+    prevent a single failure from halting the entire job.
+    """
+    
+    logger.info(f"\n--- 🔄 Starting Parallel Job: {timeframe} ---")
+    
+    broker_timeframe = TIMEFRAMES.get(timeframe)
+    if broker_timeframe is None:
+        logger.error(f"Unknown timeframe {timeframe}")
+        return
 
-    display.print_status(f"\n--- 🔄 Running {timeframe} timeframe job ---")
+    logger.info(f"--- 🔄 Running {timeframe} timeframe job ---")
     analysis_params = require_analysis_params(timeframe)
     trend_lookback = analysis_params.lookback
     aoi_lookback = require_aoi_lookback(timeframe) if include_aoi else None
+    
+    # Calculate the max lookback needed to satisfy both analyses
     fetch_lookback = max(trend_lookback, aoi_lookback or 0)
 
-    candles = _fetch_closed_candles(timeframe, lookback=fetch_lookback)
-    trend_candles = _limit_candles(candles, count=trend_lookback)
-    aoi_candles = _limit_candles(candles, count=aoi_lookback)
+    # Parallel Execution
+    workers = len(FOREX_PAIRS)
+    logger.info(f"  -> Dispatching {workers} threads for {timeframe} job...")
+    
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(
+                _process_symbol_pipeline, 
+                symbol=symbol, 
+                timeframe=timeframe, 
+                lookback=fetch_lookback, 
+                include_aoi=include_aoi, 
+                broker_timeframe=broker_timeframe,
+                trend_lookback=trend_lookback,
+                aoi_lookback=aoi_lookback
+            ): symbol
+            for symbol in FOREX_PAIRS
+        }
+        
+        for future in as_completed(futures):
+            # We iterate to ensure we catch any silent thread crashes if they escape the inner try/except
+            try:
+                future.result()
+            except Exception as e:
+                symbol = futures.get(future, "Unknown")
+                logger.error(f"Thread for {symbol} crashed: {e}")
 
-    _run_timeframe_analysis(
-        timeframe,
-        include_aoi=include_aoi,
-        trend_candles=trend_candles,
-        aoi_candles=aoi_candles,
-    )
-    display.print_status(f"--- ✅ {timeframe} timeframe job complete ---\n")
-
+    logger.info(f"--- ✅ Parallel Job {timeframe} Complete ---\n")

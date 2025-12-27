@@ -20,19 +20,11 @@ def compute_penetration_score(
     trend: TrendDirection,
     aoi_low: float,
     aoi_high: float,
-    aoi_height: float,
-    retest_idx: int,
-    break_idx: int,
+    aoi_height: float
 ) -> float:
     deepest = 0.0
 
-    relevant_candles = [
-        candles[i]
-        for i in range(retest_idx, break_idx + 1)
-        if not (candles[i].high < aoi_low or candles[i].low > aoi_high)
-    ]
-
-    for candle in relevant_candles:
+    for candle in candles:
         candle_range = full_range(candle)
         if trend == TrendDirection.BULLISH:
             penetration = max(0.0, aoi_high - candle.low) / aoi_height
