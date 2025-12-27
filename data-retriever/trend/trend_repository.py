@@ -1,6 +1,8 @@
 from typing import Optional, Tuple
 
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 from models import TrendDirection
 from database.executor import DBExecutor
@@ -16,7 +18,7 @@ def update_trend_data(
     if not (normalized_symbol and normalized_timeframe):
         return
     if not trend or not isinstance(trend, TrendDirection):
-        display.print_error("DB_VALIDATION: trend must be provided as a TrendDirection")
+        logger.error("DB_VALIDATION: trend must be provided as a TrendDirection")
         return
     if not DBValidator.validate_nullable_float(high, "high") or not DBValidator.validate_nullable_float(low, "low"):
         return

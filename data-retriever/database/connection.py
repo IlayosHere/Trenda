@@ -9,7 +9,9 @@ from psycopg2.extensions import connection as PgConnection
 from psycopg2.pool import SimpleConnectionPool
 
 from configuration import POSTGRES_DB
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 log = logging.getLogger(__name__)
 if not log.handlers:
@@ -50,7 +52,7 @@ class DBConnectionManager:
                 cls._pool = SimpleConnectionPool(min_conn, max_conn, **db_config)
             except Exception as exc:
                 cls._pool = None
-                display.print_error(f"DB_POOL_INIT_FAILED: {exc}")
+                logger.error(f"DB_POOL_INIT_FAILED: {exc}")
                 log.error("DB_POOL_INIT_FAILED|error=%s", exc, exc_info=True)
                 raise
 
@@ -76,10 +78,10 @@ class DBConnectionManager:
                 cls._pool_details_logged = True
         except (OperationalError, InterfaceError) as exc:
             close_conn = True
-            display.print_error(f"DB_METADATA_QUERY_FAILED: {exc}")
+            logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
             log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
         except Exception as exc:
-            display.print_error(f"DB_METADATA_QUERY_FAILED: {exc}")
+            logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
             log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
         finally:
             if conn and cls._pool:
@@ -95,7 +97,7 @@ class DBConnectionManager:
         try:
             return cls._require_pool().getconn()
         except Exception as exc:
-            display.print_error(f"DB_CONNECTION_RETRIEVE_FAILED: {exc}")
+            logger.error(f"DB_CONNECTION_RETRIEVE_FAILED: {exc}")
             log.error("DB_CONNECTION_RETRIEVE_FAILED|error=%s", exc, exc_info=True)
             raise DBConnectionError("Failed to acquire database connection") from exc
 
@@ -115,7 +117,7 @@ class DBConnectionManager:
         try:
             cls._pool.putconn(conn, close=close_conn)
         except Exception as exc:
-            display.print_error(f"DB_CONNECTION_RELEASE_FAILED: {exc}")
+            logger.error(f"DB_CONNECTION_RELEASE_FAILED: {exc}")
             log.error("DB_CONNECTION_RELEASE_FAILED|error=%s", exc, exc_info=True)
 
     @classmethod
@@ -141,7 +143,7 @@ class DBConnectionManager:
                     cls._pool.closeall()
                     log.info("DB_POOL_CLOSED")
                 except Exception as exc:
-                    display.print_error(f"DB_POOL_CLOSE_FAILED: {exc}")
+                    logger.error(f"DB_POOL_CLOSE_FAILED: {exc}")
                     log.error("DB_POOL_CLOSE_FAILED|error=%s", exc, exc_info=True)
                 finally:
                     cls._pool = None

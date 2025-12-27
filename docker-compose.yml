@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres:
+    # Pinning postgres image
+    image: postgres:15-alpine
+    container_name: trenda_db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Port 5432 is intentionally NOT exposed to host for security
+
+  data-api:
+    build: ./data-api
+    container_name: trenda_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+    # Ports removed; accessed via Nginx only
+    expose:
+      - "8000"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    image: nginx:alpine
+    container_name: trenda_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - data-api
+
+  data-retriever:
+    build: ./data-retriever
+    container_name: trenda_retriever
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+    healthcheck:
+      # Check if heartbeat file was modified in the last 65 minutes (1h + margin)
+      test: [ "CMD-SHELL", "find /tmp/healthy -mmin -65 | grep -q ." ]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 5m
+
+volumes:
+  postgres_data:
