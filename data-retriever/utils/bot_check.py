@@ -63,7 +63,7 @@ def run_symbol(timeframe: str, symbol: str) -> None:
     # GBPNZD: 2.311
     aoi_low = 155.694
     # prompt = build_full_prompt(symbol, selected_data, trend, aoi_high, aoi_low)
-    # print(prompt)
+    # logger.info(prompt)
 
     evaluate_selected_entry(selected_data, trend, aoi_low, aoi_high)
 

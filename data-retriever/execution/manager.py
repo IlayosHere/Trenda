@@ -1,6 +1,8 @@
 import MetaTrader5 as mt5
-import utils.display as display
+from logger import get_logger
 from models import TrendDirection
+
+logger = get_logger(__name__)
 
 class ExecutionManager:
     """Manages the execution flow from signal to MT5 trade."""
@@ -19,18 +21,18 @@ class ExecutionManager:
         trade_quality: float,
     ):
         """Validates and executes a trade based on a detected signal."""
-        display.print_status(f"  [EXECUTION] Processing signal {signal_id} for {symbol}...")
+        logger.info(f"  [EXECUTION] Processing signal {signal_id} for {symbol}...")
 
         from externals.mt5_handler import place_market_order
 
         # 1. Basic Validation
         if trade_quality < 0.5:  # Example threshold
-            display.print_status(f"  [EXECUTION] Signal {signal_id} rejected: quality {trade_quality} too low.")
+            logger.info(f"  [EXECUTION] Signal {signal_id} rejected: quality {trade_quality} too low.")
             return False
 
         # 2. Prevent Duplicates (Simple check: is there already a trade open for this symbol?)
         if cls._is_trade_open(symbol):
-            display.print_status(f"  [EXECUTION] Signal {signal_id} skipped: trade already open for {symbol}.")
+            logger.info(f"  [EXECUTION] Signal {signal_id} skipped: trade already open for {symbol}.")
             return False
 
         # 3. Determine Order Type
@@ -60,10 +62,10 @@ class ExecutionManager:
         )
 
         if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-            display.print_status(f"  [EXECUTION] ✅ Trade executed for {symbol} (Ticket: {result.order})")
+            logger.info(f"  [EXECUTION] ✅ Trade executed for {symbol} (Ticket: {result.order})")
             return True
         else:
-            display.print_error(f"  [EXECUTION] ❌ Trade failed for {symbol}.")
+            logger.error(f"  [EXECUTION] ❌ Trade failed for {symbol}.")
             return False
 
     @staticmethod
