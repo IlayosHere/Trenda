@@ -1,7 +1,9 @@
 import pandas as pd
 import os
 from datetime import datetime, timedelta
+from logger import get_logger
 
+logger = get_logger(__name__)
 # Cache for the dataset to avoid repeated reads within the same process session
 _forex_calendar_df = None
 
