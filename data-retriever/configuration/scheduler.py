@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from entry.detector import run_1h_entry_scan_job
-from utils.bot_check import run_bot_check
 from jobs import run_timeframe_job
 
 SCHEDULE_CONFIG = [
