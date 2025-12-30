@@ -46,7 +46,7 @@ def fetch_data(
     """
 
     if BROKER_PROVIDER == BROKER_MT5:
-        df = _fetch_from_mt5(symbol, timeframe, lookback)
+        df = _fetch_from_mt5(symbol, timeframe, lookback, end_date=end_date)
     elif BROKER_PROVIDER == BROKER_TWELVEDATA:
         df = _fetch_from_twelvedata(symbol, timeframe, lookback, end_date=end_date)
     else:  # pragma: no cover - defensive fallback
@@ -65,12 +65,64 @@ def fetch_data(
     return df
 
 
-def _fetch_from_mt5(symbol: str, timeframe_mt5: int | str, lookback: int) -> Optional[pd.DataFrame]:
+def _fetch_from_mt5(
+    symbol: str,
+    timeframe_mt5: int | str,
+    lookback: int,
+    *,
+    end_date: datetime | None = None,
+) -> Optional[pd.DataFrame]:
+    """Fetch candles from MT5.
+    
+    Args:
+        end_date: If provided, fetches `lookback` candles ending at this date
+                  using copy_rates_range. Otherwise uses current position.
+    """
     if mt5 is None:
         print("  ❌ MetaTrader5 is not available in this environment.")
         return None
 
-    rates = mt5.copy_rates_from_pos(symbol, int(timeframe_mt5), 0, lookback)
+    tf_int = int(timeframe_mt5)
+    
+    if end_date is not None:
+        # Calculate start_date based on lookback and timeframe
+        # Use copy_rates_range for historical date-based fetching
+        from datetime import timedelta
+        
+        # Convert to naive datetime for MT5 (it expects local time or naive UTC)
+        if end_date.tzinfo is not None:
+            end_date_naive = end_date.replace(tzinfo=None)
+        else:
+            end_date_naive = end_date
+        
+        # Estimate start_date (overfetch to ensure we get enough candles)
+        # Account for weekends and holidays by adding extra buffer
+        if tf_int == 16385:  # H1
+            hours_back = lookback + 168  # Extra week buffer for gaps
+            start_date = end_date_naive - timedelta(hours=hours_back)
+        elif tf_int == 16388:  # H4
+            hours_back = (lookback + 50) * 4
+            start_date = end_date_naive - timedelta(hours=hours_back)
+        elif tf_int == 16408:  # D1
+            days_back = lookback + 30  # Extra month buffer
+            start_date = end_date_naive - timedelta(days=days_back)
+        elif tf_int == 32769:  # W1
+            days_back = (lookback + 10) * 7
+            start_date = end_date_naive - timedelta(days=days_back)
+        else:
+            # Fallback
+            start_date = end_date_naive - timedelta(hours=lookback * 4)
+        
+        rates = mt5.copy_rates_range(symbol, tf_int, start_date, end_date_naive)
+        
+        # Check for MT5 errors
+        if rates is None or len(rates) == 0:
+            error = mt5.last_error()
+            if error[0] != 1:  # 1 = success
+                print(f"  ⚠️ MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
+                print(f"      Date range: {start_date} to {end_date_naive}")
+    else:
+        rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)
 
     if rates is None or len(rates) == 0:
         print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {timeframe_mt5}")
@@ -78,11 +130,16 @@ def _fetch_from_mt5(symbol: str, timeframe_mt5: int | str, lookback: int) -> Opt
 
     local_tz = tzlocal.get_localzone_name()
     df = pd.DataFrame(rates)
-    df["time"] = (
-        pd.to_datetime(df["time"], unit="s")
-        .dt.tz_localize(local_tz)   # interpret raw timestamps as local MT5 time
-        .dt.tz_convert("UTC")        # normalize to UTC
-    )
+    
+    # Convert Unix timestamps to datetime, handling DST transitions
+    # MT5 returns timestamps in broker's local time (often EET/EEST)
+    # Use UTC directly since MT5 timestamps are Unix epoch (already UTC)
+    df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+    
+    # If we used date range, trim to requested lookback
+    if end_date is not None and len(df) > lookback:
+        df = df.tail(lookback)
+    
     return df
 
 

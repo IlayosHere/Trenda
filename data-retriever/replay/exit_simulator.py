@@ -77,35 +77,62 @@ class ExitSimulator:
             SL distance in ATR units, or None if cannot resolve
             
         Note:
-            For PLUS_0_25 models, the 0.25 buffer pushes SL further from entry.
-            Since sl_atr is always a positive distance, adding 0.25 means
-            the SL is 0.25 ATR further away regardless of direction.
+            For PLUS_X models, the buffer pushes SL further from entry.
+            Since sl_atr is always a positive distance, adding the buffer
+            means the SL is further away regardless of direction.
         """
-        if sl_model == "SL_ATR_0_6":
+        # Fixed ATR-based SL distances
+        if sl_model == "SL_ATR_0_1":
+            return 0.1
+        elif sl_model == "SL_ATR_0_2":
+            return 0.2
+        elif sl_model == "SL_ATR_0_3":
+            return 0.3
+        elif sl_model == "SL_ATR_0_4":
+            return 0.4
+        elif sl_model == "SL_ATR_0_5":
+            return 0.5
+        elif sl_model == "SL_ATR_0_6":
             return 0.6
+        elif sl_model == "SL_ATR_0_7":
+            return 0.7
         elif sl_model == "SL_ATR_0_8":
             return 0.8
+        elif sl_model == "SL_ATR_0_9":
+            return 0.9
         elif sl_model == "SL_ATR_1_0":
             return 1.0
+        elif sl_model == "SL_ATR_1_1":
+            return 1.1
         elif sl_model == "SL_ATR_1_2":
             return 1.2
         elif sl_model == "SL_ATR_1_5":
             return 1.5
+        # AOI-based SL distances
         elif sl_model == "SL_AOI_FAR":
             return self._geometry.aoi_far_edge_atr
         elif sl_model == "SL_AOI_FAR_PLUS_0_25":
-            # 0.25 ATR buffer beyond far edge (SL further from entry)
             return self._geometry.aoi_far_edge_atr + 0.25
         elif sl_model == "SL_AOI_NEAR":
             return self._geometry.aoi_near_edge_atr
         elif sl_model == "SL_AOI_NEAR_PLUS_0_25":
-            # 0.25 ATR buffer beyond near edge (SL further from entry)
             return self._geometry.aoi_near_edge_atr + 0.25
+        # Signal candle-based SL distances
         elif sl_model == "SL_SIGNAL_CANDLE":
             return self._geometry.signal_candle_opposite_extreme_atr
+        elif sl_model == "SL_SIGNAL_CANDLE_PLUS_0_1":
+            return self._geometry.signal_candle_opposite_extreme_atr + 0.1
+        elif sl_model == "SL_SIGNAL_CANDLE_PLUS_0_2":
+            return self._geometry.signal_candle_opposite_extreme_atr + 0.2
         elif sl_model == "SL_SIGNAL_CANDLE_PLUS_0_25":
-            # 0.25 ATR buffer beyond signal candle extreme
             return self._geometry.signal_candle_opposite_extreme_atr + 0.25
+        elif sl_model == "SL_SIGNAL_CANDLE_PLUS_0_3":
+            return self._geometry.signal_candle_opposite_extreme_atr + 0.3
+        elif sl_model == "SL_SIGNAL_CANDLE_PLUS_0_4":
+            return self._geometry.signal_candle_opposite_extreme_atr + 0.4
+        elif sl_model == "SL_SIGNAL_CANDLE_PLUS_0_5":
+            return self._geometry.signal_candle_opposite_extreme_atr + 0.5
+        # Hybrid SL model
         elif sl_model == "SL_MAX_AOI_ATR_1_0":
             return max(self._geometry.aoi_far_edge_atr, 1.0)
         else:
@@ -121,6 +148,7 @@ class ExitSimulator:
         """Simulate exit for one SL × R configuration.
         
         Scans path to find first SL hit, TP hit, or timeout at bar 72.
+        Uses high/low prices for hit detection (not close prices).
         """
         bars_to_sl_hit = None
         bars_to_tp_hit = None
@@ -131,21 +159,26 @@ class ExitSimulator:
         is_bad_pre48 = False
         
         for row in self._path:
-            # Track overall MFE/MAE
-            mfe_atr = max(mfe_atr, row.mfe_atr_to_here)
-            mae_atr = min(mae_atr, row.mae_atr_to_here)
+            # Track overall MFE/MAE using high/low (intrabar extremes)
+            if row.mfe_atr_high_low is not None:
+                mfe_atr = max(mfe_atr, row.mfe_atr_high_low)
+            if row.mae_atr_high_low is not None:
+                mae_atr = min(mae_atr, row.mae_atr_high_low)
             
-            # Check for SL hit (MAE reaches -sl_atr)
-            if bars_to_sl_hit is None and row.mae_atr_to_here <= -sl_atr:
-                bars_to_sl_hit = row.bar_index
+            # Check for SL hit using high/low (MAE reaches -sl_atr)
+            if bars_to_sl_hit is None and row.mae_atr_high_low is not None:
+                if row.mae_atr_high_low <= -sl_atr:
+                    bars_to_sl_hit = row.bar_index
             
-            # Check for TP hit (MFE reaches +tp_atr)
-            if bars_to_tp_hit is None and row.mfe_atr_to_here >= tp_atr:
-                bars_to_tp_hit = row.bar_index
+            # Check for TP hit using high/low (MFE reaches +tp_atr)
+            if bars_to_tp_hit is None and row.mfe_atr_high_low is not None:
+                if row.mfe_atr_high_low >= tp_atr:
+                    bars_to_tp_hit = row.bar_index
             
-            # Check for bad trade pre-48 (MAE ≤ -sl_atr before bar 48)
-            if row.bar_index <= 48 and row.mae_atr_to_here <= -sl_atr:
-                is_bad_pre48 = True
+            # Check for bad trade pre-48 (MAE hits SL before bar 48)
+            if row.bar_index <= 48 and row.mae_atr_high_low is not None:
+                if row.mae_atr_high_low <= -sl_atr:
+                    is_bad_pre48 = True
         
         # Determine exit reason and bar
         if bars_to_sl_hit is not None and bars_to_tp_hit is not None:

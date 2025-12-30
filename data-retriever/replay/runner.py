@@ -163,7 +163,9 @@ def _replay_symbol(
         candle_summary = candle_store.summary()
         display.print_status(f"  ✅ Loaded: {candle_summary}")
     except Exception as e:
+        import traceback
         display.print_error(f"  ❌ Failed to load candles: {e}")
+        traceback.print_exc()  # Print full traceback
         stats.errors += 1
         return stats
     
@@ -171,7 +173,7 @@ def _replay_symbol(
     aligner = TimeframeAligner(candle_store)
     state_manager = MarketStateManager(symbol, candle_store, aligner)
     signal_detector = ReplaySignalDetector(symbol, candle_store)
-    outcome_calculator = ReplayOutcomeCalculator(symbol, candle_store)
+    outcome_calculator = ReplayOutcomeCalculator(symbol, candle_store, start_date, end_date)
     
     # Step 3: Get 1H candle indices for replay window
     replay_indices = candle_store.get_replay_1h_indices(start_date, end_date)

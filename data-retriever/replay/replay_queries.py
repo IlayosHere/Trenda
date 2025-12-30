@@ -64,7 +64,7 @@ INSERT_REPLAY_ENTRY_SIGNAL_SCORE = f"""
 # Signal Outcome Queries
 # =============================================================================
 
-# Only fetch signals matching current model versions
+# Only fetch signals matching current model versions AND within time range
 FETCH_PENDING_REPLAY_SIGNALS = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
            aoi_low, aoi_high
@@ -72,6 +72,9 @@ FETCH_PENDING_REPLAY_SIGNALS = f"""
     WHERE outcome_computed = FALSE
       AND sl_model_version = '{SL_MODEL_VERSION}'
       AND tp_model_version = '{TP_MODEL_VERSION}'
+      AND symbol = %s
+      AND signal_time >= %s
+      AND signal_time <= %s
     ORDER BY signal_time ASC
     LIMIT %s
 """

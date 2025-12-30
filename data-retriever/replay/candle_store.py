@@ -26,8 +26,17 @@ from .config import (
     TIMEFRAME_1D,
     TIMEFRAME_1W,
     TWELVEDATA_INTERVALS,
+    MT5_INTERVALS,
     CANDLE_FETCH_BUFFER,
 )
+from configuration.broker import BROKER_PROVIDER, BROKER_MT5
+
+
+def get_broker_intervals() -> dict:
+    """Get the correct interval mapping based on configured broker."""
+    if BROKER_PROVIDER == BROKER_MT5:
+        return MT5_INTERVALS
+    return TWELVEDATA_INTERVALS
 
 
 @dataclass
@@ -154,7 +163,8 @@ class CandleStore:
         end_date: datetime,
     ) -> None:
         """Fetch candles for a timeframe and store them."""
-        interval = TWELVEDATA_INTERVALS.get(timeframe)
+        intervals = get_broker_intervals()
+        interval = intervals.get(timeframe)
         if interval is None:
             raise ValueError(f"Unknown timeframe: {timeframe}")
         
@@ -207,11 +217,14 @@ class CandleStore:
         return {tf: len(tc) for tf, tc in self._candles.items()}
 
 
-def create_twelvedata_fetcher():
-    """Create a fetch function using TwelveData API for historical data.
+def create_candle_fetcher():
+    """Create a fetch function using the configured broker for historical data.
     
     Returns a function: (symbol, interval, lookback, end_date) -> DataFrame
+    
+    Uses BROKER_PROVIDER to determine whether to use MT5 or TwelveData.
     """
+    from configuration.broker import BROKER_PROVIDER, BROKER_MT5
     from externals.data_fetcher import fetch_data
     
     def fetcher(
@@ -220,7 +233,7 @@ def create_twelvedata_fetcher():
         lookback: int,
         end_date: datetime,
     ) -> Optional[pd.DataFrame]:
-        """Fetch historical candles from TwelveData ending at end_date."""
+        """Fetch historical candles ending at end_date."""
         return fetch_data(
             symbol=symbol,
             timeframe=interval,
@@ -249,6 +262,7 @@ def load_symbol_candles(
         CandleStore populated with all required candles
     """
     store = CandleStore(symbol)
-    fetcher = create_twelvedata_fetcher()
+    fetcher = create_candle_fetcher()
     store.load_candles(start_date, end_date, fetcher)
     return store
+

@@ -68,9 +68,11 @@ class ReplayOutcomeCalculator:
     the replay loop.
     """
     
-    def __init__(self, symbol: str, candle_store: CandleStore):
+    def __init__(self, symbol: str, candle_store: CandleStore, start_date: datetime = None, end_date: datetime = None):
         self._symbol = symbol
         self._store = candle_store
+        self._start_date = start_date
+        self._end_date = end_date
         self._signal_indices: dict[int, int] = {}  # signal_id -> 1H candle index
     
     def register_signal(self, signal_id: int, signal_time: datetime) -> None:
@@ -95,14 +97,10 @@ class ReplayOutcomeCalculator:
         """
         computed_count = 0
         
-        # Fetch pending signals from replay DB
+        # Fetch pending signals from replay DB (filtered by symbol and time range)
         pending_signals = self._fetch_pending_signals()
         
         for signal in pending_signals:
-            # Skip if not for this symbol
-            if signal.symbol != self._symbol:
-                continue
-            
             # Get signal's 1H index
             signal_idx = self._signal_indices.get(signal.id)
             if signal_idx is None:
@@ -116,7 +114,7 @@ class ReplayOutcomeCalculator:
             if signal_idx is None:
                 continue
             
-            # Check if eligible (168 candles have passed)
+            # Check if eligible (72 candles have passed)
             if current_1h_index < signal_idx + OUTCOME_WINDOW_BARS:
                 continue
             
@@ -143,7 +141,7 @@ class ReplayOutcomeCalculator:
         
         rows = DBExecutor.fetch_all(
             FETCH_PENDING_REPLAY_SIGNALS,
-            params=(BATCH_SIZE,),
+            params=(self._symbol, self._start_date, self._end_date, BATCH_SIZE),
             cursor_factory=RealDictCursor,
             context="fetch_pending_replay_signals",
         )

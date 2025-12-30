@@ -39,8 +39,8 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2025, 12, 26, 20, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2012, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid TwelveData's 5000 candle limit
 # 120 days * 24 hours = 2880 1H candles (safe margin)
@@ -51,8 +51,8 @@ MAX_CHUNK_DAYS: Final[int] = 120
 # =============================================================================
 # These constants identify the current model logic for SL and TP calculations.
 # Signals are filtered by these versions when fetching pending outcomes.
-SL_MODEL_VERSION: Final[str] = 'SL_1'
-TP_MODEL_VERSION: Final[str] = 'TP_1'
+SL_MODEL_VERSION: Final[str] = 'SL_2'
+TP_MODEL_VERSION: Final[str] = 'TP_2'
 
 # =============================================================================
 # Lookback Sizes (must match production: configuration/forex_data.py)
@@ -78,26 +78,41 @@ OUTCOME_WINDOW_BARS: Final[int] = 72  # 72 hours (3 days)
 # Exit Simulation Configuration
 # =============================================================================
 # SL models for exit simulation (sl_atr calculation varies by model)
-# Note: For PLUS_0_25 models, direction matters:
-#   Bullish: sl_atr = edge_distance + 0.25 (SL further below AOI)
-#   Bearish: sl_atr = edge_distance + 0.25 (SL further above AOI)
+# Note: For PLUS_X models, the buffer pushes SL further from entry
 SL_MODELS: Final[list[str]] = [
+    # Fixed ATR-based SL distances
+    "SL_ATR_0_1",                   # sl_atr = 0.1
+    "SL_ATR_0_2",                   # sl_atr = 0.2
+    "SL_ATR_0_3",                   # sl_atr = 0.3
+    "SL_ATR_0_4",                   # sl_atr = 0.4
+    "SL_ATR_0_5",                   # sl_atr = 0.5
     "SL_ATR_0_6",                   # sl_atr = 0.6
+    "SL_ATR_0_7",                   # sl_atr = 0.7
     "SL_ATR_0_8",                   # sl_atr = 0.8
+    "SL_ATR_0_9",                   # sl_atr = 0.9
     "SL_ATR_1_0",                   # sl_atr = 1.0
+    "SL_ATR_1_1",                   # sl_atr = 1.1
     "SL_ATR_1_2",                   # sl_atr = 1.2
     "SL_ATR_1_5",                   # sl_atr = 1.5
+    # AOI-based SL distances
     "SL_AOI_FAR",                   # sl_atr = aoi_far_edge_atr
     "SL_AOI_FAR_PLUS_0_25",         # sl_atr = aoi_far_edge_atr + 0.25
     "SL_AOI_NEAR",                  # sl_atr = aoi_near_edge_atr
     "SL_AOI_NEAR_PLUS_0_25",        # sl_atr = aoi_near_edge_atr + 0.25
+    # Signal candle-based SL distances
     "SL_SIGNAL_CANDLE",             # sl_atr = signal_candle_opposite_extreme_atr
-    "SL_SIGNAL_CANDLE_PLUS_0_25",   # sl_atr = signal_candle_opposite_extreme_atr + 0.25
+    "SL_SIGNAL_CANDLE_PLUS_0_1",    # sl_atr = signal_candle + 0.1
+    "SL_SIGNAL_CANDLE_PLUS_0_2",    # sl_atr = signal_candle + 0.2
+    "SL_SIGNAL_CANDLE_PLUS_0_25",   # sl_atr = signal_candle + 0.25
+    "SL_SIGNAL_CANDLE_PLUS_0_3",    # sl_atr = signal_candle + 0.3
+    "SL_SIGNAL_CANDLE_PLUS_0_4",    # sl_atr = signal_candle + 0.4
+    "SL_SIGNAL_CANDLE_PLUS_0_5",    # sl_atr = signal_candle + 0.5
+    # Hybrid SL model
     "SL_MAX_AOI_ATR_1_0",           # sl_atr = max(aoi_far_edge_atr, 1.0)
 ]
 
 # R multiples for take profit calculation (tp_atr = sl_atr × rr_multiple)
-RR_MULTIPLES: Final[list[float]] = [2.0, 2.5, 3.0, 3.5, 4.0]
+RR_MULTIPLES: Final[list[float]] = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0]
 
 # =============================================================================
 # Execution Constants (from signal_outcome/constants.py)
@@ -136,13 +151,22 @@ TIMEFRAME_HOURS: Final[dict[str, int]] = {
 TREND_ALIGNMENT_TIMEFRAMES: Final[tuple[str, ...]] = ("4H", "1D", "1W")
 
 # =============================================================================
-# TwelveData API Intervals
+# Broker-Specific API Intervals
 # =============================================================================
+# TwelveData uses string intervals, MT5 uses integer constants
 TWELVEDATA_INTERVALS: Final[dict[str, str]] = {
     TIMEFRAME_1H: "1h",
     TIMEFRAME_4H: "4h",
     TIMEFRAME_1D: "1day",
     TIMEFRAME_1W: "1week",
+}
+
+# MT5 timeframe constants (from MetaTrader5.TIMEFRAME_*)
+MT5_INTERVALS: Final[dict[str, int]] = {
+    TIMEFRAME_1H: 16385,   # TIMEFRAME_H1
+    TIMEFRAME_4H: 16388,   # TIMEFRAME_H4
+    TIMEFRAME_1D: 16408,   # TIMEFRAME_D1
+    TIMEFRAME_1W: 32769,   # TIMEFRAME_W1
 }
 
 # =============================================================================

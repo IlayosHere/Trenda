@@ -9,7 +9,7 @@ BrokerProvider = Literal["MT5", "TWELVEDATA"]
 BROKER_MT5: Final[BrokerProvider] = "MT5"
 BROKER_TWELVEDATA: Final[BrokerProvider] = "TWELVEDATA"
 
-BROKER_PROVIDER: BrokerProvider = os.getenv("BROKER_PROVIDER", "TWELVEDATA")
+BROKER_PROVIDER: BrokerProvider = os.getenv("BROKER_PROVIDER", "MT5")
 
 TWELVEDATA_API_KEY: str | None = os.getenv("TWELVEDATA_API_KEY")
 TWELVEDATA_BASE_URL: str = os.getenv("TWELVEDATA_BASE_URL", "https://api.twelvedata.com")
