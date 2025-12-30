@@ -145,7 +145,11 @@ def build_currency_event_dates(df: pd.DataFrame) -> Dict[str, Set]:
     
     for _, row in df.iterrows():
         currency = row['Currency']
-        if currency in TRACKED_CURRENCIES:
+        if currency == 'All':
+            # "All" currency means the event applies to all tracked currencies
+            for curr in TRACKED_CURRENCIES:
+                currency_dates[curr].add(row['Date'])
+        elif currency in TRACKED_CURRENCIES:
             currency_dates[currency].add(row['Date'])
     
     for currency, dates in currency_dates.items():
