@@ -57,12 +57,29 @@ def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float 
     if not initialize_mt5():
         return None
 
+    # 1. Ensure symbol is visible and select it
+    symbol_info = mt5.symbol_info(symbol)
+    if symbol_info is None:
+        logger.error(f"Symbol {symbol} not found.")
+        return None
+    
+    if not symbol_info.visible:
+        if not mt5.symbol_select(symbol, True):
+            logger.error(f"Failed to select symbol {symbol}.")
+            return None
+
+    # 2. Get current price
     tick = mt5.symbol_info_tick(symbol)
     if tick is None:
         logger.error(f"Failed to get tick info for {symbol}. Error: {mt5.last_error()}")
         return None
 
     price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
+
+    # 3. Normalize prices (Round to symbol's digits)
+    price = round(price, symbol_info.digits)
+    sl = round(sl, symbol_info.digits) if sl > 0 else 0.0
+    tp = round(tp, symbol_info.digits) if tp > 0 else 0.0
 
     # 4. Calculate expiration timestamp (Server time + minutes)
     expiration_time = int(tick.time + (expiration_minutes * 60))

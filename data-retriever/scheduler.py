@@ -15,7 +15,7 @@ scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 logger = get_logger(__name__)
 
 STUB_FOREX_SYMBOL = "EURUSD"
-HEARTBEAT_FILE = "/tmp/healthy"
+HEARTBEAT_FILE = "healthy"  # Local file in the working directory
 
 def _heartbeat():
     """Touch a file to indicate the scheduler is alive."""
