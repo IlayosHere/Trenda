@@ -23,7 +23,7 @@ class ExecutionManager:
         """Validates and executes a trade based on a detected signal."""
         logger.info(f"  [EXECUTION] Processing signal {signal_id} for {symbol}...")
 
-        from externals.mt5_handler import place_market_order
+        from externals.mt5_handler import place_order
 
         # 1. Basic Validation
         if trade_quality < TRADE_QUALITY_THRESHOLD:
@@ -39,8 +39,6 @@ class ExecutionManager:
         order_type = mt5.ORDER_TYPE_BUY if direction == TrendDirection.BULLISH else mt5.ORDER_TYPE_SELL
 
         # 4. Calculate SL/TP (Simple logic: AOI bounds)
-        # For Buy: SL at AOI low, TP at AOI high + (AOI high - AOI low) * 2 (as an example)
-        # For Sell: SL at AOI high, TP at AOI low - (AOI high - AOI low) * 2
         aoi_height = aoi_high - aoi_low
         if order_type == mt5.ORDER_TYPE_BUY:
             sl = aoi_low
@@ -51,18 +49,19 @@ class ExecutionManager:
 
         # 5. Place Trade
         comment = f"SignalID:{signal_id}"
-        result = place_market_order(
+        result = place_order(
             symbol=symbol,
             order_type=order_type,
             volume=cls.DEFAULT_LOT_SIZE,
             sl=sl,
             tp=tp,
             deviation=cls.DEFAULT_DEVIATION,
-            comment=comment
+            comment=comment,
+            expiration_minutes=10
         )
 
         if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-            logger.info(f"  [EXECUTION] ✅ Trade executed for {symbol} (Ticket: {result.order})")
+            logger.info(f"  [EXECUTION] ✅ Trade confirmed for {symbol} (Ticket: {result.order})")
             return True
         else:
             logger.error(f"  [EXECUTION] ❌ Trade failed for {symbol}.")

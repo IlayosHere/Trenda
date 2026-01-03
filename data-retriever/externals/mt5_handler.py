@@ -1,9 +1,10 @@
 try:
     import MetaTrader5 as mt5
+    from datetime import datetime, timedelta
 except ImportError:
     mt5 = None
 
-from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE
+from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE, MT5_EXPIRATION_MINUTES
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,22 +39,24 @@ def shutdown_mt5():
         mt5.shutdown()
     _mt5_initialized = False
 
-def place_market_order(symbol: str, order_type: int, volume: float = MT5_DEFAULT_LOT_SIZE, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, comment: str = ""):
-    """Places a market order in MT5."""
+def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float = MT5_DEFAULT_LOT_SIZE, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, comment: str = "", expiration_minutes: int = MT5_EXPIRATION_MINUTES):
+    """
+    Unified function to place any type of order in MT5 with automatic 10-minute expiration.
+    
+    Args:
+        symbol: The trading instrument (e.g., "EURUSD").
+        order_type: Direction (mt5.ORDER_TYPE_BUY/SELL) or Pending (mt5.ORDER_TYPE_BUY_LIMIT/STOP, etc.).
+        price: The price for pending orders. If 0.0, it uses current market price for direct deals.
+        volume: Order size in lots.
+        sl: Stop loss price.
+        tp: Take profit price.
+        deviation: Max allowed slippage (points).
+        comment: Personal note.
+        expiration_minutes: Minutes after which the order is canceled if not filled (default 10).
+    """
     if not initialize_mt5():
         return None
 
-    symbol_info = mt5.symbol_info(symbol)
-    if symbol_info is None:
-        logger.error(f"Symbol {symbol} not found.")
-        return None
-
-    if not symbol_info.visible:
-        if not mt5.symbol_select(symbol, True):
-            logger.error(f"Failed to select symbol {symbol}.")
-            return None
-
-    # Determine execution price
     tick = mt5.symbol_info_tick(symbol)
     if tick is None:
         logger.error(f"Failed to get tick info for {symbol}. Error: {mt5.last_error()}")
@@ -61,29 +64,36 @@ def place_market_order(symbol: str, order_type: int, volume: float = MT5_DEFAULT
 
     price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
 
+    # 4. Calculate expiration timestamp (Server time + minutes)
+    expiration_time = int(tick.time + (expiration_minutes * 60))
+
     request = {
-        "action": mt5.TRADE_ACTION_DEAL,      # Type of trade: direct deal (market order)
-        "symbol": symbol,                     # Trading instrument (e.g., "EURUSD")
-        "volume": volume,                     # Order size in lots (e.g., 0.1)
-        "type": order_type,                   # Order direction: mt5.ORDER_TYPE_BUY or mt5.ORDER_TYPE_SELL
-        "price": price,                       # Current market price for execution
-        "sl": sl,                             # Stop Loss price level
-        "tp": tp,                             # Take Profit price level
-        "deviation": deviation,               # Max allowed slippage in points
-        "magic": MT5_MAGIC_NUMBER,            # Unique ID to identify trades from this bot
-        "comment": comment,                   # Personal note for the trade (e.g., "Trenda Strategy")
-        "type_time": mt5.ORDER_TIME_GTC,      # Order duration: Good 'Til Cancelled
-        "type_filling": mt5.ORDER_FILLING_IOC,# Filling policy: Immediate Or Cancel
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": volume,
+        "type": order_type,
+        "price": price,
+        "sl": sl,
+        "tp": tp,
+        "deviation": deviation,
+        "magic": MT5_MAGIC_NUMBER,
+        "comment": comment,
+        "type_time": mt5.ORDER_TIME_SPECIFIED,
+        "expiration": expiration_time,
+        "type_filling": mt5.ORDER_FILLING_IOC,
     }
 
     result = mt5.order_send(request)
+    
     if result is None:
         logger.error(f"Order send failed for {symbol}. Result is None.")
         return None
 
     if result.retcode != mt5.TRADE_RETCODE_DONE:
-        logger.error(f"Order failed for {symbol}. Retcode: {result.retcode}, Error: {mt5.last_error()}")
+        logger.error(f"Order failed for {symbol}. Action: {mt5.TRADE_ACTION_DEAL}, Retcode: {result.retcode}, Error: {mt5.last_error()}")
         return result
 
-    logger.info(f"🚀 Market order placed successfully for {symbol}. Ticket: {result.order}")
+    # 5. Success Logging
+    logger.info(f"✅ Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{result.order}")
+    
     return result
