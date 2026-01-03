@@ -1,7 +1,7 @@
 import MetaTrader5 as mt5
 from logger import get_logger
 from models import TrendDirection
-from configuration import MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE, TRADE_QUALITY_THRESHOLD
+from configuration import MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE, TRADE_QUALITY_THRESHOLD, MT5_EXPIRATION_MINUTES, MT5_MAGIC_NUMBER
 
 logger = get_logger(__name__)
 
@@ -57,7 +57,7 @@ class ExecutionManager:
             tp=tp,
             deviation=cls.DEFAULT_DEVIATION,
             comment=comment,
-            expiration_minutes=10
+            expiration_minutes=MT5_EXPIRATION_MINUTES
         )
 
         if result and result.retcode == mt5.TRADE_RETCODE_DONE:
@@ -69,8 +69,11 @@ class ExecutionManager:
 
     @staticmethod
     def _is_trade_open(symbol: str) -> bool:
-        """Checks if there are any open positions for the given symbol."""
+        """Checks if there are any open positions for the given symbol with our Magic Number."""
         positions = mt5.positions_get(symbol=symbol)
         if positions is None:
             return False
-        return len(positions) > 0
+        
+        # Filter positions by our bot's magic number
+        bot_positions = [p for p in positions if p.magic == MT5_MAGIC_NUMBER]
+        return len(bot_positions) > 0
