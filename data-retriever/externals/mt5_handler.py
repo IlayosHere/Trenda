@@ -3,7 +3,7 @@ try:
 except ImportError:
     mt5 = None
 
-from configuration import MT5_MAGIC_NUMBER
+from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ def shutdown_mt5():
         mt5.shutdown()
     _mt5_initialized = False
 
-def place_market_order(symbol: str, order_type: int, volume: float, sl: float = 0.0, tp: float = 0.0, deviation: int = 20, comment: str = ""):
+def place_market_order(symbol: str, order_type: int, volume: float = MT5_DEFAULT_LOT_SIZE, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, comment: str = ""):
     """Places a market order in MT5."""
     if not initialize_mt5():
         return None

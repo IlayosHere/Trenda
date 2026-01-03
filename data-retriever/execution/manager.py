@@ -1,15 +1,15 @@
 import MetaTrader5 as mt5
 from logger import get_logger
 from models import TrendDirection
+from configuration import MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE, TRADE_QUALITY_THRESHOLD
 
 logger = get_logger(__name__)
 
 class ExecutionManager:
     """Manages the execution flow from signal to MT5 trade."""
 
-    DEFAULT_LOT_SIZE = 0.01
-    DEFAULT_DEVIATION = 20
-
+    DEFAULT_LOT_SIZE = MT5_DEFAULT_LOT_SIZE
+    DEFAULT_DEVIATION = MT5_DEVIATION
     @classmethod
     def process_signal(
         cls,
@@ -26,7 +26,7 @@ class ExecutionManager:
         from externals.mt5_handler import place_market_order
 
         # 1. Basic Validation
-        if trade_quality < 0.5:  # Example threshold
+        if trade_quality < TRADE_QUALITY_THRESHOLD:
             logger.info(f"  [EXECUTION] Signal {signal_id} rejected: quality {trade_quality} too low.")
             return False
 
