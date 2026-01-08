@@ -1,6 +1,5 @@
 try:
     import MetaTrader5 as mt5
-    from datetime import datetime, timedelta
 except ImportError:
     mt5 = None
 
@@ -75,7 +74,8 @@ def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float 
         logger.error(f"Failed to get tick info for {symbol}. Error: {mt5.last_error()}")
         return None
 
-    price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
+    if price == 0.0:
+        price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
 
     # 3. Normalize prices (Round to symbol's digits)
     price = round(price, symbol_info.digits)
