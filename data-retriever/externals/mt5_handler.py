@@ -39,7 +39,7 @@ def shutdown_mt5():
         mt5.shutdown()
     _mt5_initialized = False
 
-def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float = MT5_DEFAULT_LOT_SIZE, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, comment: str = "", expiration_minutes: int = MT5_EXPIRATION_MINUTES):
+def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float = MT5_DEFAULT_LOT_SIZE, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, magic: int = MT5_MAGIC_NUMBER, comment: str = "", expiration_minutes: int = MT5_EXPIRATION_MINUTES):
     """
     Unified function to place any type of order in MT5 with automatic 10-minute expiration.
     
@@ -51,6 +51,7 @@ def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float 
         sl: Stop loss price.
         tp: Take profit price.
         deviation: Max allowed slippage (points).
+        magic: Unique identifier for the EA/bot (default from config).
         comment: Personal note.
         expiration_minutes: Minutes after which the order is canceled if not filled (default 10).
     """
@@ -93,7 +94,7 @@ def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float 
         "sl": sl,
         "tp": tp,
         "deviation": deviation,
-        "magic": MT5_MAGIC_NUMBER,
+        "magic": magic,
         "comment": comment,
         "type_time": mt5.ORDER_TIME_SPECIFIED,
         "expiration": expiration_time,
