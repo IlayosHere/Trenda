@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
-from configuration.forex_data import TIMEFRAMES
+from configuration.forex_config import TIMEFRAMES
 from apscheduler.schedulers.background import BackgroundScheduler
 from externals.data_fetcher import fetch_data
 import utils.display as display
@@ -13,6 +13,32 @@ from utils.trading_hours import describe_trading_window, is_within_trading_hours
 scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 
 STUB_FOREX_SYMBOL = "EURUSD"
+
+def run_startup_data_refresh() -> None:
+    """Run all trend/AOI jobs at startup based on last closed candle."""
+    display.print_status("\n--- 🚀 Running startup data refresh ---")
+
+    for config in SCHEDULE_CONFIG:
+        timeframe = config.get("timeframe")
+        if not timeframe or "job" not in config:
+            continue
+        # Skip non-timeframe jobs (entry signal, outcome jobs use 1H)
+        if timeframe == "1H":
+            continue
+
+        job_name = config.get("name", config["id"])
+        job = config["job"]
+        args = list(config.get("args", []))
+        kwargs = config.get("kwargs", {})
+
+        display.print_status(f"  -> Running startup job: {job_name}")
+        try:
+            job(*args, **kwargs)
+        except Exception as e:
+            display.print_error(f"Startup job '{job_name}' failed: {e}")
+
+    display.print_status("--- ✅ Startup data refresh complete ---\n")
+
 
 def start_scheduler() -> None:
     display.print_status("Starting background scheduler...")
@@ -120,5 +146,11 @@ def compute_first_run_time(timeframe: str, interval_minutes: int, offset_seconds
     last_close: datetime = df.iloc[-1]["time"]
     next_close = last_close + timedelta(minutes=interval_minutes)
     first_run_time = next_close + timedelta(seconds=offset_seconds)
+
+    # Ensure first run is always in the future to prevent immediate catch-up
+    now = datetime.now(timezone.utc)
+    if first_run_time <= now:
+        # Jump to next interval from now
+        first_run_time = now + timedelta(minutes=interval_minutes, seconds=offset_seconds)
 
     return first_run_time

@@ -33,14 +33,21 @@ REPLAY_SYMBOLS: Final[list[str]] = [
     "GBPNZD",
     "AUDNZD",
     "AUDCAD",
-    "NZDCAD"
+    "NZDCAD",
+    "EURCAD",
+    "CADCHF",
+    "GBPCHF",
+    "AUDCHF",
+    "NZDCHF",
+    # 'EURPLN', #TODO: check more about this pair
+    # 'USDSGD', #TODO: check more about this pair
     ]
 
 # =============================================================================
 # Replay Window
 # =============================================================================
 REPLAY_START_DATE: Final[datetime] = datetime(2012, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 9, 10, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid TwelveData's 5000 candle limit
 # 120 days * 24 hours = 2880 1H candles (safe margin)
@@ -49,10 +56,9 @@ MAX_CHUNK_DAYS: Final[int] = 120
 # =============================================================================
 # SL/TP Model Versions
 # =============================================================================
-# These constants identify the current model logic for SL and TP calculations.
-# Signals are filtered by these versions when fetching pending outcomes.
-SL_MODEL_VERSION: Final[str] = 'SL_2'
-TP_MODEL_VERSION: Final[str] = 'TP_2'
+# Production model configuration (must match entry/gates/config.py)
+SL_MODEL_VERSION: Final[str] = 'TIME_CHECK'
+TP_MODEL_VERSION: Final[str] = 'TIME_CHECK'
 
 # =============================================================================
 # Lookback Sizes (must match production: configuration/forex_data.py)
@@ -72,47 +78,18 @@ LOOKBACK_AOI_1D: Final[int] = 140
 # =============================================================================
 # Outcome Window
 # =============================================================================
-OUTCOME_WINDOW_BARS: Final[int] = 72  # 72 hours (3 days)
+OUTCOME_WINDOW_BARS: Final[int] = 96  # 72 hours (3 days)
 
 # =============================================================================
-# Exit Simulation Configuration
+# Exit Simulation Configuration (Production Only)
 # =============================================================================
-# SL models for exit simulation (sl_atr calculation varies by model)
-# Note: For PLUS_X models, the buffer pushes SL further from entry
+# Using only the production SL model (matches entry/gates/config.py)
 SL_MODELS: Final[list[str]] = [
-    # Fixed ATR-based SL distances
-    "SL_ATR_0_1",                   # sl_atr = 0.1
-    "SL_ATR_0_2",                   # sl_atr = 0.2
-    "SL_ATR_0_3",                   # sl_atr = 0.3
-    "SL_ATR_0_4",                   # sl_atr = 0.4
-    "SL_ATR_0_5",                   # sl_atr = 0.5
-    "SL_ATR_0_6",                   # sl_atr = 0.6
-    "SL_ATR_0_7",                   # sl_atr = 0.7
-    "SL_ATR_0_8",                   # sl_atr = 0.8
-    "SL_ATR_0_9",                   # sl_atr = 0.9
-    "SL_ATR_1_0",                   # sl_atr = 1.0
-    "SL_ATR_1_1",                   # sl_atr = 1.1
-    "SL_ATR_1_2",                   # sl_atr = 1.2
-    "SL_ATR_1_5",                   # sl_atr = 1.5
-    # AOI-based SL distances
-    "SL_AOI_FAR",                   # sl_atr = aoi_far_edge_atr
-    "SL_AOI_FAR_PLUS_0_25",         # sl_atr = aoi_far_edge_atr + 0.25
-    "SL_AOI_NEAR",                  # sl_atr = aoi_near_edge_atr
-    "SL_AOI_NEAR_PLUS_0_25",        # sl_atr = aoi_near_edge_atr + 0.25
-    # Signal candle-based SL distances
-    "SL_SIGNAL_CANDLE",             # sl_atr = signal_candle_opposite_extreme_atr
-    "SL_SIGNAL_CANDLE_PLUS_0_1",    # sl_atr = signal_candle + 0.1
-    "SL_SIGNAL_CANDLE_PLUS_0_2",    # sl_atr = signal_candle + 0.2
-    "SL_SIGNAL_CANDLE_PLUS_0_25",   # sl_atr = signal_candle + 0.25
-    "SL_SIGNAL_CANDLE_PLUS_0_3",    # sl_atr = signal_candle + 0.3
-    "SL_SIGNAL_CANDLE_PLUS_0_4",    # sl_atr = signal_candle + 0.4
-    "SL_SIGNAL_CANDLE_PLUS_0_5",    # sl_atr = signal_candle + 0.5
-    # Hybrid SL model
-    "SL_MAX_AOI_ATR_1_0",           # sl_atr = max(aoi_far_edge_atr, 1.0)
+    "SL_AOI_FAR_PLUS_0_25",  # sl_atr = aoi_far_edge_atr + 0.25
 ]
 
-# R multiples for take profit calculation (tp_atr = sl_atr × rr_multiple)
-RR_MULTIPLES: Final[list[float]] = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0]
+# Using only the production R multiple
+RR_MULTIPLES: Final[list[float]] = [2, 2.5, 3.0]
 
 # =============================================================================
 # Execution Constants (from signal_outcome/constants.py)

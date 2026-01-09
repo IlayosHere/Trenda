@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 import tzlocal
 
-from configuration.broker import (
+from configuration.broker_config import (
     BROKER_MT5,
     BROKER_PROVIDER,
     BROKER_TWELVEDATA,
@@ -131,16 +131,21 @@ def _fetch_from_mt5(
     local_tz = tzlocal.get_localzone_name()
     df = pd.DataFrame(rates)
     
-    # Convert Unix timestamps to datetime, handling DST transitions
-    # MT5 returns timestamps in broker's local time (often EET/EEST)
-    # Use UTC directly since MT5 timestamps are Unix epoch (already UTC)
-    df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+    # MT5 timestamps are in BROKER LOCAL TIME (often EET/EEST, UTC+2/+3)
+    # but encoded as Unix timestamps without proper UTC conversion.
+    # We need to subtract the broker's UTC offset to get true UTC times.
+    from configuration.broker_config import MT5_BROKER_UTC_OFFSET
+    broker_offset_seconds = MT5_BROKER_UTC_OFFSET * 3600
+    
+    # Convert to datetime and correct for broker timezone
+    df["time"] = pd.to_datetime(df["time"] - broker_offset_seconds, unit="s", utc=True)
     
     # If we used date range, trim to requested lookback
     if end_date is not None and len(df) > lookback:
         df = df.tail(lookback)
     
     return df
+
 
 
 def _fetch_from_twelvedata(

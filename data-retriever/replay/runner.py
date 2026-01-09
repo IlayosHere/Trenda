@@ -225,9 +225,136 @@ def _replay_symbol(
             display.print_error(f"    ❌ Error at candle {candle_idx}: {e}")
             stats.errors += 1
     
+    # Step 5: Final pass - compute outcomes for ALL remaining pending signals
+    # This catches signals near the end of the replay window that didn't have 
+    # enough future candles during the main loop
+    display.print_status(f"  🔄 Final pass: computing remaining outcomes...")
+    final_outcomes = _compute_remaining_outcomes(symbol, start_date, end_date, candle_store)
+    stats.outcomes_computed += final_outcomes
+    if final_outcomes > 0:
+        display.print_status(f"    ✅ Computed {final_outcomes} additional outcomes in final pass")
+    
     display.print_status(f"  ✅ {symbol} complete: {stats.summary()}")
     
     return stats
+
+
+def _compute_remaining_outcomes(
+    symbol: str,
+    start_date: datetime,
+    end_date: datetime,
+    candle_store,
+) -> int:
+    """Compute outcomes for all remaining pending signals.
+    
+    This is called after the main replay loop to catch signals that
+    didn't have enough future candles during the loop.
+    """
+    from database.executor import DBExecutor
+    from psycopg2.extras import RealDictCursor
+    from models import TrendDirection
+    from signal_outcome.outcome_calculator import compute_outcome
+    from signal_outcome.models import PendingSignal
+    from .replay_queries import (
+        FETCH_PENDING_REPLAY_SIGNALS,
+        INSERT_REPLAY_SIGNAL_OUTCOME,
+        INSERT_REPLAY_CHECKPOINT_RETURN,
+        MARK_REPLAY_OUTCOME_COMPUTED,
+    )
+    from .config import BATCH_SIZE, OUTCOME_WINDOW_BARS
+    
+    computed_count = 0
+    skipped_no_idx = 0
+    skipped_no_candles = 0
+    
+    # Fetch ALL pending signals for this symbol (no time range filter)
+    from .replay_queries import FETCH_ALL_PENDING_REPLAY_SIGNALS
+    rows = DBExecutor.fetch_all(
+        FETCH_ALL_PENDING_REPLAY_SIGNALS,
+        params=(symbol, 1000),  # Just symbol and limit
+        cursor_factory=RealDictCursor,
+        context="fetch_final_pending_signals",
+    )
+    
+    import utils.display as display
+    display.print_status(f"    📋 Found {len(rows)} pending signals to process")
+    
+    for row in rows:
+        signal_time = row["signal_time"]
+        signal_idx = candle_store.get_1h_candles().find_index_by_time(signal_time)
+        
+        if signal_idx is None:
+            skipped_no_idx += 1
+            continue
+        
+        # Get future candles
+        future_candles = candle_store.get_1h_candles().get_candles_after_index(
+            signal_idx, OUTCOME_WINDOW_BARS
+        )
+        
+        if future_candles is None or len(future_candles) < OUTCOME_WINDOW_BARS:
+            skipped_no_candles += 1
+            continue
+        
+        # Calculate sl_distance_atr
+        direction = TrendDirection.from_raw(row["direction"])
+        entry_price = float(row["entry_price"])
+        atr_1h = float(row["atr_1h"])
+        aoi_low = float(row["aoi_low"])
+        aoi_high = float(row["aoi_high"])
+        
+        if direction == TrendDirection.BULLISH:
+            far_edge_distance = entry_price - aoi_low
+        else:
+            far_edge_distance = aoi_high - entry_price
+        
+        sl_distance_atr = (far_edge_distance / atr_1h) + 0.25  # SL_BUFFER_ATR
+        
+        # Create PendingSignal
+        pending = PendingSignal(
+            id=row["id"],
+            symbol=row["symbol"],
+            signal_time=signal_time,
+            direction=row["direction"],
+            entry_price=entry_price,
+            atr_1h=atr_1h,
+            sl_distance_atr=sl_distance_atr,
+        )
+        
+        try:
+            outcome = compute_outcome(pending, future_candles)
+            
+            # Persist outcome
+            def _work(cursor):
+                cursor.execute(
+                    INSERT_REPLAY_SIGNAL_OUTCOME,
+                    (
+                        row["id"],
+                        outcome.window_bars,
+                        float(outcome.mfe_atr),
+                        float(outcome.mae_atr),
+                        outcome.bars_to_mfe,
+                        outcome.bars_to_mae,
+                        outcome.first_extreme,
+                    ),
+                )
+                result = cursor.fetchone()
+                cursor.execute(MARK_REPLAY_OUTCOME_COMPUTED, (row["id"],))
+                return result is not None
+            
+            if DBExecutor.execute_transaction(_work, context="persist_final_outcome"):
+                computed_count += 1
+                
+        except Exception:
+            pass  # Skip signals with errors
+    
+    # Summary: show why signals were skipped
+    if skipped_no_idx > 0 or skipped_no_candles > 0:
+        display.print_status(
+            f"    ⚠️ Skipped: {skipped_no_idx} (no index found), {skipped_no_candles} (not enough future candles)"
+        )
+    
+    return computed_count
 
 
 def main():

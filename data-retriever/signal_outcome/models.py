@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -14,23 +15,16 @@ class PendingSignal:
     direction: str
     entry_price: float
     atr_1h: float
-    # AOI data for SL/TP computation
+    # AOI bounds for fallback SL calculation
     aoi_low: float
     aoi_high: float
-    aoi_effective_sl_distance_price: float
-
-
-@dataclass(frozen=True)
-class CheckpointReturn:
-    """A single checkpoint return measurement."""
-    
-    bars_after: int       # e.g., 3, 6, 12, 24, 48, 72, 96, 120, 144, 168
-    return_atr: float     # Return in ATR units at this checkpoint
+    # SL distance for exit detection (may be None for legacy signals)
+    sl_distance_atr: Optional[float]
 
 
 @dataclass(frozen=True)
 class OutcomeData:
-    """Computed outcome for a signal (without checkpoint returns)."""
+    """Computed outcome for a signal (96 bar window)."""
 
     # Window info
     window_bars: int
@@ -40,17 +34,10 @@ class OutcomeData:
     bars_to_mfe: int
     bars_to_mae: int
     first_extreme: str
-    # SL/TP hits (bars to hit or None)
-    bars_to_aoi_sl_hit: int | None
-    bars_to_r_1: int | None
-    bars_to_r_1_5: int | None
-    bars_to_r_2: int | None
-    aoi_rr_outcome: str
-
-
-@dataclass(frozen=True)
-class OutcomeWithCheckpoints:
-    """Full outcome data including checkpoint returns."""
-    
-    outcome: OutcomeData
-    checkpoint_returns: list[CheckpointReturn]
+    # Checkpoint returns
+    return_after_48: Optional[float]
+    return_after_72: Optional[float]
+    return_after_96: Optional[float]
+    # Exit tracking
+    exit_reason: str  # SL, TP, TIMEOUT
+    bars_to_exit: Optional[int]  # Bar number when SL or TP was hit

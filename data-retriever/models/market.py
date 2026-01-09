@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Optional
 
 
 class TrendDirection(Enum):
@@ -81,18 +81,35 @@ class Candle:
 
     @staticmethod
     def _normalize_time(value: Any) -> datetime:
-        if isinstance(value, datetime):
-            return value
-
+        from datetime import timezone
+        
+        # Handle pandas Timestamp first
         if hasattr(value, "to_pydatetime"):
-            return value.to_pydatetime()  # type: ignore[no-any-return]
+            # Convert pandas Timestamp to datetime, preserving timezone
+            dt = value.to_pydatetime()
+            # If timezone-aware, convert to UTC
+            if dt.tzinfo is not None:
+                return dt.astimezone(timezone.utc)
+            # If naive, assume it's already UTC
+            return dt.replace(tzinfo=timezone.utc)
+        
+        if isinstance(value, datetime):
+            # If timezone-aware, convert to UTC
+            if value.tzinfo is not None:
+                return value.astimezone(timezone.utc)
+            # If naive, assume it's already UTC
+            return value.replace(tzinfo=timezone.utc)
 
         if isinstance(value, (int, float)):
-            return datetime.fromtimestamp(value)
+            # Unix timestamp - always interpret as UTC
+            return datetime.fromtimestamp(value, tz=timezone.utc)
 
         if isinstance(value, str):
             try:
-                return datetime.fromisoformat(value)
+                dt = datetime.fromisoformat(value)
+                if dt.tzinfo is not None:
+                    return dt.astimezone(timezone.utc)
+                return dt.replace(tzinfo=timezone.utc)
             except ValueError:
                 pass
 
@@ -101,31 +118,35 @@ class Candle:
 
 @dataclass
 class SignalData:
-    """Complete signal data for database insertion."""
+    """Complete signal data for database insertion.
+    
+    Note: entry_price, sl_distance_atr, tp_distance_atr are populated
+    after live execution with real-time prices.
+    """
     # Candle context
     candles: List[Candle]
     signal_time: datetime
     direction: TrendDirection
-    # Trend snapshot
-    trend_4h: str
-    trend_1d: str
-    trend_1w: str
-    trend_alignment_strength: int
-    # AOI snapshot
+    # AOI snapshot (simplified)
     aoi_timeframe: str
     aoi_low: float
     aoi_high: float
-    aoi_classification: str
-    # Entry context
-    entry_price: float
+    # Entry context (populated after live execution)
+    entry_price: Optional[float]  # Live execution price
     atr_1h: float
-    # Scoring - imported from entry.quality to avoid circular imports
-    quality_result: "QualityResult"  # Forward reference
+    # New scoring system
+    htf_score: float
+    obstacle_score: float
+    total_score: float
+    # SL/TP configuration (calculated with live price)
+    sl_model: str
+    sl_distance_atr: Optional[float]  # Calculated with live price
+    tp_distance_atr: Optional[float]  # Calculated with live price
+    rr_multiple: float
     # Meta
     is_break_candle_last: bool
-    # SL distances
-    aoi_sl_tolerance_atr: float
-    aoi_raw_sl_distance_price: float
-    aoi_raw_sl_distance_atr: float
-    aoi_effective_sl_distance_price: float
-    aoi_effective_sl_distance_atr: float
+    # HTF context for reference
+    htf_range_position_daily: Optional[float] = None
+    htf_range_position_weekly: Optional[float] = None
+    distance_to_next_htf_obstacle_atr: Optional[float] = None
+    conflicted_tf: Optional[str] = None

@@ -59,34 +59,29 @@ FETCH_TREND_LEVELS = """
       AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
 """
 
+# Entry signal insert (stores complete execution data in one go)
 INSERT_ENTRY_SIGNAL = """
     INSERT INTO trenda.entry_signal (
         symbol, signal_time, direction,
-        trend_4h, trend_1d, trend_1w, trend_alignment_strength,
-        aoi_timeframe, aoi_low, aoi_high, aoi_classification,
+        aoi_timeframe, aoi_low, aoi_high,
         entry_price, atr_1h,
-        final_score, tier,
+        htf_score, obstacle_score, total_score,
+        sl_model, sl_distance_atr, tp_distance_atr, rr_multiple,
         is_break_candle_last,
-        aoi_sl_tolerance_atr, aoi_raw_sl_distance_price, aoi_raw_sl_distance_atr,
-        aoi_effective_sl_distance_price, aoi_effective_sl_distance_atr
+        htf_range_position_daily, htf_range_position_weekly,
+        distance_to_next_htf_obstacle_atr, conflicted_tf
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
-INSERT_ENTRY_SIGNAL_SCORE = """
-    INSERT INTO trenda.entry_signal_score (
-        entry_signal_id, stage_name, raw_score, weight, weighted_score
-    )
-    VALUES (%s, %s, %s, %s, %s)
-"""
-
-# Signal outcome queries
+# Signal outcome queries (96 bar window)
 FETCH_PENDING_SIGNALS = """
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
-           aoi_low, aoi_high, aoi_effective_sl_distance_price
+           aoi_low, aoi_high, sl_distance_atr
     FROM trenda.entry_signal
     WHERE outcome_computed = FALSE
+      AND entry_price IS NOT NULL
     ORDER BY signal_time ASC
     LIMIT %s
 """
@@ -96,10 +91,10 @@ INSERT_SIGNAL_OUTCOME = """
         entry_signal_id, window_bars,
         mfe_atr, mae_atr,
         bars_to_mfe, bars_to_mae, first_extreme,
-        return_after_3, return_after_6, return_after_12, return_after_24, return_end_window,
-        bars_to_aoi_sl_hit, bars_to_r_1, bars_to_r_1_5, bars_to_r_2, aoi_rr_outcome
+        return_after_48, return_after_72, return_after_96,
+        exit_reason, bars_to_exit
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
 """
 
@@ -108,5 +103,3 @@ MARK_OUTCOME_COMPUTED = """
     SET outcome_computed = TRUE
     WHERE id = %s
 """
-
-

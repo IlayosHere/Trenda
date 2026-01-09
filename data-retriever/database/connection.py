@@ -39,7 +39,7 @@ class DBConnectionManager:
                 return cls._pool
 
             # Deferred import to avoid circular import
-            from configuration.database import POSTGRES_DB
+            from configuration.db_config import POSTGRES_DB
 
             min_conn = int(os.getenv("DB_POOL_MIN_CONN", minconn or 1))
             max_conn = int(os.getenv("DB_POOL_MAX_CONN", maxconn or 10))

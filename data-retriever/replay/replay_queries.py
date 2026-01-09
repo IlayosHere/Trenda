@@ -79,6 +79,19 @@ FETCH_PENDING_REPLAY_SIGNALS = f"""
     LIMIT %s
 """
 
+# Fetch ALL pending signals for a symbol (no time range - for final pass)
+FETCH_ALL_PENDING_REPLAY_SIGNALS = f"""
+    SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
+           aoi_low, aoi_high
+    FROM {SCHEMA_NAME}.entry_signal
+    WHERE outcome_computed = FALSE
+      AND sl_model_version = '{SL_MODEL_VERSION}'
+      AND tp_model_version = '{TP_MODEL_VERSION}'
+      AND symbol = %s
+    ORDER BY signal_time ASC
+    LIMIT %s
+"""
+
 FETCH_SIGNAL_BY_ID = f"""
     SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
            aoi_low, aoi_high

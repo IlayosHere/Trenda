@@ -21,7 +21,12 @@ INSERT INTO trenda.forex (name) VALUES
 ('GBPNZD'),
 ('AUDNZD'),
 ('AUDCAD'),
-('NZDCAD')
+('NZDCAD'),
+('EURCAD'),
+('CADCHF'),
+('GBPCHF'),
+('AUDCHF'),
+('NZDCHF')
 ON CONFLICT (name) DO NOTHING;
 
 -- DML for populating the 'timeframes' table

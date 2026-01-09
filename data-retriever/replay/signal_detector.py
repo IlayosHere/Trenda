@@ -1,6 +1,6 @@
 """Entry signal detection for replay.
 
-Reuses production logic to detect entry patterns and evaluate quality,
+Reuses production gates and scoring logic to detect entry patterns,
 then persists to the replay schema with idempotency checks.
 """
 
@@ -14,7 +14,9 @@ import pandas as pd
 from models import AOIZone, TrendDirection
 from models.market import Candle, SignalData
 from entry.pattern_finder import find_entry_pattern
-from entry.quality import evaluate_entry_quality
+from entry.gates import check_all_gates
+from entry.gates.config import SL_MODEL_NAME, SL_BUFFER_ATR, RR_MULTIPLE
+from entry.scoring import calculate_score, ScoreResult
 from utils.indicators import calculate_atr
 
 from .market_state import SymbolState
@@ -25,13 +27,8 @@ from .replay_queries import (
     GET_SIGNAL_ID,
     GET_RELATED_SIGNAL_TRADE_ID,
     INSERT_REPLAY_ENTRY_SIGNAL,
-    INSERT_REPLAY_ENTRY_SIGNAL_SCORE,
-    INSERT_REPLAY_PRE_ENTRY_CONTEXT,
-    INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2,
 )
-from .pre_entry_context import PreEntryContextCalculator, PreEntryContextData
-from .pre_entry_context_v2 import PreEntryContextV2Calculator, PreEntryContextV2Data
-from .signal_gates import check_all_gates
+from .lightweight_htf_context import compute_lightweight_htf_context, LightweightHTFContext
 
 
 class ReplaySignalDetector:
@@ -55,6 +52,9 @@ class ReplaySignalDetector:
         state: SymbolState,
     ) -> List[int]:
         """Detect and store entry signals at current time.
+        
+        Uses production gates and scoring - symbols that don't pass gates
+        are skipped entirely (no AOI loop).
         
         Args:
             current_time: Current simulation time (1H candle close)
@@ -94,10 +94,53 @@ class ReplaySignalDetector:
         trend_alignment = state.get_trend_alignment_strength(direction)
         conflicted_tf = self._get_conflicted_tf(state, direction)
         
+        # === SYMBOL-LEVEL GATE CHECK (outside AOI loop) ===
+        # Use last candle close as reference price for HTF context
+        reference_price = candles_1h.iloc[-1]["close"]
+        signal_time = candles_1h.iloc[-1]["time"]
+        
+        # Compute lightweight HTF context for gate checks (fast)
+        htf_context = compute_lightweight_htf_context(
+            candle_store=self._store,
+            signal_time=signal_time,
+            entry_price=reference_price,
+            atr_1h=atr_1h,
+            direction=direction,
+        )
+        
+        if htf_context is None:
+            return inserted_ids
+        
+        # Run production gates using entry module
+        gate_result = check_all_gates(
+            signal_time=signal_time,
+            symbol=self._symbol,
+            direction=direction,
+            conflicted_tf=conflicted_tf,
+            htf_range_position_daily=htf_context.htf_range_position_daily,
+            htf_range_position_weekly=htf_context.htf_range_position_weekly,
+            distance_to_next_htf_obstacle_atr=htf_context.distance_to_next_htf_obstacle_atr,
+        )
+        
+        if not gate_result.passed:
+            # Symbol fails gates, skip all AOIs
+            return inserted_ids
+        
+        # Calculate score ONCE per symbol (using production scoring)
+        score_result = calculate_score(
+            direction=direction,
+            htf_range_position_daily=htf_context.htf_range_position_daily,
+            htf_range_position_weekly=htf_context.htf_range_position_weekly,
+        )
+        
+        if not score_result.passed:
+            # Score too low, skip all AOIs
+            return inserted_ids
+        
         # Get tradable AOIs
         tradable_aois = state.get_tradable_aois()
         
-        # Scan each AOI for entry pattern
+        # === AOI LOOP (only pattern finding and signal creation) ===
         for aoi in tradable_aois:
             signal_id = self._scan_aoi_for_entry(
                 candles_1h=candles_1h,
@@ -106,8 +149,8 @@ class ReplaySignalDetector:
                 trend_snapshot=trend_snapshot,
                 trend_alignment=trend_alignment,
                 atr_1h=atr_1h,
-                state=state,
                 conflicted_tf=conflicted_tf,
+                score_result=score_result,
             )
             if signal_id:
                 inserted_ids.append(signal_id)
@@ -122,93 +165,39 @@ class ReplaySignalDetector:
         trend_snapshot: dict,
         trend_alignment: int,
         atr_1h: float,
-        state: SymbolState,
         conflicted_tf: Optional[str],
+        score_result: ScoreResult,
     ) -> Optional[int]:
-        """Scan a single AOI for entry pattern and store if found."""
-        # Find entry pattern
+        """Scan a single AOI for entry pattern and store if found.
+        
+        Gates and scoring have already passed at symbol level.
+        Streamlined for performance - only stores essential signal data.
+        """
+        # Find entry pattern (AOI-specific)
         pattern = find_entry_pattern(candles_1h, aoi, direction)
         if not pattern:
             return None
         
-        # Determine break and after-break indices
+        # Determine break index
         if pattern.is_break_candle_last:
             break_index = len(pattern.candles) - 1
-            after_break_index = None
         else:
             break_index = len(pattern.candles) - 2
-            after_break_index = len(pattern.candles) - 1
         
-        # Evaluate quality
-        quality_result = evaluate_entry_quality(
-            pattern.candles,
-            aoi.lower,
-            aoi.upper,
-            direction,
-            0,  # retest_idx
-            break_index,
-            after_break_index,
-        )
+        # Use production score (already computed and passed)
+        final_score = score_result.total_score
+        tier = "scored" if score_result.passed else "unscored"
         
         # Get entry price (close of last candle)
         entry_price = pattern.candles[-1].close
         signal_time = pattern.candles[-1].time
-        retest_time = pattern.candles[0].time  # Retest is first candle in pattern
-        
-        # Extract break candle data (for pre_entry_context_v2 metrics)
-        break_candle_obj = pattern.candles[break_index]
-        break_candle = {
-            "open": break_candle_obj.open,
-            "high": break_candle_obj.high,
-            "low": break_candle_obj.low,
-            "close": break_candle_obj.close,
-        }
-        
-        # Extract retest candle data (first candle in pattern)
-        retest_candle_obj = pattern.candles[0]
-        retest_candle = {
-            "open": retest_candle_obj.open,
-            "high": retest_candle_obj.high,
-            "low": retest_candle_obj.low,
-            "close": retest_candle_obj.close,
-        }
         
         # Check for duplicate - if exists, skip
         existing_signal_id = self._get_existing_signal_id(signal_time)
         if existing_signal_id:
             return None  # Signal already exists
         
-        # Compute V2 context FIRST (needed for gate checks)
-        context_v2 = self._compute_pre_entry_context_v2(
-            signal_time=signal_time,
-            retest_time=retest_time,
-            direction=direction,
-            entry_price=entry_price,
-            atr_1h=atr_1h,
-            aoi_low=aoi.lower,
-            aoi_high=aoi.upper,
-            aoi_timeframe=aoi.timeframe or "",
-            state=state,
-            break_candle=break_candle,
-            retest_candle=retest_candle,
-        )
-        
-        if context_v2 is None:
-            return None  # Insufficient data for context
-        
-        # Run signal gates - reject if any gate fails
-        # GATES SUPPRESSED - uncomment to enable filtering
-        # gate_result = check_all_gates(
-        #     signal_time=signal_time,
-        #     direction=direction,
-        #     context_v2=context_v2,
-        # )
-        # 
-        # if not gate_result.passed:
-        #     # Signal rejected by gate, do not store
-        #     return None
-        
-        # Compute new entry_signal fields
+        # Compute minimal entry_signal fields (fast)
         retest_idx = 0  # First candle is retest
         max_retest_penetration_atr = self._compute_max_retest_penetration(
             pattern.candles, retest_idx, break_index, aoi, direction, atr_1h
@@ -216,12 +205,11 @@ class ReplaySignalDetector:
         bars_between_retest_and_break = break_index - retest_idx - 1 if break_index > retest_idx else 0
         hour_of_day_utc = signal_time.hour
         session_bucket = self._get_session_bucket(signal_time.hour)
-        aoi_touch_count = self._compute_aoi_touch_count(aoi, signal_time)
         
-        # Generate trade_id (check if related signal exists from 1 hour ago)
+        # Generate trade_id
         trade_id = self._get_or_generate_trade_id(signal_time)
         
-        # Persist to database with new schema
+        # Persist to database (minimal fields)
         signal_id = self._store_signal(
             signal_time=signal_time,
             direction=direction,
@@ -230,7 +218,8 @@ class ReplaySignalDetector:
             aoi=aoi,
             entry_price=entry_price,
             atr_1h=atr_1h,
-            quality_result=quality_result,
+            final_score=final_score,
+            tier=tier,
             is_break_candle_last=pattern.is_break_candle_last,
             sl_model_version=SL_MODEL_VERSION,
             tp_model_version=TP_MODEL_VERSION,
@@ -239,13 +228,9 @@ class ReplaySignalDetector:
             bars_between_retest_and_break=bars_between_retest_and_break,
             hour_of_day_utc=hour_of_day_utc,
             session_bucket=session_bucket,
-            aoi_touch_count_since_creation=aoi_touch_count,
+            aoi_touch_count_since_creation=0,  # Skip expensive computation
             trade_id=trade_id,
         )
-        
-        # Store V2 context (already computed, just persist)
-        if signal_id:
-            self._persist_pre_entry_context_v2(signal_id, context_v2)
         
         return signal_id
     
@@ -280,7 +265,8 @@ class ReplaySignalDetector:
         aoi: AOIZone,
         entry_price: float,
         atr_1h: float,
-        quality_result,
+        final_score,
+        tier,
         is_break_candle_last: bool,
         sl_model_version: str,
         tp_model_version: str,
@@ -318,8 +304,8 @@ class ReplaySignalDetector:
                     aoi.classification or "",
                     entry_price,
                     atr_1h,
-                    quality_result.final_score,
-                    quality_result.tier,
+                    final_score,
+                    tier,
                     is_break_candle_last,
                     # Model versions
                     sl_model_version,
@@ -337,20 +323,7 @@ class ReplaySignalDetector:
             )
             signal_id = cursor.fetchone()[0]
             
-            # Insert stage scores
-            score_rows = [
-                (
-                    signal_id,
-                    stage.stage_name,
-                    stage.raw_score,
-                    stage.weight,
-                    stage.weighted_score,
-                )
-                for stage in quality_result.stage_scores
-            ]
-            
-            if score_rows:
-                cursor.executemany(INSERT_REPLAY_ENTRY_SIGNAL_SCORE, score_rows)
+            # Stage scores no longer computed (quality system deprecated)
             
             return signal_id
         

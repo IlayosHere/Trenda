@@ -4,11 +4,11 @@ These functions wrap database access to provide a single place to derive
 timeframe-aligned trend bias for a symbol.
 """
 
-from typing import Mapping, Optional, Sequence
+from typing import Dict, Mapping, Optional, Sequence
 
 from constants import TREND_BEARISH, TREND_BULLISH, TREND_NEUTRAL
 from models import TrendDirection
-from trend.trend_repository import fetch_trend_bias
+from trend.trend_repository import fetch_trend_bias, fetch_trend_levels as _fetch_trend_levels
 
 
 def _normalize_trend_direction(value: Optional[str | TrendDirection]) -> Optional[TrendDirection]:
@@ -113,3 +113,19 @@ def calculate_trend_alignment_strength(
         if tf_trend == direction:
             count += 1
     return count
+
+
+def get_trend_levels(symbol: str, timeframe: str) -> Optional[Dict[str, float]]:
+    """Get the high/low trend levels for a symbol/timeframe.
+    
+    Args:
+        symbol: Trading symbol
+        timeframe: Timeframe label (e.g., '1D', '1W', '4H')
+        
+    Returns:
+        Dict with 'high' and 'low' keys, or None if not found
+    """
+    high, low = _fetch_trend_levels(symbol, timeframe)
+    if high is None and low is None:
+        return None
+    return {"high": high, "low": low}

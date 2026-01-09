@@ -6,7 +6,7 @@ import numpy as np
 from configuration import require_analysis_params
 from utils.forex import get_pip_size, pips_to_price
 from trend.structure import get_swing_points
-from configuration.forex_data import AnalysisParams
+from configuration.forex_config import AnalysisParams
 from aoi.aoi_configuration import AOISettings
 
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Mapping
 
-from configuration.broker import BROKER_PROVIDER, BROKER_MT5, BROKER_TWELVEDATA
+from configuration.broker_config import BROKER_PROVIDER, BROKER_MT5, BROKER_TWELVEDATA
 
 if BROKER_PROVIDER == BROKER_MT5:
     import MetaTrader5 as mt5
@@ -19,9 +19,9 @@ class AnalysisParams:
     aoi_lookback: int | None = None
 
 FOREX_PAIRS = [
-    "EURUSD",
-    "GBPUSD",
+     "EURUSD",
     "USDJPY",
+    "GBPUSD",
     "USDCHF",
     "USDCAD",
     "AUDUSD",
@@ -42,6 +42,11 @@ FOREX_PAIRS = [
     "AUDNZD",
     "AUDCAD",
     "NZDCAD",
+    "EURCAD",
+    "CADCHF",
+    "GBPCHF",
+    "AUDCHF",
+    "NZDCHF"
 ]
 
 # 2. Define the timeframes you want to analyze

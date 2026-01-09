@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 import utils.display as display
-from configuration.forex_data import TIMEFRAMES
+from configuration.forex_config import TIMEFRAMES
 from externals.data_fetcher import fetch_data
 
 from .constants import CANDLE_FETCH_BUFFER, OUTCOME_WINDOW_BARS, TIMEFRAME_1H

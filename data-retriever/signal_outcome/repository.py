@@ -21,7 +21,7 @@ def _safe_float(value: float | None) -> float | None:
 
 def fetch_pending_signals(batch_size: int) -> list[PendingSignal]:
     """
-    Fetch signals where outcome_computed = FALSE.
+    Fetch signals where outcome_computed = FALSE and entry_price IS NOT NULL.
     
     Args:
         batch_size: Maximum number of signals to fetch
@@ -46,58 +46,10 @@ def fetch_pending_signals(batch_size: int) -> list[PendingSignal]:
             atr_1h=row["atr_1h"],
             aoi_low=row["aoi_low"],
             aoi_high=row["aoi_high"],
-            aoi_effective_sl_distance_price=row["aoi_effective_sl_distance_price"],
+            sl_distance_atr=row["sl_distance_atr"],
         )
         for row in rows
     ]
-
-
-def insert_signal_outcome(entry_signal_id: int, outcome: OutcomeData) -> bool:
-    """
-    Insert signal outcome. Idempotent - won't overwrite existing.
-    
-    Args:
-        entry_signal_id: ID of the entry signal
-        outcome: Computed outcome data
-        
-    Returns:
-        True if successful (even if row already existed)
-    """
-    return DBExecutor.execute_non_query(
-        INSERT_SIGNAL_OUTCOME,
-        params=(
-            entry_signal_id,
-            outcome.window_bars,
-            outcome.mfe_atr,
-            outcome.mae_atr,
-            outcome.bars_to_mfe,
-            outcome.bars_to_mae,
-            outcome.first_extreme,
-            outcome.return_after_3,
-            outcome.return_after_6,
-            outcome.return_after_12,
-            outcome.return_after_24,
-            outcome.return_end_window,
-        ),
-        context="insert_signal_outcome",
-    )
-
-
-def mark_outcome_computed(entry_signal_id: int) -> bool:
-    """
-    Mark a signal as having its outcome computed.
-    
-    Args:
-        entry_signal_id: ID of the entry signal
-        
-    Returns:
-        True if update succeeded
-    """
-    return DBExecutor.execute_non_query(
-        MARK_OUTCOME_COMPUTED,
-        params=(entry_signal_id,),
-        context="mark_outcome_computed",
-    )
 
 
 def persist_outcome(entry_signal_id: int, outcome: OutcomeData) -> bool:
@@ -125,17 +77,11 @@ def persist_outcome(entry_signal_id: int, outcome: OutcomeData) -> bool:
                 outcome.bars_to_mfe,
                 outcome.bars_to_mae,
                 outcome.first_extreme,
-                _safe_float(outcome.return_after_3),
-                _safe_float(outcome.return_after_6),
-                _safe_float(outcome.return_after_12),
-                _safe_float(outcome.return_after_24),
-                _safe_float(outcome.return_end_window),
-                # SL/TP hits
-                outcome.bars_to_aoi_sl_hit,
-                outcome.bars_to_r_1,
-                outcome.bars_to_r_1_5,
-                outcome.bars_to_r_2,
-                outcome.aoi_rr_outcome,
+                _safe_float(outcome.return_after_48),
+                _safe_float(outcome.return_after_72),
+                _safe_float(outcome.return_after_96),
+                outcome.exit_reason,
+                outcome.bars_to_exit,
             ),
         )
         
@@ -145,3 +91,20 @@ def persist_outcome(entry_signal_id: int, outcome: OutcomeData) -> bool:
     
     result = DBExecutor.execute_transaction(_work, context="persist_outcome")
     return result if result is not None else False
+
+
+def mark_outcome_computed(entry_signal_id: int) -> bool:
+    """
+    Mark a signal as having its outcome computed.
+    
+    Args:
+        entry_signal_id: ID of the entry signal
+        
+    Returns:
+        True if update succeeded
+    """
+    return DBExecutor.execute_non_query(
+        MARK_OUTCOME_COMPUTED,
+        params=(entry_signal_id,),
+        context="mark_outcome_computed",
+    )

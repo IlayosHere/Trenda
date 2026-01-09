@@ -76,22 +76,6 @@ ON trenda_replay.entry_signal (outcome_computed, signal_time)
 WHERE outcome_computed = FALSE;
 
 -- =============================================================================
--- Entry Signal Score Table (detailed stage scores)
--- =============================================================================
-CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal_score (
-    id SERIAL PRIMARY KEY,
-    entry_signal_id INTEGER REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
-    stage_name VARCHAR(10) NOT NULL,
-    raw_score NUMERIC,
-    weight NUMERIC,
-    weighted_score NUMERIC
-);
-
--- Index for score lookup
-CREATE INDEX IF NOT EXISTS idx_replay_entry_signal_score_signal_id 
-ON trenda_replay.entry_signal_score (entry_signal_id);
-
--- =============================================================================
 -- Signal Outcome Table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS trenda_replay.signal_outcome (

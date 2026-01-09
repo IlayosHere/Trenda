@@ -14,7 +14,7 @@ import pandas as pd
 
 from models import TrendDirection
 from signal_outcome.outcome_calculator import compute_outcome
-from signal_outcome.models import OutcomeWithCheckpoints, PendingSignal
+from signal_outcome.models import OutcomeData, PendingSignal
 
 from .candle_store import CandleStore
 from .config import OUTCOME_WINDOW_BARS, BATCH_SIZE
@@ -169,6 +169,14 @@ class ReplayOutcomeCalculator:
         direction = TrendDirection.from_raw(signal.direction)
         
         # Use production logic for base outcome (MFE/MAE in ATR units)
+        # Calculate sl_distance_atr from AOI bounds
+        if direction == TrendDirection.BULLISH:
+            far_edge_distance = signal.entry_price - signal.aoi_low
+        else:
+            far_edge_distance = signal.aoi_high - signal.entry_price
+        
+        sl_distance_atr = (far_edge_distance / signal.atr_1h) + 0.25  # SL_BUFFER_ATR = 0.25
+        
         pending = PendingSignal(
             id=signal.id,
             symbol=signal.symbol,
@@ -176,15 +184,12 @@ class ReplayOutcomeCalculator:
             direction=signal.direction,
             entry_price=signal.entry_price,
             atr_1h=signal.atr_1h,
-            aoi_low=signal.aoi_low,
-            aoi_high=signal.aoi_high,
-            aoi_effective_sl_distance_price=signal.atr_1h,  # Placeholder, not used
+            sl_distance_atr=sl_distance_atr,
         )
         
-        base_result = compute_outcome(pending, candles)
-        outcome = base_result.outcome
+        outcome = compute_outcome(pending, candles)
         
-        # Build simplified result
+        # Build simplified result for replay
         replay_result = ReplayOutcomeResult(
             window_bars=outcome.window_bars,
             mfe_atr=outcome.mfe_atr,
@@ -192,7 +197,7 @@ class ReplayOutcomeCalculator:
             bars_to_mfe=outcome.bars_to_mfe,
             bars_to_mae=outcome.bars_to_mae,
             first_extreme=outcome.first_extreme,
-            checkpoint_returns=base_result.checkpoint_returns,
+            checkpoint_returns=[],  # Replay uses its own checkpoint calculation
         )
         
         # Persist main outcome atomically

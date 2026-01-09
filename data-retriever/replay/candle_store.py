@@ -29,7 +29,7 @@ from .config import (
     MT5_INTERVALS,
     CANDLE_FETCH_BUFFER,
 )
-from configuration.broker import BROKER_PROVIDER, BROKER_MT5
+from configuration.broker_config import BROKER_PROVIDER, BROKER_MT5
 
 
 def get_broker_intervals() -> dict:
@@ -75,10 +75,34 @@ class TimeframeCandles:
         return self.candles.iloc[start:end].copy()
     
     def find_index_by_time(self, target_time: datetime) -> Optional[int]:
-        """Find index of candle with matching time."""
+        """Find index of candle with matching time.
+        
+        Handles timezone normalization - compares UTC values regardless of
+        whether inputs are timezone-aware or naive.
+        """
         if self.is_empty:
             return None
-        matches = self.candles[self.candles["time"] == target_time]
+        
+        # Normalize target_time to naive UTC
+        if target_time.tzinfo is not None:
+            target_utc = target_time.replace(tzinfo=None) if target_time.utcoffset().total_seconds() == 0 else target_time.astimezone(timezone.utc).replace(tzinfo=None)
+        else:
+            target_utc = target_time
+        
+        # Check if candle times are timezone-aware
+        first_candle_time = self.candles.iloc[0]["time"]
+        candle_times_are_tz_aware = hasattr(first_candle_time, 'tzinfo') and first_candle_time.tzinfo is not None
+        
+        if candle_times_are_tz_aware:
+            # Convert candle times to naive UTC for comparison
+            candle_times_utc = self.candles["time"].apply(
+                lambda t: t.replace(tzinfo=None) if t.utcoffset().total_seconds() == 0 else t.astimezone(timezone.utc).replace(tzinfo=None)
+            )
+            matches = self.candles[candle_times_utc == target_utc]
+        else:
+            # Candle times are already naive - compare directly
+            matches = self.candles[self.candles["time"] == target_utc]
+        
         if matches.empty:
             return None
         return int(matches.index[0])
@@ -224,7 +248,7 @@ def create_candle_fetcher():
     
     Uses BROKER_PROVIDER to determine whether to use MT5 or TwelveData.
     """
-    from configuration.broker import BROKER_PROVIDER, BROKER_MT5
+    from configuration.broker_config import BROKER_PROVIDER, BROKER_MT5
     from externals.data_fetcher import fetch_data
     
     def fetcher(
