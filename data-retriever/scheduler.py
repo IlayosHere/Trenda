@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import tempfile
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
-from configuration.forex_data import TIMEFRAMES
+from configuration.forex_config import TIMEFRAMES
 from apscheduler.schedulers.background import BackgroundScheduler
 from externals.data_fetcher import fetch_data
 from logger import get_logger
@@ -15,7 +17,7 @@ scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 logger = get_logger(__name__)
 
 STUB_FOREX_SYMBOL = "EURUSD"
-HEARTBEAT_FILE = "healthy"  # Local file in the working directory
+HEARTBEAT_FILE = os.path.join(tempfile.gettempdir(), "trenda_healthy")
 
 def _heartbeat():
     """Touch a file to indicate the scheduler is alive."""
@@ -24,6 +26,32 @@ def _heartbeat():
             f.write(datetime.now(timezone.utc).isoformat())
     except Exception as e:
         logger.error(f"Heartbeat failed: {e}")
+
+def run_startup_data_refresh() -> None:
+    """Run all trend/AOI jobs at startup based on last closed candle."""
+    logger.info("\n--- 🚀 Running startup data refresh ---")
+
+    for config in SCHEDULE_CONFIG:
+        timeframe = config.get("timeframe")
+        if not timeframe or "job" not in config:
+            continue
+        # Skip non-timeframe jobs (entry signal, outcome jobs use 1H)
+        if timeframe == "1H":
+            continue
+
+        job_name = config.get("name", config["id"])
+        job = config["job"]
+        args = list(config.get("args", []))
+        kwargs = config.get("kwargs", {})
+
+        logger.info(f"  -> Running startup job: {job_name}")
+        try:
+            job(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Startup job '{job_name}' failed: {e}")
+
+    logger.info("--- ✅ Startup data refresh complete ---\n")
+
 
 def start_scheduler() -> None:
     logger.info("Starting background scheduler...")
@@ -64,7 +92,6 @@ def _add_job(scheduler: BackgroundScheduler, config: Dict[str, Any], job: Any, n
         max_instances=1,
         misfire_grace_time=60 * 5,  # Allow job to be 5 mins late
         next_run_time=next_run_time
-        #datetime.now(timezone.utc)
     )
 
 
@@ -140,5 +167,11 @@ def compute_first_run_time(timeframe: str, interval_minutes: int, offset_seconds
     last_close: datetime = df.iloc[-1]["time"]
     next_close = last_close + timedelta(minutes=interval_minutes)
     first_run_time = next_close + timedelta(seconds=offset_seconds)
+
+    # Ensure first run is always in the future to prevent immediate catch-up
+    now = datetime.now(timezone.utc)
+    if first_run_time <= now:
+        # Jump to next interval from now
+        first_run_time = now + timedelta(minutes=interval_minutes, seconds=offset_seconds)
 
     return first_run_time

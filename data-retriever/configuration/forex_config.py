@@ -1,14 +1,8 @@
+"""Forex configuration - symbols, timeframes, and analysis parameters."""
 from dataclasses import dataclass
 from typing import Mapping
 
-from configuration.broker import BROKER_PROVIDER, BROKER_MT5, BROKER_TWELVEDATA
-
-if BROKER_PROVIDER == BROKER_MT5:
-    import MetaTrader5 as mt5
-elif BROKER_PROVIDER == BROKER_TWELVEDATA:
-    mt5 = None  # type: ignore[assignment]
-else:  # pragma: no cover - defensive fallback
-    raise ValueError(f"Unsupported broker provider {BROKER_PROVIDER!r}")
+import MetaTrader5 as mt5
 
 
 @dataclass(frozen=True)
@@ -18,10 +12,11 @@ class AnalysisParams:
     prominence: float
     aoi_lookback: int | None = None
 
+
 FOREX_PAIRS = [
     "EURUSD",
-    "GBPUSD",
     "USDJPY",
+    "GBPUSD",
     "USDCHF",
     "USDCAD",
     "AUDUSD",
@@ -41,39 +36,32 @@ FOREX_PAIRS = [
     "GBPNZD",
     "AUDNZD",
     "AUDCAD",
-    "NZDCAD"
-    ]
+    "NZDCAD",
+    "EURCAD",
+    "CADCHF",
+    "GBPCHF",
+    "AUDCHF",
+    "NZDCHF"
+]
 
-# 2. Define the timeframes you want to analyze
-if BROKER_PROVIDER == BROKER_MT5:
-    TIMEFRAMES = {
-        "1W": mt5.TIMEFRAME_W1,
-        "1D": mt5.TIMEFRAME_D1,
-        "4H": mt5.TIMEFRAME_H4,
-        "1H": mt5.TIMEFRAME_H1,
-    }
-else:  # TwelveData interval strings
-    TIMEFRAMES = {
-        "1W": "1week",
-        "1D": "1day",
-        "4H": "4h",
-        "1H": "1h",
-    }
+# MT5 timeframes
+TIMEFRAMES = {
+    "1W": mt5.TIMEFRAME_W1,
+    "1D": mt5.TIMEFRAME_D1,
+    "4H": mt5.TIMEFRAME_H4,
+    "1H": mt5.TIMEFRAME_H1,
+}
 
-# 3. !! CRITICAL TUNING !!
-# You MUST adjust 'distance' and 'prominence' for each timeframe.
-# These values are just *examples* to get you started.
-# Use the visual plotting method we discussed to find the right values.
+# Analysis parameters per timeframe
+# CRITICAL TUNING: Adjust 'distance' and 'prominence' for each timeframe
 ANALYSIS_PARAMS: Mapping[str, AnalysisParams] = {
-    # timeframe: {lookback_candles, distance_filter, prominence_filter_in_pips}
-    # (Note: prominence is in price units, e.g., 0.0010 for EURUSD)
-    "1W": AnalysisParams(lookback=100, distance=1, prominence=0.0004),  # ~1 year
+    "1W": AnalysisParams(lookback=100, distance=1, prominence=0.0004),
     "1D": AnalysisParams(
         lookback=100, aoi_lookback=140, distance=1, prominence=0.0004
-    ),  # ~1 year
+    ),
     "4H": AnalysisParams(
         lookback=100, aoi_lookback=180, distance=1, prominence=0.0004
-    ),  # ~1.5 months
+    ),
     "1H": AnalysisParams(lookback=15, distance=1, prominence=0.0004),
 }
 

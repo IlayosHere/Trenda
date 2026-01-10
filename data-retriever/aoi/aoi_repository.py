@@ -74,8 +74,10 @@ def fetch_tradable_aois(symbol: str) -> List[AOIZone]:
         zone = AOIZone(
             lower=float(row[0]) if row[0] is not None else None,
             upper=float(row[1]) if row[1] is not None else None,
-            classification="tradable",
+            timeframe=row[2] if len(row) > 2 else None,
+            classification=row[3] if len(row) > 3 else "tradable",
         )
         if DBValidator.validate_aoi(zone):
             zones.append(zone)
     return zones
+

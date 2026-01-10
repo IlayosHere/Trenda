@@ -44,7 +44,7 @@ def analyze_single_symbol_trend(
             float(high_price) if high_price is not None else None,
             float(low_price) if low_price is not None else None,
         )
-        logger.info(f"--- ✅ Scheduled job for {timeframe} complete ---")
+        logger.info(f"--- ✅ Scheduled job for {symbol}/{timeframe} completed ---")
 
 
     except Exception as exc:  # pragma: no cover - defensive logging

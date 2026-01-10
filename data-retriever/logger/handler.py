@@ -63,6 +63,10 @@ class TrendaLogger:
                 sys.stderr.write(f"Warning: Could not create log file '{LOG_FILE}': {e}\n")
 
         self._initialized = True
+        
+        # Reduce APScheduler verbosity (hide "Added job" messages)
+        logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+        logging.getLogger("apscheduler.executors.default").setLevel(logging.WARNING)
 
     def get_logger(self, name: str) -> logging.Logger:
         if not self._initialized:
