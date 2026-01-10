@@ -39,11 +39,17 @@ FETCH_TREND_BIAS = """
 """
 
 FETCH_TRADABLE_AOIS = """
-    SELECT lower_bound, upper_bound
-    FROM trenda.area_of_interest
-    WHERE forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
-    AND type_id = (SELECT id FROM trenda.aoi_type WHERE type = 'tradable')
-    ORDER BY lower_bound ASC
+    SELECT 
+        aoi.lower_bound, 
+        aoi.upper_bound,
+        tf.type as timeframe,
+        at.type as classification
+    FROM trenda.area_of_interest aoi
+    JOIN trenda.timeframes tf ON aoi.timeframe_id = tf.id
+    JOIN trenda.aoi_type at ON aoi.type_id = at.id
+    WHERE aoi.forex_id = (SELECT id FROM trenda.forex WHERE name = %s)
+    AND aoi.type_id = (SELECT id FROM trenda.aoi_type WHERE type = 'tradable')
+    ORDER BY aoi.lower_bound ASC
 """
 
 FETCH_TREND_LEVELS = """
@@ -53,21 +59,47 @@ FETCH_TREND_LEVELS = """
       AND timeframe_id = (SELECT id FROM timeframes WHERE type = %s)
 """
 
-INSERT_TREND_SNAPSHOT = """
-    INSERT INTO trenda.signal_trend (trend_4h, trend_1d, trend_1w)
-    VALUES (%s, %s, %s)
-    RETURNING id
-"""
-
+# Entry signal insert (stores complete execution data in one go)
 INSERT_ENTRY_SIGNAL = """
-    INSERT INTO trenda.entry_signal (symbol, signal_time, signal_trend_id, aoi_high,
-    aoi_low, trade_quality, is_success)
-    VALUES (%s, %s, %s, %s, %s, %s, NULL)
+    INSERT INTO trenda.entry_signal (
+        symbol, signal_time, direction,
+        aoi_timeframe, aoi_low, aoi_high,
+        entry_price, atr_1h,
+        htf_score, obstacle_score, total_score,
+        sl_model, sl_distance_atr, tp_distance_atr, rr_multiple,
+        is_break_candle_last,
+        htf_range_position_daily, htf_range_position_weekly,
+        distance_to_next_htf_obstacle_atr, conflicted_tf
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
-INSERT_ENTRY_CANDLE = """
-    INSERT INTO trenda.entry_signal_cnadles
-        (entry_signal_id, cnalde_number, high, low, open, close)
-    VALUES (%s, %s, %s, %s, %s, %s)
+# Signal outcome queries (96 bar window)
+FETCH_PENDING_SIGNALS = """
+    SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
+           aoi_low, aoi_high, sl_distance_atr
+    FROM trenda.entry_signal
+    WHERE outcome_computed = FALSE
+      AND entry_price IS NOT NULL
+    ORDER BY signal_time ASC
+    LIMIT %s
+"""
+
+INSERT_SIGNAL_OUTCOME = """
+    INSERT INTO trenda.signal_outcome (
+        entry_signal_id, window_bars,
+        mfe_atr, mae_atr,
+        bars_to_mfe, bars_to_mae, first_extreme,
+        return_after_48, return_after_72, return_after_96,
+        exit_reason, bars_to_exit
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (entry_signal_id) DO NOTHING
+"""
+
+MARK_OUTCOME_COMPUTED = """
+    UPDATE trenda.entry_signal
+    SET outcome_computed = TRUE
+    WHERE id = %s
 """

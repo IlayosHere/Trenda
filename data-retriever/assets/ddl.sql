@@ -37,31 +37,72 @@ CREATE TABLE IF NOT EXISTS trenda.area_of_interest (
     last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Entry signal storage
-CREATE TABLE IF NOT EXISTS trenda.signal_trend (
-    id SERIAL PRIMARY KEY,
-    trend_4h TEXT NOT NULL,
-    trend_1d TEXT NOT NULL,
-    trend_1w TEXT NOT NULL
-);
-
+-- Entry Signal Table (simplified - execution data stored after live execution)
 CREATE TABLE IF NOT EXISTS trenda.entry_signal (
+    -- Identity
     id SERIAL PRIMARY KEY,
     symbol TEXT NOT NULL,
     signal_time TIMESTAMPTZ NOT NULL,
-    signal_trend_id INTEGER NOT NULL REFERENCES trenda.signal_trend(id) ON DELETE CASCADE,
-    aoi_high REAL NOT NULL,
+    direction TEXT NOT NULL,
+    -- AOI snapshot (simplified)
+    aoi_timeframe TEXT NOT NULL,
     aoi_low REAL NOT NULL,
-    trade_quality REAL NOT NULL,
-    is_success BOOLEAN
+    aoi_high REAL NOT NULL,
+    -- Entry context (stored after live execution)
+    entry_price REAL,  -- Live execution price
+    atr_1h REAL NOT NULL,
+    -- New scoring system
+    htf_score REAL,
+    obstacle_score REAL,
+    total_score REAL,
+    -- SL/TP configuration (calculated with live execution price)
+    sl_model TEXT,
+    sl_distance_atr REAL,  -- Calculated with live price
+    tp_distance_atr REAL,  -- Calculated with live price
+    rr_multiple REAL,
+    -- HTF context
+    htf_range_position_daily REAL,
+    htf_range_position_weekly REAL,
+    distance_to_next_htf_obstacle_atr REAL,
+    conflicted_tf TEXT,
+    -- Processing flags
+    outcome_computed BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Meta
+    is_break_candle_last BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS trenda.entry_signal_cnadles (
-    entry_signal_id INTEGER NOT NULL REFERENCES trenda.entry_signal(id) ON DELETE CASCADE,
-    cnalde_number INTEGER NOT NULL,
-    high REAL NOT NULL,
-    low REAL NOT NULL,
-    open REAL NOT NULL,
-    close REAL NOT NULL,
-    PRIMARY KEY (entry_signal_id, cnalde_number)
+CREATE INDEX IF NOT EXISTS idx_entry_signal_total_score ON trenda.entry_signal(total_score);
+CREATE INDEX IF NOT EXISTS idx_entry_signal_outcome_pending ON trenda.entry_signal (outcome_computed, signal_time);
+
+-- Signal Outcome Table (96 bar window)
+CREATE TABLE IF NOT EXISTS trenda.signal_outcome (
+    entry_signal_id INTEGER PRIMARY KEY
+        REFERENCES trenda.entry_signal(id) ON DELETE CASCADE,
+
+    -- Observation window (96 bars = 4 days)
+    window_bars INTEGER NOT NULL,
+
+    -- Extremes (normalized in ATR units)
+    mfe_atr REAL NOT NULL,
+    mae_atr REAL NOT NULL,
+
+    -- Timing
+    bars_to_mfe INTEGER NOT NULL,
+    bars_to_mae INTEGER NOT NULL,
+    first_extreme TEXT NOT NULL CHECK (first_extreme IN ('MFE_FIRST', 'MAE_FIRST', 'ONLY_MFE', 'ONLY_MAE', 'NONE')),
+
+    -- Checkpoint returns (normalized in ATR units)
+    return_after_48 REAL,
+    return_after_72 REAL,
+    return_after_96 REAL,
+
+    -- Exit tracking
+    exit_reason TEXT CHECK (exit_reason IN ('SL', 'TP', 'TIMEOUT')),
+    bars_to_exit INTEGER,  -- Bar number when SL or TP was hit
+
+    computed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS idx_signal_outcome_extremes
+    ON trenda.signal_outcome(mfe_atr, mae_atr);

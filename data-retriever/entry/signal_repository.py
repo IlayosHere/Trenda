@@ -1,36 +1,41 @@
-from typing import Any, Mapping, Optional, Sequence
+"""Repository for storing entry signals to the database."""
+
+from typing import Optional
 
 from logger import get_logger
 
 logger = get_logger(__name__)
 
 from database.executor import DBExecutor
-from database.helpers import required_trend, value_from_candle
-from database.queries import INSERT_ENTRY_CANDLE, INSERT_ENTRY_SIGNAL, INSERT_TREND_SNAPSHOT
+from database.queries import INSERT_ENTRY_SIGNAL
 from database.validation import DBValidator
-from models import TrendDirection
+from models.market import SignalData
 
 
-def store_entry_signal(
-    symbol: str,
-    trend_snapshot: Mapping[str, Optional[TrendDirection]],
-    aoi_high: float,
-    aoi_low: float,
-    signal_time,
-    candles: Sequence[Any],
-    trade_quality: float,
-) -> Optional[int]:
-    """Persist an entry signal and its supporting candles."""
+def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[int]:
+    """Persist an entry signal to the database.
+    
+    Signal is stored with complete execution data (entry_price, sl_distance_atr, tp_distance_atr).
+    
+    Args:
+        symbol: The forex symbol (e.g., 'EURUSD')
+        signal: Complete SignalData with all required fields
+        
+    Returns:
+        The entry_signal id if successful, None otherwise
+    """
     normalized_symbol = DBValidator.validate_symbol(symbol)
     if not normalized_symbol:
+        logger.error(f"DB_VALIDATION: Invalid symbol '{symbol}'")
+        return None    
+    # Validate required numeric fields
+    if not DBValidator.validate_nullable_float(signal.aoi_high, "aoi_high"):
         return None
-    if not isinstance(trade_quality, (int, float)):
-        logger.error("DB_VALIDATION: trade_quality must be numeric")
+    if not DBValidator.validate_nullable_float(signal.aoi_low, "aoi_low"):
         return None
-    if not DBValidator.validate_nullable_float(aoi_high, "aoi_high") or not DBValidator.validate_nullable_float(
-        aoi_low, "aoi_low"
-    ):
+    if not DBValidator.validate_nullable_float(signal.atr_1h, "atr_1h"):
         return None
+
 
     try:
         trend_values = (
@@ -49,37 +54,32 @@ def store_entry_signal(
         return float(value)
 
     def _persist(cursor):
-        cursor.execute(INSERT_TREND_SNAPSHOT, trend_values)
-        signal_trend_id = cursor.fetchone()[0]
-
         cursor.execute(
             INSERT_ENTRY_SIGNAL,
             (
                 normalized_symbol,
-                signal_time,
-                signal_trend_id,
-                aoi_high,
-                aoi_low,
-                trade_quality,
+                signal.signal_time,
+                signal.direction.value,
+                signal.aoi_timeframe,
+                signal.aoi_low,
+                signal.aoi_high,
+                signal.entry_price,
+                signal.atr_1h,
+                signal.htf_score,
+                signal.obstacle_score,
+                signal.total_score,
+                signal.sl_model,
+                signal.sl_distance_atr,
+                signal.tp_distance_atr,
+                signal.rr_multiple,
+                signal.is_break_candle_last,
+                signal.htf_range_position_daily,
+                signal.htf_range_position_weekly,
+                signal.distance_to_next_htf_obstacle_atr,
+                signal.conflicted_tf,
             ),
         )
         signal_id = cursor.fetchone()[0]
-
-        candle_rows = []
-        for idx, candle in enumerate(candles, start=1):
-            candle_row = (
-                signal_id,
-                idx,
-                _validate_candle_value(value_from_candle(candle, "high"), "high"),
-                _validate_candle_value(value_from_candle(candle, "low"), "low"),
-                _validate_candle_value(value_from_candle(candle, "open"), "open"),
-                _validate_candle_value(value_from_candle(candle, "close"), "close"),
-            )
-            if any(value is None for value in candle_row[2:]):
-                return None
-            candle_rows.append(candle_row)
-
-        cursor.executemany(INSERT_ENTRY_CANDLE, candle_rows)
         return signal_id
 
     return DBExecutor.execute_transaction(_persist, context="store_entry_signal")
