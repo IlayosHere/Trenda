@@ -45,7 +45,6 @@ def _find_bearish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         candle = candles[idx]
         if _opens_inside_aoi(candle, aoi) and _closes_above_aoi(candle, aoi):
             return None
-        # distance_between_last_candle_to_retest_candle = len(candles) - 1 - idx
         if (
             candle.open < aoi.lower
             and candle.close >= aoi.lower
@@ -76,7 +75,6 @@ def _find_bullish_pattern(candles: List[Candle], aoi: AOIZone) -> Optional[Entry
         candle = candles[idx]
         if _opens_inside_aoi(candle, aoi) and _closes_below_aoi(candle, aoi):
             return None
-        # distance_between_last_candle_to_retest_candle = len(candles) - 1 - idx
         if (
             candle.open > aoi.upper
             and candle.close <= aoi.upper

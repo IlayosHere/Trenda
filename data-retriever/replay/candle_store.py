@@ -25,18 +25,14 @@ from .config import (
     TIMEFRAME_4H,
     TIMEFRAME_1D,
     TIMEFRAME_1W,
-    TWELVEDATA_INTERVALS,
     MT5_INTERVALS,
     CANDLE_FETCH_BUFFER,
 )
-from configuration.broker_config import BROKER_PROVIDER, BROKER_MT5
 
 
 def get_broker_intervals() -> dict:
-    """Get the correct interval mapping based on configured broker."""
-    if BROKER_PROVIDER == BROKER_MT5:
-        return MT5_INTERVALS
-    return TWELVEDATA_INTERVALS
+    """Get the MT5 interval mapping."""
+    return MT5_INTERVALS
 
 
 @dataclass
@@ -242,13 +238,10 @@ class CandleStore:
 
 
 def create_candle_fetcher():
-    """Create a fetch function using the configured broker for historical data.
+    """Create a fetch function using MT5 for historical data.
     
     Returns a function: (symbol, interval, lookback, end_date) -> DataFrame
-    
-    Uses BROKER_PROVIDER to determine whether to use MT5 or TwelveData.
     """
-    from configuration.broker_config import BROKER_PROVIDER, BROKER_MT5
     from externals.data_fetcher import fetch_data
     
     def fetcher(

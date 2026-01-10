@@ -47,7 +47,7 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # Replay Window
 # =============================================================================
 REPLAY_START_DATE: Final[datetime] = datetime(2012, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 9, 10, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 9, 18, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid TwelveData's 5000 candle limit
 # 120 days * 24 hours = 2880 1H candles (safe margin)
@@ -57,8 +57,8 @@ MAX_CHUNK_DAYS: Final[int] = 120
 # SL/TP Model Versions
 # =============================================================================
 # Production model configuration (must match entry/gates/config.py)
-SL_MODEL_VERSION: Final[str] = 'TIME_CHECK'
-TP_MODEL_VERSION: Final[str] = 'TIME_CHECK'
+SL_MODEL_VERSION: Final[str] = 'LAST'
+TP_MODEL_VERSION: Final[str] = 'LAST'
 
 # =============================================================================
 # Lookback Sizes (must match production: configuration/forex_data.py)
@@ -89,7 +89,7 @@ SL_MODELS: Final[list[str]] = [
 ]
 
 # Using only the production R multiple
-RR_MULTIPLES: Final[list[float]] = [2, 2.5, 3.0]
+RR_MULTIPLES: Final[list[float]] = [2, 2.5]
 
 # =============================================================================
 # Execution Constants (from signal_outcome/constants.py)
@@ -128,16 +128,8 @@ TIMEFRAME_HOURS: Final[dict[str, int]] = {
 TREND_ALIGNMENT_TIMEFRAMES: Final[tuple[str, ...]] = ("4H", "1D", "1W")
 
 # =============================================================================
-# Broker-Specific API Intervals
+# MT5 Timeframe Intervals
 # =============================================================================
-# TwelveData uses string intervals, MT5 uses integer constants
-TWELVEDATA_INTERVALS: Final[dict[str, str]] = {
-    TIMEFRAME_1H: "1h",
-    TIMEFRAME_4H: "4h",
-    TIMEFRAME_1D: "1day",
-    TIMEFRAME_1W: "1week",
-}
-
 # MT5 timeframe constants (from MetaTrader5.TIMEFRAME_*)
 MT5_INTERVALS: Final[dict[str, int]] = {
     TIMEFRAME_1H: 16385,   # TIMEFRAME_H1

@@ -1,7 +1,6 @@
 import os
 import core.env
 import time
-from configuration import BROKER_PROVIDER, BROKER_MT5
 from scheduler import scheduler
 from externals import mt5_handler
 from scheduler import start_scheduler, run_startup_data_refresh
@@ -17,11 +16,8 @@ RUN_MODE = os.getenv("RUN_MODE", "replay").lower()
 def main():
     logger.info("--- 🚀 Starting Trend Analyzer Bot ---")
 
-    if BROKER_PROVIDER == BROKER_MT5:
-        if not mt5_handler.initialize_mt5():
-            return  # Exit if MT5 can't start
-    else:
-        logger.info("Using TwelveData broker configuration (MT5 disabled).")
+    if not mt5_handler.initialize_mt5():
+        return  # Exit if MT5 can't start
 
     try:
         if RUN_MODE == "replay":
@@ -46,8 +42,7 @@ def main():
         # Always shut down MT5 and scheduler
         if scheduler.running:
             scheduler.shutdown()
-        if BROKER_PROVIDER == BROKER_MT5:
-            mt5_handler.shutdown_mt5()
+        mt5_handler.shutdown_mt5()
 
 
 # --- Run the bot ---

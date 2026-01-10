@@ -11,14 +11,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
-from configuration.broker_config import BROKER_MT5, BROKER_PROVIDER
+import MetaTrader5 as mt5
+
 from models import TrendDirection
 from entry.gates.config import SL_BUFFER_ATR, RR_MULTIPLE
-
-if BROKER_PROVIDER == BROKER_MT5:
-    import MetaTrader5 as mt5
-else:
-    mt5 = None  # type: ignore
 
 
 # Default risk percentage per trade

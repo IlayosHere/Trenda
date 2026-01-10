@@ -184,6 +184,8 @@ class ReplayOutcomeCalculator:
             direction=signal.direction,
             entry_price=signal.entry_price,
             atr_1h=signal.atr_1h,
+            aoi_low=signal.aoi_low,
+            aoi_high=signal.aoi_high,
             sl_distance_atr=sl_distance_atr,
         )
         

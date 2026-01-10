@@ -1,22 +1,41 @@
-"""Broker selection and provider-specific configuration."""
+"""MT5 broker configuration."""
 from __future__ import annotations
 
 import os
-from typing import Final, Literal
+from datetime import datetime, timezone
+from typing import Final
+from zoneinfo import ZoneInfo
 
-BrokerProvider = Literal["MT5", "TWELVEDATA"]
 
-BROKER_MT5: Final[BrokerProvider] = "MT5"
-BROKER_TWELVEDATA: Final[BrokerProvider] = "TWELVEDATA"
+# MT5 broker timezone (for DST-aware offset calculation)
+# Default: Europe/Athens (EET/EEST) - standard for most forex brokers
+# Set to Asia/Jerusalem if your broker uses Israel time
+MT5_BROKER_TIMEZONE: str = os.getenv("MT5_BROKER_TIMEZONE", "Europe/Athens")
 
-BROKER_PROVIDER: BrokerProvider = os.getenv("BROKER_PROVIDER", "MT5")
-
-# MT5 broker timezone offset from UTC (in hours)
-# Most MT5 brokers run on EET/EEST (Eastern European Time) which is UTC+2 (or UTC+3 in summer)
-# Set this to the GMT offset of your broker's server
-# This is used to convert broker timestamps to true UTC
+# Legacy static offset (kept for backward compatibility, but prefer get_broker_utc_offset())
 MT5_BROKER_UTC_OFFSET: int = int(os.getenv("MT5_BROKER_UTC_OFFSET", "2"))
 
-TWELVEDATA_API_KEY: str | None = os.getenv("TWELVEDATA_API_KEY")
-TWELVEDATA_BASE_URL: str = os.getenv("TWELVEDATA_BASE_URL", "https://api.twelvedata.com")
 
+def get_broker_utc_offset(timestamp: datetime | None = None) -> int:
+    """Get broker UTC offset for a given timestamp (handles DST).
+    
+    Args:
+        timestamp: The timestamp to check (defaults to current time if None)
+        
+    Returns:
+        UTC offset in hours (e.g., 2 for winter EET, 3 for summer EEST)
+    """
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc)
+    elif timestamp.tzinfo is None:
+        # Assume UTC if no timezone provided
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    
+    try:
+        broker_tz = ZoneInfo(MT5_BROKER_TIMEZONE)
+        local_time = timestamp.astimezone(broker_tz)
+        offset_seconds = local_time.utcoffset().total_seconds()
+        return int(offset_seconds / 3600)
+    except Exception:
+        # Fallback to static offset if timezone lookup fails
+        return MT5_BROKER_UTC_OFFSET

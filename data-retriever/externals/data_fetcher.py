@@ -1,21 +1,18 @@
+"""MT5 data fetcher for candle data.
+
+Fetches OHLC data from MetaTrader5 with proper timezone handling,
+including DST-aware offset calculation for historical data.
+"""
 from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd
-import requests
 import tzlocal
 
-from configuration.broker_config import (
-    BROKER_MT5,
-    BROKER_PROVIDER,
-    BROKER_TWELVEDATA,
-    TWELVEDATA_API_KEY,
-    TWELVEDATA_BASE_URL,
-)
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
 
@@ -24,10 +21,8 @@ log = logging.getLogger(__name__)
 # Lock to serialize MT5 API calls (MT5 is not thread-safe)
 _mt5_lock = threading.Lock()
 
-if BROKER_PROVIDER == BROKER_MT5:
-    import MetaTrader5 as mt5
-else:  # Avoid import errors when MT5 isn't needed
-    mt5 = None  # type: ignore[assignment]
+# Import MT5
+import MetaTrader5 as mt5
 
 
 def fetch_data(
@@ -41,23 +36,23 @@ def fetch_data(
     end_date: datetime | None = None,
 ) -> Optional[pd.DataFrame]:
     """
-    Fetch OHLC data from the configured broker, returning a dataframe of candles.
+    Fetch OHLC data from MT5, returning a dataframe of candles.
 
     When ``timeframe_label`` is provided, any candles whose timestamps extend
     beyond the last expected close for that timeframe are dropped to ensure only
     closed candles are returned.
     
     Args:
-        end_date: Optional end date for historical data fetching (TwelveData only).
-                  If provided, fetches `lookback` candles ending at this date.
+        symbol: Forex pair symbol (e.g., "EURUSD")
+        timeframe: MT5 timeframe constant (e.g., 16385 for H1)
+        lookback: Number of candles to fetch
+        timeframe_label: Optional label for closed candle trimming
+        now: Optional reference time for closed candle calculation
+        closed_candles_only: If True, only return closed candles
+        end_date: If provided, fetches `lookback` candles ending at this date.
+                  Used for historical/replay data fetching.
     """
-
-    if BROKER_PROVIDER == BROKER_MT5:
-        df = _fetch_from_mt5(symbol, timeframe, lookback, end_date=end_date)
-    elif BROKER_PROVIDER == BROKER_TWELVEDATA:
-        df = _fetch_from_twelvedata(symbol, timeframe, lookback, end_date=end_date)
-    else:  # pragma: no cover - defensive fallback
-        raise ValueError(f"Unsupported broker provider {BROKER_PROVIDER!r}")
+    df = _fetch_from_mt5(symbol, timeframe, lookback, end_date=end_date)
 
     if df is None or timeframe_label is None:
         return df
@@ -82,24 +77,30 @@ def _fetch_from_mt5(
     """Fetch candles from MT5.
     
     Args:
-        end_date: If provided, fetches `lookback` candles ending at this date
-                  using copy_rates_range. Otherwise uses current position.
+        symbol: Forex pair symbol
+        timeframe_mt5: MT5 timeframe constant
+        lookback: Number of candles to fetch
+        end_date: If provided, fetches candles ending at this date using
+                  copy_rates_range. Otherwise uses current position.
     
     Note: Uses a lock to serialize MT5 API calls (MT5 is not thread-safe).
+    
+    Timezone Handling:
+        MT5 timestamps are in broker local time (EET/EEST), not UTC.
+        For live data: Uses current time's offset (all candles are recent).
+        For historical data: Calculates per-candle offset to handle DST correctly.
     """
     if mt5 is None:
         log.error("MetaTrader5 is not available in this environment.")
         return None
 
     tf_int = int(timeframe_mt5)
+    is_historical = end_date is not None
     
     # Serialize MT5 API access with lock
     with _mt5_lock:
-        if end_date is not None:
-            # Calculate start_date based on lookback and timeframe
-            # Use copy_rates_range for historical date-based fetching
-            from datetime import timedelta
-            
+        if is_historical:
+            # Historical data fetch using copy_rates_range
             # Convert to naive datetime for MT5 (it expects local time or naive UTC)
             if end_date.tzinfo is not None:
                 end_date_naive = end_date.replace(tzinfo=None)
@@ -132,6 +133,7 @@ def _fetch_from_mt5(
                 if error[0] != 1:  # 1 = success
                     log.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
         else:
+            # Live data fetch using current position
             rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)
 
         if rates is None or len(rates) == 0:
@@ -139,91 +141,51 @@ def _fetch_from_mt5(
             return None
 
     # DataFrame processing outside the lock
-    local_tz = tzlocal.get_localzone_name()
     df = pd.DataFrame(rates)
     
-    # MT5 timestamps are in BROKER LOCAL TIME (often EET/EEST, UTC+2/+3)
+    # MT5 timestamps are in BROKER LOCAL TIME (EET/EEST, UTC+2/+3)
     # but encoded as Unix timestamps without proper UTC conversion.
     # We need to subtract the broker's UTC offset to get true UTC times.
-    from configuration.broker_config import MT5_BROKER_UTC_OFFSET
-    broker_offset_seconds = MT5_BROKER_UTC_OFFSET * 3600
     
-    # Convert to datetime and correct for broker timezone
-    df["time"] = pd.to_datetime(df["time"] - broker_offset_seconds, unit="s", utc=True)
+    if is_historical:
+        # For historical data, calculate offset PER CANDLE to handle DST boundaries
+        # This ensures candles from summer (UTC+3) and winter (UTC+2) are both correct
+        df["time"] = df["time"].apply(_convert_mt5_timestamp_to_utc)
+    else:
+        # For live data, all candles are recent - use single current offset
+        from configuration.broker_config import get_broker_utc_offset
+        current_offset = get_broker_utc_offset()
+        broker_offset_seconds = current_offset * 3600
+        df["time"] = pd.to_datetime(df["time"] - broker_offset_seconds, unit="s", utc=True)
     
     # If we used date range, trim to requested lookback
-    if end_date is not None and len(df) > lookback:
+    if is_historical and len(df) > lookback:
         df = df.tail(lookback)
     
     return df
 
 
-
-def _fetch_from_twelvedata(
-    symbol: str,
-    interval: str | int,
-    lookback: int,
-    *,
-    end_date: datetime | None = None,
-) -> Optional[pd.DataFrame]:
-    if TWELVEDATA_API_KEY is None:
-        log.error("TWELVEDATA_API_KEY is not set; cannot fetch data.")
-        return None
-
-    formatted_symbol = _format_twelvedata_symbol(symbol)
+def _convert_mt5_timestamp_to_utc(mt5_timestamp: int) -> datetime:
+    """Convert MT5 timestamp to proper UTC datetime.
     
-    # Build request params
-    params = {
-        "symbol": formatted_symbol,
-        "interval": interval,
-        "outputsize": lookback,
-        "apikey": TWELVEDATA_API_KEY,
-        "timezone": "UTC",
-    }
+    MT5 timestamps are Unix timestamps but in BROKER LOCAL TIME (not UTC).
+    This function:
+    1. Interprets the timestamp as if it were UTC
+    2. Determines what the broker offset was at that time (handles DST)
+    3. Subtracts the offset to get true UTC
+    """
+    # First, interpret as naive datetime (as if UTC)
+    naive_dt = datetime.utcfromtimestamp(mt5_timestamp)
     
-    # Add end_date for historical data fetching
-    if end_date is not None:
-        # Format as ISO string for TwelveData API
-        params["end_date"] = end_date.strftime("%Y-%m-%d %H:%M:%S")
+    # Create a UTC datetime to pass to offset calculator
+    assumed_utc = naive_dt.replace(tzinfo=timezone.utc)
     
-    try:
-        # TwelveData documents Forex time-series access through the dedicated
-        # ``/forex/time_series`` endpoint with the pair encoded as "BASE/QUOTE".
-        response = requests.get(
-            f"{TWELVEDATA_BASE_URL.rstrip('/')}/time_series",
-            params=params,
-            timeout=15,
-        )
-        response.raise_for_status()
-    except Exception as exc:
-        log.error("Failed to fetch TwelveData candles for %s: %s", symbol, exc)
-        return None
-
-    payload = response.json()
-    if payload.get("status") == "error":
-        log.error(
-            "TwelveData error for %s: %s", symbol, payload.get('message', 'Unknown error')
-        )
-        return None
-
-    values = payload.get("values")
-    if not values:
-        log.warning("No TwelveData candles returned for %s (%s).", symbol, interval)
-        return None
-
-    df = pd.DataFrame(values)
-    df = df.rename(columns={"datetime": "time"})
-    numeric_cols = ["open", "high", "low", "close"]
-    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
-    df["time"] = pd.to_datetime(df["time"], utc=True)
-    df = df.dropna(subset=["time", *numeric_cols])
-    df = df.sort_values("time").tail(lookback)
-    return df
-
-
-def _format_twelvedata_symbol(symbol: str) -> str:
-    if "/" in symbol:
-        return symbol
-    if len(symbol) == 6:
-        return f"{symbol[:3]}/{symbol[3:]}"
-    return symbol
+    # Get the broker offset that was in effect at this timestamp
+    # This correctly handles DST transitions
+    from configuration.broker_config import get_broker_utc_offset
+    offset_hours = get_broker_utc_offset(assumed_utc)
+    
+    # Subtract the offset to get true UTC
+    true_utc = assumed_utc - timedelta(hours=offset_hours)
+    
+    return true_utc
