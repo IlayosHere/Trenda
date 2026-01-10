@@ -13,9 +13,8 @@ from entry.scoring import calculate_score, ScoreResult
 from entry.live_execution import compute_execution_data, ExecutionData
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
-from entry.signal_repository import store_entry_signal
 from externals.data_fetcher import fetch_data
-from externals.mt5_handler import place_order
+from externals.mt5_handler import place_order, is_trade_open
 
 try:
     import MetaTrader5 as mt5
@@ -75,8 +74,17 @@ def run_1h_entry_scan_job(
         if not aois:
             continue
 
+        # Prevent duplicate trades: skip if a trade is already open for this symbol
+        if mt5 and is_trade_open(symbol):
+            logger.info(f"    ⏩ Skipped {symbol}: trade already open.")
+            continue
+
         # === SYMBOL-LEVEL CALCULATIONS (outside AOI loop) ===
         atr_1h = calculate_atr(candles)
+        if atr_1h <= 0:
+            logger.warning(f"    ⏩ Skipped {symbol}: ATR calculation failed (zero ATR).")
+            continue
+
         trend_alignment_strength = _calculate_trend_alignment_strength(trend_snapshot, direction)
         
         # Use last candle as reference for HTF context (price differences between AOIs are minimal)
@@ -199,16 +207,22 @@ def run_1h_entry_scan_job(
                 entry_id = store_entry_signal_with_symbol(symbol, signal)
                 if entry_id:
                     logger.info(
-                        f"    ✅ Entry signal {entry_id} (score: {signal.total_score:.2f}) "
-                        f"for {symbol} at AOI {aoi.lower}-{aoi.upper}"
+                        f"    ✅ Signal stored in DB (ID: {entry_id}, Score: {signal.total_score:.2f}) "
                     )
-                    logger.info(
-                        f"       📊 EXECUTION: {execution.direction.value} {execution.symbol} "
-                        f"@ {execution.entry_price:.5f} | "
-                        f"Lot: {execution.lot_size} | "
-                        f"SL: {execution.sl_price:.5f} | "
-                        f"TP: {execution.tp_price:.5f}"
-                    )
+                else:
+                    logger.error(f"    ❌ Failed to store signal for {symbol} in database, but MT5 trade is ACTIVE.")
+
+                # Always log execution details if we reached this point (order was placed)
+                logger.info(
+                    f"       📊 EXECUTION: {execution.direction.value} {execution.symbol} "
+                    f"@ {execution.entry_price:.5f} | "
+                    f"Lot: {execution.lot_size} | "
+                    f"SL: {execution.sl_price:.5f} | "
+                    f"TP: {execution.tp_price:.5f}"
+                )
+                
+                # Stop checking other AOIs for this symbol once an order is placed
+                break
 
 
 def _collect_trend_snapshot(

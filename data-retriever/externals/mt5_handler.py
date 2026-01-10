@@ -115,3 +115,17 @@ def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float 
     logger.info(f"✅ Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{result.order}")
     
     return result
+
+
+def is_trade_open(symbol: str) -> bool:
+    """Checks if there are any open positions for the given symbol with our Magic Number."""
+    if not initialize_mt5():
+        return False
+        
+    positions = mt5.positions_get(symbol=symbol)
+    if positions is None:
+        return False
+    
+    # Filter positions by our bot's magic number
+    bot_positions = [p for p in positions if p.magic == MT5_MAGIC_NUMBER]
+    return len(bot_positions) > 0
