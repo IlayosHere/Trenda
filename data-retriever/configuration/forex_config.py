@@ -19,7 +19,7 @@ class AnalysisParams:
     aoi_lookback: int | None = None
 
 FOREX_PAIRS = [
-     "EURUSD",
+    "EURUSD",
     "USDJPY",
     "GBPUSD",
     "USDCHF",

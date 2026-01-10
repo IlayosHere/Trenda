@@ -18,7 +18,9 @@ from models import AOIZone, TrendDirection
 from models.market import SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
 from utils.indicators import calculate_atr
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 DEFAULT_TREND_ALIGNMENT: tuple[str, ...] = ("4H", "1D", "1W")
@@ -33,10 +35,10 @@ def run_1h_entry_scan_job(
     mt5_timeframe = TIMEFRAMES.get(timeframe)
     lookback = require_analysis_params(timeframe).lookback
 
-    display.print_status(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
+    logger.info(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
 
     for symbol in FOREX_PAIRS:
-        display.print_status(f"  -> Checking {symbol}...")
+        logger.info(f"  -> Checking {symbol}...")
         candles = fetch_data(
             symbol,
             mt5_timeframe,
@@ -44,12 +46,12 @@ def run_1h_entry_scan_job(
             timeframe_label=timeframe,
         )
         if candles is None:
-            display.print_error(
+            logger.error(
                 f"  ❌ Skipping {symbol}: no candle data returned for timeframe {timeframe}."
             )
             continue
         if candles.empty:
-            display.print_error(
+            logger.error(
                 f"  ❌ Skipping {symbol}: no closed candles available after trimming."
             )
             continue
@@ -102,7 +104,7 @@ def run_1h_entry_scan_job(
         )
         
         if not gate_result.passed:
-            display.print_status(
+            logger.info(
                 f"    ⏩ Skipped {symbol}: {gate_result.failed_gate} - {gate_result.failed_reason}"
             )
             continue
@@ -115,7 +117,7 @@ def run_1h_entry_scan_job(
         )
         
         if not score_result.passed:
-            display.print_status(
+            logger.info(
                 f"    ⏩ Skipped {symbol}: Score {score_result.total_score:.2f} < 4.0 threshold"
             )
             continue
@@ -140,10 +142,16 @@ def run_1h_entry_scan_job(
                     aoi_low=aoi.lower,
                     aoi_high=aoi.upper,
                     atr_1h=atr_1h,
+                    signal_time=signal.signal_time,
+                    candles=signal.candles,
+                    trade_quality=signal.trade_quality,
+                )
+                logger.info(
+                    f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
                 )
                 # TODO: ADD HERE MT5 + WHATSAPP NOTIFICATIONS with execution data
                 if not execution:
-                    display.print_status(
+                    logger.info(
                         f"    ⚠️ Pattern found but no live execution data for {symbol}"
                     )
                     continue
@@ -156,11 +164,11 @@ def run_1h_entry_scan_job(
                 # NOW store signal with complete data
                 entry_id = store_entry_signal_with_symbol(symbol, signal)
                 if entry_id:
-                    display.print_status(
+                    logger.info(
                         f"    ✅ Entry signal {entry_id} (score: {signal.total_score:.2f}) "
                         f"for {symbol} at AOI {aoi.lower}-{aoi.upper}"
                     )
-                    display.print_status(
+                    logger.info(
                         f"       📊 EXECUTION: {execution.direction.value} {execution.symbol} "
                         f"@ {execution.entry_price:.5f} | "
                         f"Lot: {execution.lot_size} | "

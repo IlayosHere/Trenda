@@ -1,14 +1,26 @@
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
+from logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def initialize_mt5():
     """Initializes and checks the MT5 connection."""
-    if not mt5.initialize():
-        print(f"MT5 initialization failed. Error: {mt5.last_error()}")
+    if mt5 is None:
+        logger.warning("MetaTrader5 package not found. Skipping initialization.")
         return False
-    print("✅ MT5 initialized successfully.")
+    if not mt5.initialize():
+        logger.error(f"MT5 initialization failed. Error: {mt5.last_error()}")
+        return False
+    logger.info("✅ MT5 initialized successfully.")
     return True
 
 
 def shutdown_mt5():
-    print("Shutting down MT5 connection...")
-    mt5.shutdown()
+    if mt5 is not None:
+        logger.info("Shutting down MT5 connection...")
+        mt5.shutdown()
+

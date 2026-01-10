@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 from configuration.forex_config import TIMEFRAMES
 from externals.data_fetcher import fetch_data
 
@@ -28,7 +30,7 @@ def fetch_candles_after_signal(
     
     broker_timeframe = TIMEFRAMES.get(TIMEFRAME_1H)
     if broker_timeframe is None:
-        display.print_error(f"  ❌ {TIMEFRAME_1H} timeframe not configured")
+        logger.error(f"  ❌ {TIMEFRAME_1H} timeframe not configured")
         return None
     
     df = fetch_data(

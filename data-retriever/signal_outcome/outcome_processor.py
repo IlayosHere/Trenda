@@ -2,7 +2,9 @@
 
 from datetime import datetime, timezone
 
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 from .candle_counter import count_closed_1h_candles_between
 from .candle_fetcher import fetch_candles_after_signal
@@ -19,27 +21,27 @@ def run_signal_outcome_processor() -> None:
     This processor runs every 1H with a 2 min offset.
     It is fully idempotent - safe to run multiple times.
     """
-    display.print_status("\n--- 🔄 Running signal outcome processor ---")
+    logger.info("\n--- 🔄 Running signal outcome processor ---")
     
     # STEP 1: Fetch candidate signals
     signals = fetch_pending_signals(BATCH_SIZE)
     
     if not signals:
-        display.print_status("  ℹ️  No pending signals to process.")
-        display.print_status("--- ✅ Signal outcome processor complete ---\n")
+        logger.info("  ℹ️  No pending signals to process.")
+        logger.info("--- ✅ Signal outcome processor complete ---\n")
         return
     
-    display.print_status(f"  📊 Found {len(signals)} pending signal(s).")
+    logger.info(f"  📊 Found {len(signals)} pending signal(s).")
     
     now_utc = datetime.now(timezone.utc)
     stats = _process_signal_batch(signals, now_utc)
     
-    display.print_status(
+    logger.info(
         f"  📈 Processed: {stats[ProcessResult.PROCESSED]} | "
         f"Not ready: {stats[ProcessResult.NOT_READY]} | "
         f"Missing candles: {stats[ProcessResult.MISSING_CANDLES]}"
     )
-    display.print_status("--- ✅ Signal outcome processor complete ---\n")
+    logger.info("--- ✅ Signal outcome processor complete ---\n")
 
 
 def _process_signal_batch(
@@ -79,12 +81,12 @@ def _process_single_signal(signal: PendingSignal, now_utc: datetime) -> ProcessR
     success = persist_outcome(signal.id, outcome)
     
     if success:
-        display.print_status(
+        logger.info(
             f"  ✅ Computed outcome for signal {signal.id} ({signal.symbol})"
         )
         return ProcessResult.PROCESSED
     else:
-        display.print_error(
+        logger.error(
             f"  ❌ Failed to persist outcome for signal {signal.id}"
         )
         return ProcessResult.ERROR

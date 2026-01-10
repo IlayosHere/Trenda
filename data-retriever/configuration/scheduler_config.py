@@ -14,6 +14,7 @@ SCHEDULE_CONFIG = [
         "job": run_timeframe_job,
         "args": ["4H"],
         "kwargs": {"include_aoi": True},
+        "market_hours_only": True,
     },
     {
         "timeframe": "1D",
@@ -24,6 +25,7 @@ SCHEDULE_CONFIG = [
         "job": run_timeframe_job,
         "args": ["1D"],
         "kwargs": {"include_aoi": True},
+        "market_hours_only": True,
     },
     {
         "timeframe": "1W",

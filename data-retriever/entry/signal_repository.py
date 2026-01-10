@@ -2,7 +2,9 @@
 
 from typing import Optional
 
-import utils.display as display
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 from database.executor import DBExecutor
 from database.queries import INSERT_ENTRY_SIGNAL
@@ -24,9 +26,8 @@ def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[
     """
     normalized_symbol = DBValidator.validate_symbol(symbol)
     if not normalized_symbol:
-        display.print_error(f"DB_VALIDATION: Invalid symbol '{symbol}'")
-        return None
-    
+        logger.error(f"DB_VALIDATION: Invalid symbol '{symbol}'")
+        return None    
     # Validate required numeric fields
     if not DBValidator.validate_nullable_float(signal.aoi_high, "aoi_high"):
         return None
@@ -34,10 +35,24 @@ def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[
         return None
     if not DBValidator.validate_nullable_float(signal.atr_1h, "atr_1h"):
         return None
-    if not isinstance(signal.total_score, (int, float)):
-        display.print_error("DB_VALIDATION: total_score must be numeric")
+
+
+    try:
+        trend_values = (
+            required_trend(trend_snapshot, "4H"),
+            required_trend(trend_snapshot, "1D"),
+            required_trend(trend_snapshot, "1W"),
+        )
+    except (TypeError, ValueError) as exc:
+        logger.error(f"DB_VALIDATION: invalid trend snapshot - {exc}")
         return None
-    
+
+    def _validate_candle_value(value: Any, field: str) -> Optional[float]:
+        if not isinstance(value, (int, float)):
+            logger.error(f"DB_VALIDATION: candle {field} must be numeric")
+            return None
+        return float(value)
+
     def _persist(cursor):
         cursor.execute(
             INSERT_ENTRY_SIGNAL,

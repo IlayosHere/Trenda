@@ -24,6 +24,9 @@ from .timeframe_alignment import TimeframeAligner
 from .market_state import MarketStateManager
 from .signal_detector import ReplaySignalDetector
 from .outcome_calculator import ReplayOutcomeCalculator
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _generate_date_chunks(
@@ -89,9 +92,6 @@ def run_replay(
     Returns:
         ReplayStats with summary of what was processed
     """
-    # Deferred imports to avoid circular import issues
-    import utils.display as display
-    
     symbols = symbols or REPLAY_SYMBOLS
     start_date = start_date or REPLAY_START_DATE
     end_date = end_date or REPLAY_END_DATE
@@ -101,21 +101,21 @@ def run_replay(
     
     stats = ReplayStats()
     
-    display.print_status("\n" + "=" * 60)
-    display.print_status("🔄 OFFLINE REPLAY ENGINE - Starting")
-    display.print_status("=" * 60)
-    display.print_status(f"  Symbols: {', '.join(symbols)}")
-    display.print_status(f"  Window: {start_date.isoformat()} to {end_date.isoformat()}")
+    logger.info("\n" + "=" * 60)
+    logger.info("🔄 OFFLINE REPLAY ENGINE - Starting")
+    logger.info("=" * 60)
+    logger.info(f"  Symbols: {', '.join(symbols)}")
+    logger.info(f"  Window: {start_date.isoformat()} to {end_date.isoformat()}")
     if len(chunks) > 1:
-        display.print_status(f"  Chunks: {len(chunks)} (max {MAX_CHUNK_DAYS} days each)")
-    display.print_status(f"  Schema: {SCHEMA_NAME}")
-    display.print_status("=" * 60 + "\n")
+        logger.info(f"  Chunks: {len(chunks)} (max {MAX_CHUNK_DAYS} days each)")
+    logger.info(f"  Schema: {SCHEMA_NAME}")
+    logger.info("=" * 60 + "\n")
     
     # Process each symbol, chunk by chunk
     for symbol in symbols:
         for chunk_idx, (chunk_start, chunk_end) in enumerate(chunks):
             if len(chunks) > 1:
-                display.print_status(
+                logger.info(
                     f"\n📦 Chunk {chunk_idx + 1}/{len(chunks)}: "
                     f"{chunk_start.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')}"
                 )
@@ -126,10 +126,10 @@ def run_replay(
             stats.outcomes_computed += symbol_stats.outcomes_computed
             stats.errors += symbol_stats.errors
     
-    display.print_status("\n" + "=" * 60)
-    display.print_status("✅ REPLAY COMPLETE")
-    display.print_status(f"  {stats.summary()}")
-    display.print_status("=" * 60 + "\n")
+    logger.info("\n" + "=" * 60)
+    logger.info("✅ REPLAY COMPLETE")
+    logger.info(f"  {stats.summary()}")
+    logger.info("=" * 60 + "\n")
         
     
     return stats
@@ -150,21 +150,19 @@ def _replay_symbol(
     Returns:
         ReplayStats for this symbol
     """
-    import utils.display as display
-    
     stats = ReplayStats()
     
-    display.print_status(f"\n--- 🔄 Processing {symbol} ---")
+    logger.info(f"\n--- 🔄 Processing {symbol} ---")
     
     # Step 1: Load candles
-    display.print_status(f"  📊 Loading candles for {symbol}...")
+    logger.info(f"  📊 Loading candles for {symbol}...")
     try:
         candle_store = load_symbol_candles(symbol, start_date, end_date)
         candle_summary = candle_store.summary()
-        display.print_status(f"  ✅ Loaded: {candle_summary}")
+        logger.info(f"  ✅ Loaded: {candle_summary}")
     except Exception as e:
         import traceback
-        display.print_error(f"  ❌ Failed to load candles: {e}")
+        logger.error(f"  ❌ Failed to load candles: {e}")
         traceback.print_exc()  # Print full traceback
         stats.errors += 1
         return stats
@@ -179,7 +177,7 @@ def _replay_symbol(
     replay_indices = candle_store.get_replay_1h_indices(start_date, end_date)
     total_candles = len(replay_indices)
     
-    display.print_status(f"  📈 Replaying {total_candles} 1H candles...")
+    logger.info(f"  📈 Replaying {total_candles} 1H candles...")
     
     # Progress tracking
     log_interval = max(total_candles // 10, 1)  # Log every 10%
@@ -215,26 +213,26 @@ def _replay_symbol(
             # Progress logging
             if (i + 1) % log_interval == 0 or i == total_candles - 1:
                 pct = ((i + 1) / total_candles) * 100
-                display.print_status(
+                logger.info(
                     f"    [{pct:5.1f}%] {stats.candles_processed} candles | "
                     f"{stats.signals_inserted} signals | "
                     f"{stats.outcomes_computed} outcomes"
                 )
                 
         except Exception as e:
-            display.print_error(f"    ❌ Error at candle {candle_idx}: {e}")
+            logger.error(f"    ❌ Error at candle {candle_idx}: {e}")
             stats.errors += 1
     
     # Step 5: Final pass - compute outcomes for ALL remaining pending signals
     # This catches signals near the end of the replay window that didn't have 
     # enough future candles during the main loop
-    display.print_status(f"  🔄 Final pass: computing remaining outcomes...")
+    logger.info(f"  🔄 Final pass: computing remaining outcomes...")
     final_outcomes = _compute_remaining_outcomes(symbol, start_date, end_date, candle_store)
     stats.outcomes_computed += final_outcomes
     if final_outcomes > 0:
-        display.print_status(f"    ✅ Computed {final_outcomes} additional outcomes in final pass")
+        logger.info(f"    ✅ Computed {final_outcomes} additional outcomes in final pass")
     
-    display.print_status(f"  ✅ {symbol} complete: {stats.summary()}")
+    logger.info(f"  ✅ {symbol} complete: {stats.summary()}")
     
     return stats
 
@@ -276,8 +274,7 @@ def _compute_remaining_outcomes(
         context="fetch_final_pending_signals",
     )
     
-    import utils.display as display
-    display.print_status(f"    📋 Found {len(rows)} pending signals to process")
+    logger.info(f"    📋 Found {len(rows)} pending signals to process")
     
     for row in rows:
         signal_time = row["signal_time"]
@@ -310,7 +307,6 @@ def _compute_remaining_outcomes(
         
         sl_distance_atr = (far_edge_distance / atr_1h) + 0.25  # SL_BUFFER_ATR
         
-        # Create PendingSignal
         pending = PendingSignal(
             id=row["id"],
             symbol=row["symbol"],
@@ -318,6 +314,8 @@ def _compute_remaining_outcomes(
             direction=row["direction"],
             entry_price=entry_price,
             atr_1h=atr_1h,
+            aoi_low=aoi_low,
+            aoi_high=aoi_high,
             sl_distance_atr=sl_distance_atr,
         )
         
@@ -350,7 +348,7 @@ def _compute_remaining_outcomes(
     
     # Summary: show why signals were skipped
     if skipped_no_idx > 0 or skipped_no_candles > 0:
-        display.print_status(
+        logger.info(
             f"    ⚠️ Skipped: {skipped_no_idx} (no index found), {skipped_no_candles} (not enough future candles)"
         )
     

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import threading
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -16,6 +18,11 @@ from configuration.broker_config import (
 )
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
+
+log = logging.getLogger(__name__)
+
+# Lock to serialize MT5 API calls (MT5 is not thread-safe)
+_mt5_lock = threading.Lock()
 
 if BROKER_PROVIDER == BROKER_MT5:
     import MetaTrader5 as mt5
@@ -77,57 +84,61 @@ def _fetch_from_mt5(
     Args:
         end_date: If provided, fetches `lookback` candles ending at this date
                   using copy_rates_range. Otherwise uses current position.
+    
+    Note: Uses a lock to serialize MT5 API calls (MT5 is not thread-safe).
     """
     if mt5 is None:
-        print("  ❌ MetaTrader5 is not available in this environment.")
+        log.error("MetaTrader5 is not available in this environment.")
         return None
 
     tf_int = int(timeframe_mt5)
     
-    if end_date is not None:
-        # Calculate start_date based on lookback and timeframe
-        # Use copy_rates_range for historical date-based fetching
-        from datetime import timedelta
-        
-        # Convert to naive datetime for MT5 (it expects local time or naive UTC)
-        if end_date.tzinfo is not None:
-            end_date_naive = end_date.replace(tzinfo=None)
+    # Serialize MT5 API access with lock
+    with _mt5_lock:
+        if end_date is not None:
+            # Calculate start_date based on lookback and timeframe
+            # Use copy_rates_range for historical date-based fetching
+            from datetime import timedelta
+            
+            # Convert to naive datetime for MT5 (it expects local time or naive UTC)
+            if end_date.tzinfo is not None:
+                end_date_naive = end_date.replace(tzinfo=None)
+            else:
+                end_date_naive = end_date
+            
+            # Estimate start_date (overfetch to ensure we get enough candles)
+            # Account for weekends and holidays by adding extra buffer
+            if tf_int == 16385:  # H1
+                hours_back = lookback + 168  # Extra week buffer for gaps
+                start_date = end_date_naive - timedelta(hours=hours_back)
+            elif tf_int == 16388:  # H4
+                hours_back = (lookback + 50) * 4
+                start_date = end_date_naive - timedelta(hours=hours_back)
+            elif tf_int == 16408:  # D1
+                days_back = lookback + 30  # Extra month buffer
+                start_date = end_date_naive - timedelta(days=days_back)
+            elif tf_int == 32769:  # W1
+                days_back = (lookback + 10) * 7
+                start_date = end_date_naive - timedelta(days=days_back)
+            else:
+                # Fallback
+                start_date = end_date_naive - timedelta(hours=lookback * 4)
+            
+            rates = mt5.copy_rates_range(symbol, tf_int, start_date, end_date_naive)
+            
+            # Check for MT5 errors
+            if rates is None or len(rates) == 0:
+                error = mt5.last_error()
+                if error[0] != 1:  # 1 = success
+                    log.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
         else:
-            end_date_naive = end_date
-        
-        # Estimate start_date (overfetch to ensure we get enough candles)
-        # Account for weekends and holidays by adding extra buffer
-        if tf_int == 16385:  # H1
-            hours_back = lookback + 168  # Extra week buffer for gaps
-            start_date = end_date_naive - timedelta(hours=hours_back)
-        elif tf_int == 16388:  # H4
-            hours_back = (lookback + 50) * 4
-            start_date = end_date_naive - timedelta(hours=hours_back)
-        elif tf_int == 16408:  # D1
-            days_back = lookback + 30  # Extra month buffer
-            start_date = end_date_naive - timedelta(days=days_back)
-        elif tf_int == 32769:  # W1
-            days_back = (lookback + 10) * 7
-            start_date = end_date_naive - timedelta(days=days_back)
-        else:
-            # Fallback
-            start_date = end_date_naive - timedelta(hours=lookback * 4)
-        
-        rates = mt5.copy_rates_range(symbol, tf_int, start_date, end_date_naive)
-        
-        # Check for MT5 errors
+            rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)
+
         if rates is None or len(rates) == 0:
-            error = mt5.last_error()
-            if error[0] != 1:  # 1 = success
-                print(f"  ⚠️ MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
-                print(f"      Date range: {start_date} to {end_date_naive}")
-    else:
-        rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)
+            log.error("%s for %s on TF %s", DATA_ERROR_MSG, symbol, timeframe_mt5)
+            return None
 
-    if rates is None or len(rates) == 0:
-        print(f"  ❌ {DATA_ERROR_MSG} for {symbol} on TF {timeframe_mt5}")
-        return None
-
+    # DataFrame processing outside the lock
     local_tz = tzlocal.get_localzone_name()
     df = pd.DataFrame(rates)
     
@@ -156,7 +167,7 @@ def _fetch_from_twelvedata(
     end_date: datetime | None = None,
 ) -> Optional[pd.DataFrame]:
     if TWELVEDATA_API_KEY is None:
-        print("  ❌ TWELVEDATA_API_KEY is not set; cannot fetch data.")
+        log.error("TWELVEDATA_API_KEY is not set; cannot fetch data.")
         return None
 
     formatted_symbol = _format_twelvedata_symbol(symbol)
@@ -185,19 +196,19 @@ def _fetch_from_twelvedata(
         )
         response.raise_for_status()
     except Exception as exc:
-        print(f"  ❌ Failed to fetch TwelveData candles for {symbol}: {exc}")
+        log.error("Failed to fetch TwelveData candles for %s: %s", symbol, exc)
         return None
 
     payload = response.json()
     if payload.get("status") == "error":
-        print(
-            f"  ❌ TwelveData error for {symbol}: {payload.get('message', 'Unknown error')}"
+        log.error(
+            "TwelveData error for %s: %s", symbol, payload.get('message', 'Unknown error')
         )
         return None
 
     values = payload.get("values")
     if not values:
-        print(f"  ❌ No TwelveData candles returned for {symbol} ({interval}).")
+        log.warning("No TwelveData candles returned for %s (%s).", symbol, interval)
         return None
 
     df = pd.DataFrame(values)
