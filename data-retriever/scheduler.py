@@ -15,7 +15,10 @@ scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 logger = get_logger(__name__)
 
 STUB_FOREX_SYMBOL = "EURUSD"
-HEARTBEAT_FILE = "/tmp/healthy"
+
+import tempfile
+import os
+HEARTBEAT_FILE = os.path.join(tempfile.gettempdir(), "trenda_healthy")
 
 def _heartbeat():
     """Touch a file to indicate the scheduler is alive."""
@@ -90,9 +93,6 @@ def _add_job(scheduler: BackgroundScheduler, config: Dict[str, Any], job: Any, n
         max_instances=1,
         misfire_grace_time=60 * 5,  # Allow job to be 5 mins late
         next_run_time=next_run_time
-        #datetime.now(timezone.utc)
-        #next_run_time TODO: next_run_time
-        #datetime.now(timezone.utc)
     )
 
 

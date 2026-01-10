@@ -18,27 +18,27 @@ import numpy as np
 # =============================================================================
 # Configuration - Signals from Replay DB to Validate
 # =============================================================================
-TEST_SYMBOL = "AUDCAD"
+TEST_SYMBOL = "AUDJPY"
 
 # Known signals from replay DB - Now with CORRECTED timezone (after broker offset fix)
 # Testing signal at 10 UTC and also 9 UTC to see why it didn't fire earlier
 DB_SIGNALS = [
     # Test 9 UTC to see why no signal (1 hour before actual signal)
     {
-        "signal_time": "2026-01-06 13:00:00+02",  # = 09:00 UTC (1 hour before actual)
-        "aoi_low": 0.92339,
-        "aoi_high": 0.92481,
-        "aoi_timeframe": "4H",
-        "atr_1h": 0.001043673469387751,
+        "signal_time": "2025-11-26 00:00:00+02",  # = 09:00 UTC (1 hour before actual)
+        "aoi_low": 100.508,
+        "aoi_high": 100.87,
+        "aoi_timeframe": "1D",
+        "atr_1h": 0.18685204081632728,
     },
     # Actual signal at 10 UTC
-    # {
-    #     "signal_time": "2026-01-02 12:00:00+02",  # = 10:00 UTC
-    #     "aoi_low": 1.84207,
-    #     "aoi_high": 1.84541,
-    #     "aoi_timeframe": "1D",
-    #     "atr_1h": 0.0017457142857142667,
-    # },
+    {
+        "signal_time": "2025-11-19 08:00:00+02",  # = 10:00 UTC
+        "aoi_low": 100.555,
+        "aoi_high": 100.833,
+        "aoi_timeframe": "4H",
+        "atr_1h": 0.19982653061224553,
+    },
 ]
 
 
@@ -263,12 +263,12 @@ def test_aoi_detection(symbol: str, signal_time: datetime, direction: str, expec
     matching_zone = None
     
     print(f"\n  Expected AOI: {expected_low:.5f} - {expected_high:.5f}")
-    print(f"  Tolerance: 0.00010 (1 pip)")
+    print(f"  Matching: Exact (5 decimal places)")
     
     for i, zone in enumerate(tradable_zones):
-        # Check with small tolerance
-        low_match = abs(zone.lower - expected_low) < 0.00010
-        high_match = abs(zone.upper - expected_high) < 0.00010
+        # Exact match at 5 decimal places
+        low_match = round(zone.lower, 5) == round(expected_low, 5)
+        high_match = round(zone.upper, 5) == round(expected_high, 5)
         
         if low_match and high_match:
             found_match = True

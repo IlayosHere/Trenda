@@ -6,9 +6,6 @@ Mirrors production queries from database/queries.py.
 
 from .config import SCHEMA_NAME, SL_MODEL_VERSION, TP_MODEL_VERSION
 
-# Import TP_R_MULTIPLIER from sl_calculator
-from entry.sl_calculator import TP_R_MULTIPLIER
-
 # =============================================================================
 # Entry Signal Queries
 # =============================================================================
