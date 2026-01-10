@@ -3,13 +3,6 @@
 from typing import Final, FrozenSet, Tuple
 
 # =============================================================================
-# Gate 1: Time-of-Day Filter
-# =============================================================================
-# Default allowed hours (UTC) for non-JPY pairs
-DEFAULT_TRADING_HOUR_START: Final[int] = 4   # 04:00 UTC
-DEFAULT_TRADING_HOUR_END: Final[int] = 14    # 14:00 UTC (inclusive)
-
-# =============================================================================
 # Gate 2: Timeframe Conflict Filter
 # =============================================================================
 # Exclude signals where this timeframe conflicts with the trade direction

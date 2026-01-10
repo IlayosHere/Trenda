@@ -92,18 +92,6 @@ SL_MODELS: Final[list[str]] = [
 RR_MULTIPLES: Final[list[float]] = [2, 2.5]
 
 # =============================================================================
-# Execution Constants (from signal_outcome/constants.py)
-# =============================================================================
-AOI_SL_TOLERANCE_ATR: Final[float] = 0.25
-
-# =============================================================================
-# Tier Thresholds (from entry/quality/components.py)
-# =============================================================================
-TIER_PRIORITY_THRESHOLD: Final[float] = 0.72
-TIER_NOTIFY_THRESHOLD: Final[float] = 0.60
-TIER_WATCHLIST_THRESHOLD: Final[float] = 0.45
-
-# =============================================================================
 # Database Configuration
 # =============================================================================
 SCHEMA_NAME: Final[str] = "trenda_replay"
