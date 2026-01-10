@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import tempfile
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 from configuration.forex_config import TIMEFRAMES
@@ -15,9 +17,6 @@ scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 logger = get_logger(__name__)
 
 STUB_FOREX_SYMBOL = "EURUSD"
-
-import tempfile
-import os
 HEARTBEAT_FILE = os.path.join(tempfile.gettempdir(), "trenda_healthy")
 
 def _heartbeat():
