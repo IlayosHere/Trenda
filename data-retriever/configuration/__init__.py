@@ -16,7 +16,6 @@ from .broker import (
     MT5_DEVIATION,
     MT5_DEFAULT_LOT_SIZE,
     MT5_EXPIRATION_MINUTES,
-    TRADE_QUALITY_THRESHOLD,
 )
 from .broker_config import (
     MT5_BROKER_TIMEZONE,
@@ -42,7 +41,6 @@ __all__ = [
     "MT5_DEVIATION",
     "MT5_DEFAULT_LOT_SIZE",
     "MT5_EXPIRATION_MINUTES",
-    "TRADE_QUALITY_THRESHOLD",
     "MT5_BROKER_TIMEZONE",
     "MT5_BROKER_UTC_OFFSET",
     "get_broker_utc_offset",

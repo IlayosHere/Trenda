@@ -14,8 +14,13 @@ from entry.live_execution import compute_execution_data, ExecutionData
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
 from entry.signal_repository import store_entry_signal
-from execution.manager import ExecutionManager
 from externals.data_fetcher import fetch_data
+from externals.mt5_handler import place_order
+
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
 from models import AOIZone, TrendDirection
 from models.market import SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
@@ -144,18 +149,45 @@ def run_1h_entry_scan_job(
                     aoi_low=aoi.lower,
                     aoi_high=aoi.upper,
                     atr_1h=atr_1h,
-                    signal_time=signal.signal_time,
-                    candles=signal.candles,
-                    trade_quality=signal.trade_quality,
                 )
-                logger.info(
-                    f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
-                )
-                # TODO: ADD HERE MT5 + WHATSAPP NOTIFICATIONS with execution data
+                
                 if not execution:
-                    logger.info(
+                    logger.warning(
                         f"    ⚠️ Pattern found but no live execution data for {symbol}"
                     )
+                    continue
+
+                # TODO: ADD HERE WHATSAPP NOTIFICATIONS with execution data
+                
+                # Place MT5 order (only if MT5 module is available)
+                if mt5:
+                    order_type = mt5.ORDER_TYPE_BUY if direction == TrendDirection.BULLISH else mt5.ORDER_TYPE_SELL
+                    order_result = place_order(
+                        symbol=symbol,
+                        order_type=order_type,
+                        price=execution.entry_price,
+                        volume=execution.lot_size,
+                        sl=execution.sl_price,
+                        tp=execution.tp_price,
+                        comment=f"Trenda signal",
+                    )
+                    
+                    if order_result is None or (hasattr(order_result, 'retcode') and order_result.retcode != mt5.TRADE_RETCODE_DONE):
+                        logger.error(
+                            f"    ❌ MT5 order failed for {symbol}. Skipping signal storage."
+                        )
+                        continue
+                    
+                    logger.info(
+                        f"    💰 MT5 ORDER PLACED: Ticket #{order_result.order} | "
+                        f"{direction.value} {symbol} @ {execution.entry_price:.5f}"
+                    )
+                else:
+                    logger.warning(f"    ⚠️ MT5 not available. Skipping order placement for {symbol}.")
+                    # Determine if we should skip storage or not. 
+                    # If we can't trade, maybe we strictly skip? 
+                    # For now, let's assume we skip storage if we can't place the trade, similar to the failure case.
+                    logger.error("    ❌ MT5 module missing. Skipping signal storage.")
                     continue
                 
                 # Populate SignalData with live execution values
@@ -177,17 +209,6 @@ def run_1h_entry_scan_job(
                         f"SL: {execution.sl_price:.5f} | "
                         f"TP: {execution.tp_price:.5f}"
                     )
-
-
-                # Trigger execution
-                ExecutionManager.process_signal(
-                    signal_id=entry_id,
-                    symbol=symbol,
-                    direction=direction,
-                    aoi_low=aoi.lower,
-                    aoi_high=aoi.upper,
-                    trade_quality=signal.trade_quality, #Unnecessary, if we want we can remove this part
-                )
 
 
 def _collect_trend_snapshot(
