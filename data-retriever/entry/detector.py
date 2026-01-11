@@ -74,9 +74,10 @@ def run_1h_entry_scan_job(
         if not aois:
             continue
 
-        # Prevent duplicate trades: skip if a trade is already open for this symbol
-        if mt5 and is_trade_open(symbol):
-            logger.info(f"    ⏩ Skipped {symbol}: trade already open.")
+        # Prevent duplicate trades or over-trading: skip if constraints are met
+        is_blocked, reason = is_trade_open(symbol)
+        if is_blocked:
+            logger.info(f"    ⏩ Skipped {symbol}: {reason}")
             continue
 
         # === SYMBOL-LEVEL CALCULATIONS (outside AOI loop) ===

@@ -1,3 +1,4 @@
+import time
 try:
     import MetaTrader5 as mt5
 except ImportError:
@@ -117,15 +118,39 @@ def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0,
     return result
 
 
-def is_trade_open(symbol: str) -> bool:
-    """Checks if there are any open positions for the given symbol with our Magic Number."""
-    if not initialize_mt5():
-        return False
-        
-    positions = mt5.positions_get(symbol=symbol)
-    if positions is None:
-        return False
+def is_trade_open(symbol: str) -> tuple[bool, str]:
+    """
+    Checks if a new trade can be opened for the given symbol.
     
-    # Filter positions by our bot's magic number
-    bot_positions = [p for p in positions if p.magic == MT5_MAGIC_NUMBER]
-    return len(bot_positions) > 0
+    Constraints:
+    1. Global limit: Max 4 active trades across all symbols (filtered by Magic Number).
+    2. Time limit: At least 3 hours difference between trades for the same symbol.
+    
+    Returns:
+        tuple (is_blocked, reason)
+    """
+    if not initialize_mt5():
+        return True, "MT5 initialization failed"
+        
+    # 1. Total active trades limit check
+    all_positions = mt5.positions_get()
+    if all_positions is None:
+        return False, "" # No positions at all
+        
+    bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
+    if len(bot_positions) >= 4:
+        return True, f"Global limit reached: {len(bot_positions)} active trades"
+
+    # 2. Per-symbol time limit check (3 hours)
+    symbol_positions = [p for p in bot_positions if p.symbol == symbol]
+    if symbol_positions:
+        current_time = time.time()
+        # Find the most recently opened position for this symbol
+        # p.time is opening time in seconds
+        most_recent_time = max(p.time for p in symbol_positions)
+        hours_since_last_trade = (current_time - most_recent_time) / 3600
+        
+        if hours_since_last_trade < 3:
+            return True, f"Recent trade for {symbol} found ({hours_since_last_trade:.1f}h ago). Must wait 3h."
+            
+    return False, ""
