@@ -14,7 +14,6 @@ from .broker import (
     TWELVEDATA_BASE_URL,
     MT5_MAGIC_NUMBER,
     MT5_DEVIATION,
-    MT5_DEFAULT_LOT_SIZE,
     MT5_EXPIRATION_MINUTES,
 )
 from .broker_config import (
@@ -39,7 +38,6 @@ __all__ = [
     "TWELVEDATA_BASE_URL",
     "MT5_MAGIC_NUMBER",
     "MT5_DEVIATION",
-    "MT5_DEFAULT_LOT_SIZE",
     "MT5_EXPIRATION_MINUTES",
     "MT5_BROKER_TIMEZONE",
     "MT5_BROKER_UTC_OFFSET",

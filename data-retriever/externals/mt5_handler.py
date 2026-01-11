@@ -3,7 +3,7 @@ try:
 except ImportError:
     mt5 = None
 
-from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_DEFAULT_LOT_SIZE, MT5_EXPIRATION_MINUTES
+from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ def shutdown_mt5():
         mt5.shutdown()
     _mt5_initialized = False
 
-def place_order(symbol: str, order_type: int, price: float = 0.0, volume: float = MT5_DEFAULT_LOT_SIZE, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, magic: int = MT5_MAGIC_NUMBER, comment: str = "", expiration_minutes: int = MT5_EXPIRATION_MINUTES):
+def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, magic: int = MT5_MAGIC_NUMBER, comment: str = "", expiration_minutes: int = MT5_EXPIRATION_MINUTES):
     """
     Unified function to place any type of order in MT5 with automatic 10-minute expiration.
     
