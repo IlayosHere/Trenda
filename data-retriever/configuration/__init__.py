@@ -15,6 +15,8 @@ from .broker import (
     MT5_MAGIC_NUMBER,
     MT5_DEVIATION,
     MT5_EXPIRATION_MINUTES,
+    MT5_MAX_ACTIVE_TRADES,
+    MT5_MIN_TRADE_INTERVAL_HOURS,
 )
 from .broker_config import (
     MT5_BROKER_TIMEZONE,
@@ -39,6 +41,8 @@ __all__ = [
     "MT5_MAGIC_NUMBER",
     "MT5_DEVIATION",
     "MT5_EXPIRATION_MINUTES",
+    "MT5_MAX_ACTIVE_TRADES",
+    "MT5_MIN_TRADE_INTERVAL_HOURS",
     "MT5_BROKER_TIMEZONE",
     "MT5_BROKER_UTC_OFFSET",
     "get_broker_utc_offset",

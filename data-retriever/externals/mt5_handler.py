@@ -4,7 +4,7 @@ try:
 except ImportError:
     mt5 = None
 
-from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES
+from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_HOURS
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -138,10 +138,10 @@ def is_trade_open(symbol: str) -> tuple[bool, str]:
         return False, "" # No positions at all
         
     bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
-    if len(bot_positions) >= 4:
+    if len(bot_positions) >= MT5_MAX_ACTIVE_TRADES:
         return True, f"Global limit reached: {len(bot_positions)} active trades"
 
-    # 2. Per-symbol time limit check (3 hours)
+    # 2. Per-symbol time limit check
     symbol_positions = [p for p in bot_positions if p.symbol == symbol]
     if symbol_positions:
         current_time = time.time()
@@ -150,7 +150,7 @@ def is_trade_open(symbol: str) -> tuple[bool, str]:
         most_recent_time = max(p.time for p in symbol_positions)
         hours_since_last_trade = (current_time - most_recent_time) / 3600
         
-        if hours_since_last_trade < 3:
-            return True, f"Recent trade for {symbol} found ({hours_since_last_trade:.1f}h ago). Must wait 3h."
+        if hours_since_last_trade < MT5_MIN_TRADE_INTERVAL_HOURS:
+            return True, f"Recent trade for {symbol} found ({hours_since_last_trade:.1f}h ago). Must wait {MT5_MIN_TRADE_INTERVAL_HOURS}h."
             
     return False, ""
