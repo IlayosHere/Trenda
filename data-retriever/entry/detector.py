@@ -14,7 +14,7 @@ from entry.live_execution import compute_execution_data, ExecutionData
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
 from externals.data_fetcher import fetch_data
-from externals.mt5_handler import place_order, is_trade_open
+from externals.mt5_handler import place_order, is_trade_open, verify_sl_tp_consistency
 
 try:
     import MetaTrader5 as mt5
@@ -191,6 +191,17 @@ def run_1h_entry_scan_job(
                         f"    💰 MT5 ORDER PLACED: Ticket #{order_result.order} | "
                         f"{direction.value} {symbol} @ {execution.entry_price:.5f}"
                     )
+                    
+                    # Verify SL/TP consistency
+                    is_consistent = verify_sl_tp_consistency(
+                        ticket=order_result.order,
+                        expected_sl=execution.sl_price,
+                        expected_tp=execution.tp_price
+                    )
+                    
+                    if not is_consistent:
+                        logger.error(f"    ❌ Verification failed for {symbol}: SL/TP modified by broker. Trade CLOSED.")
+                        continue
                 else:
                     logger.warning(f"    ⚠️ MT5 not available. Skipping order placement for {symbol}.")
                     # Determine if we should skip storage or not. 

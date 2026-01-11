@@ -118,6 +118,122 @@ def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0,
     return result
 
 
+def close_position(ticket: int) -> bool:
+    """
+    Closes an active position by its ticket ID.
+    
+    Args:
+        ticket: The position ticket ID.
+        
+    Returns:
+        True if successfully closed, False otherwise.
+    """
+    if not initialize_mt5():
+        return False
+
+    positions = mt5.positions_get(ticket=ticket)
+    if not positions:
+        logger.error(f"❌ Failed to close position {ticket}: Position not found.")
+        return False
+    
+    position = positions[0]
+    symbol = position.symbol
+    volume = position.volume
+    
+    # Correcting logic: 
+    # To close a BUY position (type 0), we SELL (type 1) at the Bid price.
+    # To close a SELL position (type 1), we BUY (type 0) at the Ask price.
+    if position.type == mt5.POSITION_TYPE_BUY:
+        order_type = mt5.ORDER_TYPE_SELL
+        price = mt5.symbol_info_tick(symbol).bid
+    else:
+        order_type = mt5.ORDER_TYPE_BUY
+        price = mt5.symbol_info_tick(symbol).ask
+
+    if not price:
+        logger.error(f"❌ Failed to close position {ticket}: Failed to get current price for {symbol}.")
+        return False
+    
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": volume,
+        "type": order_type,
+        "position": ticket, # Important: specify the position to close
+        "price": price,
+        "deviation": MT5_DEVIATION,
+        "magic": MT5_MAGIC_NUMBER,
+        "comment": "Auto-close: SL/TP mismatch",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+    
+    result = mt5.order_send(request)
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        err = mt5.last_error() if mt5 else "Unknown"
+        logger.error(f"❌ Failed to close position {ticket}. Result: {result.retcode if result else 'None'}, Error: {err}")
+        return False
+        
+    logger.info(f"🛑 Position {ticket} closed successfully due to SL/TP verification failure.")
+    return True
+
+
+def verify_sl_tp_consistency(ticket: int, expected_sl: float, expected_tp: float) -> bool:
+    """
+    Verifies that the open position's SL and TP match the requested ones.
+    If they differ (e.g., broker adjustment), closes the trade immediately.
+    
+    Args:
+        ticket: The position ticket ID.
+        expected_sl: The SL price we requested.
+        expected_tp: The TP price we requested.
+        
+    Returns:
+        True if consistent, False if a mismatch was found and trade was closed.
+    """
+    if not initialize_mt5():
+        return True # Assume OK if we can't check, to avoid accidental closures
+
+    # Give the broker a tiny bit of time to register the position fully if needed
+    time.sleep(0.1) 
+    
+    positions = mt5.positions_get(ticket=ticket)
+    if not positions:
+        logger.warning(f"⚠️ Verification: Position {ticket} not found (might have been closed already).")
+        return True
+    
+    pos = positions[0]
+    actual_sl = pos.sl
+    actual_tp = pos.tp
+    symbol = pos.symbol
+    
+    # === WHY DO WE NEED THE THRESHOLD? ===
+    # 1. Floating Point Math: Computers store numbers like 1.05001 with tiny 
+    #    inaccuracies (e.g., 1.050010000002). A direct '==' comparison would fail.
+    # 2. Broker Rounding: Brokers might round your 5th decimal slightly differently
+    #    than your calculation. 
+    # By using 'threshold' (1.5 times the smallest pip/point), we ensure that 
+    # if the difference is negligible, we don't close the trade.
+    
+    sym_info = mt5.symbol_info(symbol)
+    threshold = (sym_info.point * 1.5) if sym_info else 0.00001
+    
+    sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
+    tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)
+    
+    if not sl_match or not tp_match:
+        logger.warning(
+            f"❌ SL/TP MISMATCH for ticket {ticket} ({symbol})!"
+            f"\n   Requested: SL {expected_sl:.5f}, TP {expected_tp:.5f}"
+            f"\n   Actual:    SL {actual_sl:.5f}, TP {actual_tp:.5f}"
+        )
+        close_position(ticket)
+        return False
+        
+    logger.info(f"✅ SL/TP verified for ticket {ticket} ({symbol}).")
+    return True
+
+
 def is_trade_open(symbol: str) -> tuple[bool, str]:
     """
     Checks if a new trade can be opened for the given symbol.
