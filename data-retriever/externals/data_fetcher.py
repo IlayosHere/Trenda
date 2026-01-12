@@ -11,15 +11,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd
-import tzlocal
 
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
 
 log = logging.getLogger(__name__)
 
-# Lock to serialize MT5 API calls (MT5 is not thread-safe)
-_mt5_lock = threading.Lock()
+from externals.mt5_handler import mt5_lock, initialize_mt5
 
 # Import MT5
 import MetaTrader5 as mt5
@@ -97,8 +95,12 @@ def _fetch_from_mt5(
     tf_int = int(timeframe_mt5)
     is_historical = end_date is not None
     
-    # Serialize MT5 API access with lock
-    with _mt5_lock:
+    # Ensure MT5 is initialized
+    if not initialize_mt5():
+        return None
+
+    # Serialize MT5 API access with shared lock
+    with mt5_lock:
         if is_historical:
             # Historical data fetch using copy_rates_range
             # Convert to naive datetime for MT5 (it expects local time or naive UTC)
@@ -175,7 +177,8 @@ def _convert_mt5_timestamp_to_utc(mt5_timestamp: int) -> datetime:
     3. Subtracts the offset to get true UTC
     """
     # First, interpret as naive datetime (as if UTC)
-    naive_dt = datetime.utcfromtimestamp(mt5_timestamp)
+    # Using fromtimestamp with UTC instead of deprecated utcfromtimestamp
+    naive_dt = datetime.fromtimestamp(mt5_timestamp, tz=timezone.utc).replace(tzinfo=None)
     
     # Create a UTC datetime to pass to offset calculator
     assumed_utc = naive_dt.replace(tzinfo=timezone.utc)

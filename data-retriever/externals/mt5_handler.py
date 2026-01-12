@@ -1,4 +1,5 @@
 import time
+import threading
 try:
     import MetaTrader5 as mt5
 except ImportError:
@@ -11,6 +12,8 @@ logger = get_logger(__name__)
 
 # Flag to track if MT5 has been initialized in this session
 _mt5_initialized = False
+# Lock to serialize MT5 API calls (MT5 is not thread-safe)
+mt5_lock = threading.Lock()
 
 def initialize_mt5():
     """Initializes and checks the MT5 connection only once per session."""
@@ -20,16 +23,17 @@ def initialize_mt5():
         logger.warning("MetaTrader5 package not found. Skipping initialization.")
         return False
         
-    if _mt5_initialized:
-        return True
+    with mt5_lock:
+        if _mt5_initialized:
+            return True
 
-    if not mt5.initialize():
-        logger.error(f"MT5 initialization failed. Error: {mt5.last_error()}")
-        return False
-    
-    logger.info("✅ MT5 initialized successfully.")
-    _mt5_initialized = True
-    return True
+        if not mt5.initialize():
+            logger.error(f"MT5 initialization failed. Error: {mt5.last_error()}")
+            return False
+        
+        logger.info("✅ MT5 initialized successfully.")
+        _mt5_initialized = True
+        return True
 
 def shutdown_mt5():
     """Shuts down the MT5 connection and resets state."""
@@ -102,7 +106,8 @@ def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
 
-    result = mt5.order_send(request)
+    with mt5_lock:
+        result = mt5.order_send(request)
     
     if result is None:
         logger.error(f"Order send failed for {symbol}. Result is None.")
@@ -131,7 +136,8 @@ def close_position(ticket: int) -> bool:
     if not initialize_mt5():
         return False
 
-    positions = mt5.positions_get(ticket=ticket)
+    with mt5_lock:
+        positions = mt5.positions_get(ticket=ticket)
     if not positions:
         logger.error(f"❌ Failed to close position {ticket}: Position not found.")
         return False
@@ -145,10 +151,14 @@ def close_position(ticket: int) -> bool:
     # To close a SELL position (type 1), we BUY (type 0) at the Ask price.
     if position.type == mt5.POSITION_TYPE_BUY:
         order_type = mt5.ORDER_TYPE_SELL
-        price = mt5.symbol_info_tick(symbol).bid
+        with mt5_lock:
+            tick = mt5.symbol_info_tick(symbol)
+            price = tick.bid if tick else None
     else:
         order_type = mt5.ORDER_TYPE_BUY
-        price = mt5.symbol_info_tick(symbol).ask
+        with mt5_lock:
+            tick = mt5.symbol_info_tick(symbol)
+            price = tick.ask if tick else None
 
     if not price:
         logger.error(f"❌ Failed to close position {ticket}: Failed to get current price for {symbol}.")
@@ -197,7 +207,8 @@ def verify_sl_tp_consistency(ticket: int, expected_sl: float, expected_tp: float
     # Give the broker a tiny bit of time to register the position fully if needed
     time.sleep(0.1) 
     
-    positions = mt5.positions_get(ticket=ticket)
+    with mt5_lock:
+        positions = mt5.positions_get(ticket=ticket)
     if not positions:
         logger.warning(f"⚠️ Verification: Position {ticket} not found (might have been closed already).")
         return True
@@ -215,7 +226,8 @@ def verify_sl_tp_consistency(ticket: int, expected_sl: float, expected_tp: float
     # By using 'threshold' (1.5 times the smallest pip/point), we ensure that 
     # if the difference is negligible, we don't close the trade.
     
-    sym_info = mt5.symbol_info(symbol)
+    with mt5_lock:
+        sym_info = mt5.symbol_info(symbol)
     threshold = (sym_info.point * 1.5) if sym_info else 0.00001
     
     sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
@@ -249,7 +261,8 @@ def is_trade_open(symbol: str) -> tuple[bool, str]:
         return True, "MT5 initialization failed"
         
     # 1. Total active trades limit check
-    all_positions = mt5.positions_get()
+    with mt5_lock:
+        all_positions = mt5.positions_get()
     if all_positions is None:
         return False, "" # No positions at all
         

@@ -14,7 +14,7 @@ from entry.live_execution import compute_execution_data, ExecutionData
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
 from externals.data_fetcher import fetch_data
-from externals.mt5_handler import place_order, is_trade_open, verify_sl_tp_consistency
+from externals.mt5_handler import place_order, is_trade_open, verify_sl_tp_consistency, initialize_mt5
 
 try:
     import MetaTrader5 as mt5
@@ -41,7 +41,13 @@ def run_1h_entry_scan_job(
     mt5_timeframe = TIMEFRAMES.get(timeframe)
     lookback = require_analysis_params(timeframe).lookback
 
-    logger.info(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
+    num_symbols = len(FOREX_PAIRS)
+    logger.info(f"\n--- 🔍 Starting {timeframe} entry scan for {num_symbols} symbols ---")
+    
+    # Ensure MT5 is initialized before starting the scan
+    if mt5 and not initialize_mt5():
+        logger.error("❌ Failed to initialize MT5. Aborting scan job.")
+        return
 
     for symbol in FOREX_PAIRS:
         logger.info(f"  -> Checking {symbol}...")
@@ -86,8 +92,6 @@ def run_1h_entry_scan_job(
             logger.warning(f"    ⏩ Skipped {symbol}: ATR calculation failed (zero ATR).")
             continue
 
-        trend_alignment_strength = _calculate_trend_alignment_strength(trend_snapshot, direction)
-        
         # Use last candle as reference for HTF context (price differences between AOIs are minimal)
         reference_price = candles.iloc[-1]["close"]
         signal_time = candles.iloc[-1]["time"]
@@ -243,14 +247,6 @@ def _collect_trend_snapshot(
     return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
 
 
-def _calculate_trend_alignment_strength(
-    trend_snapshot: Mapping[str, Optional[TrendDirection]],
-    direction: TrendDirection,
-) -> int:
-    """Count how many timeframes align with the given direction."""
-    return sum(1 for tf_trend in trend_snapshot.values() if tf_trend == direction)
-
-
 def _get_trend_value(
     trend_snapshot: Mapping[str, Optional[TrendDirection]], 
     timeframe: str
@@ -311,30 +307,3 @@ def _scan_aoi_for_pattern(
         distance_to_next_htf_obstacle_atr=htf_context.distance_to_next_htf_obstacle_atr,
         conflicted_tf=conflicted_tf,
     )
-
-
-
-def _compute_sl_aoi_far_plus(
-    direction: TrendDirection,
-    entry_price: float,
-    aoi_low: float,
-    aoi_high: float,
-    atr_1h: float,
-) -> float:
-    """
-    Compute SL distance using SL_AOI_FAR_PLUS_0_25 model.
-    
-    SL = distance to far edge of AOI + SL_BUFFER_ATR
-    
-    For bullish: far edge = aoi_low
-    For bearish: far edge = aoi_high
-    """
-    if atr_1h <= 0:
-        return 0.0
-    
-    if direction == TrendDirection.BULLISH:
-        far_edge_distance = entry_price - aoi_low
-    else:
-        far_edge_distance = aoi_high - entry_price
-    
-    return (far_edge_distance / atr_1h) + SL_BUFFER_ATR
