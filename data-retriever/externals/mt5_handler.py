@@ -1,5 +1,6 @@
 import time
 import threading
+from datetime import datetime, timedelta
 try:
     import MetaTrader5 as mt5
 except ImportError:
@@ -271,15 +272,29 @@ def is_trade_open(symbol: str) -> tuple[bool, str]:
         return True, f"Global limit reached: {len(bot_positions)} active trades"
 
     # 2. Per-symbol time limit check
+    current_time = time.time()
+    
+    # 2a. Check active positions
     symbol_positions = [p for p in bot_positions if p.symbol == symbol]
     if symbol_positions:
-        current_time = time.time()
-        # Find the most recently opened position for this symbol
-        # p.time is opening time in seconds
         most_recent_time = max(p.time for p in symbol_positions)
-        hours_since_last_trade = (current_time - most_recent_time) / 3600
+        hours_since_last_pos = (current_time - most_recent_time) / 3600
+        if hours_since_last_pos < MT5_MIN_TRADE_INTERVAL_HOURS:
+            return True, f"Recent active position for {symbol} found ({hours_since_last_pos:.1f}h ago)."
+
+    # 2b. Check historical deals (last 24 hours to be safe)
+    # This prevents re-opening if a trade was closed (e.g., by safety logic)
+    from_date = datetime.now() - timedelta(days=1)
+    with mt5_lock:
+        history = mt5.history_deals_get(from_date, datetime.now(), group=f"*{symbol}*")
         
-        if hours_since_last_trade < MT5_MIN_TRADE_INTERVAL_HOURS:
-            return True, f"Recent trade for {symbol} found ({hours_since_last_trade:.1f}h ago). Must wait {MT5_MIN_TRADE_INTERVAL_HOURS}h."
+    if history:
+        # Filter by magic number and entry type (DEAL_ENTRY_IN means trade opening)
+        bot_deals = [d for d in history if d.magic == MT5_MAGIC_NUMBER and d.entry == mt5.DEAL_ENTRY_IN]
+        if bot_deals:
+            last_deal_time = max(d.time for d in bot_deals)
+            hours_since_last_deal = (current_time - last_deal_time) / 3600
+            if hours_since_last_deal < MT5_MIN_TRADE_INTERVAL_HOURS:
+                return True, f"Recent historical trade for {symbol} found ({hours_since_last_deal:.1f}h ago)."
             
     return False, ""

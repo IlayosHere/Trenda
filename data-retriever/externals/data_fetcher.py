@@ -5,8 +5,6 @@ including DST-aware offset calculation for historical data.
 """
 from __future__ import annotations
 
-import logging
-import threading
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -14,13 +12,10 @@ import pandas as pd
 
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
+from externals.mt5_handler import mt5_lock, initialize_mt5, mt5
+from logger import get_logger
 
-log = logging.getLogger(__name__)
-
-from externals.mt5_handler import mt5_lock, initialize_mt5
-
-# Import MT5
-import MetaTrader5 as mt5
+logger = get_logger(__name__)
 
 
 def fetch_data(
@@ -89,7 +84,7 @@ def _fetch_from_mt5(
         For historical data: Calculates per-candle offset to handle DST correctly.
     """
     if mt5 is None:
-        log.error("MetaTrader5 is not available in this environment.")
+        logger.error("MetaTrader5 is not available in this environment.")
         return None
 
     tf_int = int(timeframe_mt5)
@@ -133,13 +128,13 @@ def _fetch_from_mt5(
             if rates is None or len(rates) == 0:
                 error = mt5.last_error()
                 if error[0] != 1:  # 1 = success
-                    log.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
+                    logger.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
         else:
             # Live data fetch using current position
             rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)
 
         if rates is None or len(rates) == 0:
-            log.error("%s for %s on TF %s", DATA_ERROR_MSG, symbol, timeframe_mt5)
+            logger.error("%s for %s on TF %s", DATA_ERROR_MSG, symbol, timeframe_mt5)
             return None
 
     # DataFrame processing outside the lock
