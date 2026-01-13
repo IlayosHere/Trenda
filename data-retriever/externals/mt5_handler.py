@@ -17,7 +17,7 @@ _mt5_initialized = False
 mt5_lock = threading.RLock()
 
 def initialize_mt5():
-    """Initializes and checks the MT5 connection only once per session."""
+    """Initializes and checks the MT5 connection. Retries if connection is lost."""
     global _mt5_initialized
     
     if mt5 is None:
@@ -25,23 +25,39 @@ def initialize_mt5():
         return False
         
     with mt5_lock:
-        if _mt5_initialized:
-            return True
+        try:
+            # Even if initialized, check if terminal is actually connected and authorized
+            if _mt5_initialized:
+                terminal_info = mt5.terminal_info()
+                if terminal_info and terminal_info.connected:
+                    return True
+                else:
+                    logger.warning("MT5 terminal disconnected. Attempting re-initialization...")
+                    _mt5_initialized = False # Force re-init
 
-        if not mt5.initialize():
-            logger.error(f"MT5 initialization failed. Error: {mt5.last_error()}")
+            if not mt5.initialize():
+                logger.error(f"MT5 initialization failed. Error: {mt5.last_error()}")
+                return False
+            
+            # Additional check: terminal must be connected to a broker
+            term_info = mt5.terminal_info()
+            if not term_info or not term_info.connected:
+                 logger.error("MT5 terminal initialized but not connected to server.")
+                 return False
+
+            logger.info("✅ MT5 initialized and connected successfully.")
+            _mt5_initialized = True
+            return True
+        except Exception as e:
+            logger.error(f"Critical error during MT5 initialization: {e}")
             return False
-        
-        logger.info("✅ MT5 initialized successfully.")
-        _mt5_initialized = True
-        return True
 
 def shutdown_mt5():
     """Shuts down the MT5 connection and resets state."""
     global _mt5_initialized
     if mt5 is not None:
-        logger.info("Shutting down MT5 connection...")
         with mt5_lock:
+            logger.info("Shutting down MT5 connection...")
             mt5.shutdown()
     _mt5_initialized = False
 
@@ -110,16 +126,16 @@ def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0,
         }
 
         result = mt5.order_send(request)
-        
-        if result is None:
-            logger.error(f"Order send failed for {symbol}. Result is None. Error: {mt5.last_error()}")
-            return None
+    
+    if result is None:
+        logger.error(f"Order send failed for {symbol}. Result is None.")
+        return None
 
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            logger.error(f"Order failed for {symbol}. Action: {mt5.TRADE_ACTION_DEAL}, Retcode: {result.retcode}, Error: {mt5.last_error()}")
-            return result
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        logger.error(f"Order failed for {symbol}. Action: {mt5.TRADE_ACTION_DEAL}, Retcode: {result.retcode}, Error: {mt5.last_error()}")
+        return result
 
-    # 5. Success Logging (Price info is safe here as it's from the result/request)
+    # 5. Success Logging
     logger.info(f"✅ Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{result.order}")
     
     return result
@@ -151,13 +167,12 @@ def close_position(ticket: int) -> bool:
         # Correcting logic: 
         # To close a BUY position (type 0), we SELL (type 1) at the Bid price.
         # To close a SELL position (type 1), we BUY (type 0) at the Ask price.
+        tick = mt5.symbol_info_tick(symbol)
         if position.type == mt5.POSITION_TYPE_BUY:
             order_type = mt5.ORDER_TYPE_SELL
-            tick = mt5.symbol_info_tick(symbol)
             price = tick.bid if tick else None
         else:
             order_type = mt5.ORDER_TYPE_BUY
-            tick = mt5.symbol_info_tick(symbol)
             price = tick.ask if tick else None
 
         if not price:
@@ -179,10 +194,11 @@ def close_position(ticket: int) -> bool:
         }
         
         result = mt5.order_send(request)
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-            err = mt5.last_error() if mt5 else "Unknown"
-            logger.error(f"❌ Failed to close position {ticket}. Result: {result.retcode if result else 'None'}, Error: {err}")
-            return False
+
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        err = mt5.last_error() if mt5 else "Unknown"
+        logger.error(f"❌ Failed to close position {ticket}. Result: {result.retcode if result else 'None'}, Error: {err}")
+        return False
         
     logger.info(f"🛑 Position {ticket} closed successfully due to SL/TP verification failure.")
     return True
@@ -218,6 +234,14 @@ def verify_sl_tp_consistency(ticket: int, expected_sl: float, expected_tp: float
         actual_tp = pos.tp
         symbol = pos.symbol
         
+        # === WHY DO WE NEED THE THRESHOLD? ===
+        # 1. Floating Point Math: Computers store numbers like 1.05001 with tiny 
+        #    inaccuracies (e.g., 1.050010000002). A direct '==' comparison would fail.
+        # 2. Broker Rounding: Brokers might round your 5th decimal slightly differently
+        #    than your calculation. 
+        # By using 'threshold' (1.5 times the smallest pip/point), we ensure that 
+        # if the difference is negligible, we don't close the trade.
+        
         sym_info = mt5.symbol_info(symbol)
         threshold = (sym_info.point * 1.5) if sym_info else 0.00001
     
@@ -251,40 +275,50 @@ def is_trade_open(symbol: str) -> tuple[bool, str]:
     if not initialize_mt5():
         return True, "MT5 initialization failed"
         
-    # 1. Total active trades limit check
     with mt5_lock:
+        # 1. Get server time from current tick
+        tick = mt5.symbol_info_tick(symbol)
+        if not tick:
+            return True, f"Failed to get tick for {symbol} to check server time"
+        
+        current_server_time = tick.time
+
+        # 2. Total active trades limit check
         all_positions = mt5.positions_get()
-    if all_positions is None:
-        return False, "" # No positions at all
+        if all_positions is None:
+            # Check for error
+            err = mt5.last_error()
+            if err[0] != 1: # 1 = Success / No positions
+                 logger.error(f"Failed to get positions: {err}")
+                 return True, "Error fetching active positions"
+            all_positions = []
+            
+        bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
+        if len(bot_positions) >= MT5_MAX_ACTIVE_TRADES:
+            return True, f"Global limit reached: {len(bot_positions)} active trades"
+
+        # 3. Per-symbol time limit check
         
-    bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
-    if len(bot_positions) >= MT5_MAX_ACTIVE_TRADES:
-        return True, f"Global limit reached: {len(bot_positions)} active trades"
+        # 3a. Check active positions
+        symbol_positions = [p for p in bot_positions if p.symbol == symbol]
+        if symbol_positions:
+            most_recent_start_time = max(p.time for p in symbol_positions)
+            hours_since_last_pos = (current_server_time - most_recent_start_time) / 3600
+            if hours_since_last_pos < MT5_MIN_TRADE_INTERVAL_HOURS:
+                return True, f"Recent active position for {symbol} found ({hours_since_last_pos:.1f}h ago server time)."
 
-    # 2. Per-symbol time limit check
-    current_time = time.time()
-    
-    # 2a. Check active positions
-    symbol_positions = [p for p in bot_positions if p.symbol == symbol]
-    if symbol_positions:
-        most_recent_time = max(p.time for p in symbol_positions)
-        hours_since_last_pos = (current_time - most_recent_time) / 3600
-        if hours_since_last_pos < MT5_MIN_TRADE_INTERVAL_HOURS:
-            return True, f"Recent active position for {symbol} found ({hours_since_last_pos:.1f}h ago)."
-
-    # 2b. Check historical deals (last 24 hours to be safe)
-    # This prevents re-opening if a trade was closed (e.g., by safety logic)
-    from_date = datetime.now() - timedelta(days=1)
-    with mt5_lock:
+        # 3b. Check historical deals (last 24 hours to be safe)
+        # We fetch history based on server time relative date
+        from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=1)
         history = mt5.history_deals_get(from_date, datetime.now(), group=f"*{symbol}*")
-        
-    if history:
-        # Filter by magic number and entry type (DEAL_ENTRY_IN means trade opening)
-        bot_deals = [d for d in history if d.magic == MT5_MAGIC_NUMBER and d.entry == mt5.DEAL_ENTRY_IN]
-        if bot_deals:
-            last_deal_time = max(d.time for d in bot_deals)
-            hours_since_last_deal = (current_time - last_deal_time) / 3600
-            if hours_since_last_deal < MT5_MIN_TRADE_INTERVAL_HOURS:
-                return True, f"Recent historical trade for {symbol} found ({hours_since_last_deal:.1f}h ago)."
+            
+        if history:
+            # Filter by magic number and entry type (DEAL_ENTRY_IN means trade opening)
+            bot_deals = [d for d in history if d.magic == MT5_MAGIC_NUMBER and d.entry == mt5.DEAL_ENTRY_IN]
+            if bot_deals:
+                last_deal_time = max(d.time for d in bot_deals)
+                hours_since_last_deal = (current_server_time - last_deal_time) / 3600
+                if hours_since_last_deal < MT5_MIN_TRADE_INTERVAL_HOURS:
+                    return True, f"Recent historical trade for {symbol} found ({hours_since_last_deal:.1f}h ago server time)."
             
     return False, ""
