@@ -134,15 +134,14 @@ class MT5Trader:
         """Performs a single closing attempt. Returns (success, should_retry)."""
         with self.connection.lock:
             # Check if position exists
-            positions = self.mt5.positions_get(ticket=ticket)
-            if not positions:
+            pos = self._get_active_position(ticket)
+            if not pos:
                 if attempt == 1:
                     logger.warning(f"⚠️ Close position {ticket}: Not found (already closed).")
                     return True, False
                 return True, False # Success on retry if it's gone
             
             # Prepare request
-            pos = positions[0]
             tick = self.mt5.symbol_info_tick(pos.symbol)
             if not tick:
                 logger.error(f"❌ Close attempt {attempt}: Failed to get tick for {pos.symbol}.")
@@ -176,14 +175,20 @@ class MT5Trader:
         """Final check to ensure the position is actually closed on the server."""
         time.sleep(0.5) # Wait for server synchronization
         with self.connection.lock:
-            remaining = self.mt5.positions_get(ticket=ticket)
-            if remaining:
+            if self._get_active_position(ticket):
                 logger.critical(f"🚨 VERIFICATION FAILED: Ticket {ticket} still OPEN after successful close signal!")
                 # TODO: Trigger extreme priority alert (WhatsApp)
                 return False
 
         logger.info(f"🛑 Position {ticket} closed and verified successfully.")
         return True
+
+    def _get_active_position(self, ticket: int):
+        """Helper to get a single active position by its unique ticket ID.
+        MT5 returns a tuple even for unique tickets, so we take the first item.
+        """
+        positions = self.mt5.positions_get(ticket=ticket)
+        return positions[0] if positions else None
 
     def verify_sl_tp_consistency(self, ticket: int, expected_sl: float, expected_tp: float) -> bool:
         """Verifies that the open position's SL and TP match the requested ones."""
@@ -193,16 +198,16 @@ class MT5Trader:
         time.sleep(0.1) 
         
         with self.connection.lock:
-            positions = self.mt5.positions_get(ticket=ticket)
-            if not positions:
+            pos = self._get_active_position(ticket)
+            if not pos:
                 logger.warning(f"⚠️ Verification: Position {ticket} not found (might have been closed already).")
                 return True
             
-            pos = positions[0]
             actual_sl = pos.sl
             actual_tp = pos.tp
             symbol = pos.symbol
             
+            # 1.5 point threshold handles tiny broker-side floating point rounding errors
             sym_info = self.mt5.symbol_info(symbol)
             threshold = (sym_info.point * 1.5) if sym_info else 0.00001
         
