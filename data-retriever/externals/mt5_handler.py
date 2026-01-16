@@ -6,7 +6,7 @@ try:
 except ImportError:
     mt5 = None
 
-from configuration.broker import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_HOURS
+from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_HOURS
 from logger import get_logger
 
 logger = get_logger(__name__)

@@ -6,7 +6,7 @@ from .forex_config import (
     require_analysis_params,
     require_aoi_lookback,
 )
-from .broker import (
+from .broker_config import (
     BROKER_PROVIDER,
     BROKER_MT5,
     BROKER_TWELVEDATA,
@@ -17,8 +17,6 @@ from .broker import (
     MT5_EXPIRATION_MINUTES,
     MT5_MAX_ACTIVE_TRADES,
     MT5_MIN_TRADE_INTERVAL_HOURS,
-)
-from .broker_config import (
     MT5_BROKER_TIMEZONE,
     MT5_BROKER_UTC_OFFSET,
     get_broker_utc_offset,
