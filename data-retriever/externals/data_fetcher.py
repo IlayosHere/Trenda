@@ -12,7 +12,7 @@ import pandas as pd
 
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
-from externals.mt5_handler import mt5_lock, initialize_mt5, mt5
+from externals.meta_trader import mt5_lock, initialize_mt5, mt5
 from logger import get_logger
 
 logger = get_logger(__name__)

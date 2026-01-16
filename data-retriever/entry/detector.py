@@ -14,7 +14,13 @@ from entry.live_execution import compute_execution_data, ExecutionData
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
 from externals.data_fetcher import fetch_data
-from externals.mt5_handler import place_order, is_trade_open, verify_sl_tp_consistency, initialize_mt5
+from externals.meta_trader import (
+    initialize_mt5,
+    place_order,
+    is_trade_open,
+    verify_sl_tp_consistency,
+    mt5,
+)
 
 try:
     import MetaTrader5 as mt5

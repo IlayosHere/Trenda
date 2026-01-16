@@ -19,7 +19,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import MetaTrader5 as mt5
-from externals.mt5_handler import (
+from externals.meta_trader import (
     initialize_mt5,
     shutdown_mt5,
     place_order,
