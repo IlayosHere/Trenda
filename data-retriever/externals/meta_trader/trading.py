@@ -1,5 +1,5 @@
 import time
-from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_SECONDS
+from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_SECONDS
 
 logger = get_logger(__name__)
 
@@ -138,8 +138,8 @@ class MT5Trader:
                 "position": ticket,
                 "price": price,
                 "deviation": MT5_DEVIATION,
-                "magic": MT5_MAGIC_NUMBER,
-                "comment": "Auto-close: SL/TP mismatch",
+                "magic": MT5_EMERGENCY_MAGIC_NUMBER,
+                "comment": "Auto-close",
                 "type_time": self.mt5.ORDER_TIME_GTC,
                 "type_filling": self.mt5.ORDER_FILLING_IOC,
             }

@@ -18,6 +18,7 @@ TWELVEDATA_BASE_URL: str = os.getenv("TWELVEDATA_BASE_URL", "https://api.twelved
 
 # MT5 Config
 MT5_MAGIC_NUMBER: int = int(os.getenv("MT5_MAGIC_NUMBER", "123456"))
+MT5_EMERGENCY_MAGIC_NUMBER: int = int(os.getenv("MT5_EMERGENCY_MAGIC_NUMBER", "654321"))
 MT5_DEVIATION: int = int(os.getenv("MT5_DEVIATION", "20"))
 MT5_EXPIRATION_SECONDS: int = int(os.getenv("MT5_EXPIRATION_SECONDS", "90"))
 MT5_MAX_ACTIVE_TRADES: int = int(os.getenv("MT5_MAX_ACTIVE_TRADES", "4"))
