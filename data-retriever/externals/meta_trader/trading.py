@@ -1,5 +1,8 @@
 import time
-from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_SECONDS
+from configuration.broker_config import (
+    MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION, 
+    MT5_EXPIRATION_SECONDS, MT5_CLOSE_RETRY_ATTEMPTS
+)
 
 logger = get_logger(__name__)
 
@@ -61,6 +64,8 @@ class MT5Trader:
                 "deviation": deviation,
                 "magic": magic,
                 "comment": comment,
+                # We use SPECIFIED with a short expiration to "kill" the order if not filled 
+                # within our 90s window (relevant if the order sits in a queue).
                 "type_time": self.mt5.ORDER_TIME_SPECIFIED,
                 "expiration": expiration_time,
                 "type_filling": self.mt5.ORDER_FILLING_IOC,
@@ -104,39 +109,52 @@ class MT5Trader:
         return result
 
     def close_position(self, ticket: int) -> bool:
-        """Closes an active position by its ticket ID."""
+        """Closes an active position by its ticket ID with retry logic and verification."""
         if not self.connection.initialize():
             return False
 
+        # 1. Try to close (configurable attempts)
+        for attempt in range(1, MT5_CLOSE_RETRY_ATTEMPTS + 1):
+            success, should_retry = self._attempt_close(ticket, attempt)
+            if success:
+                break
+            if not should_retry:
+                return False
+            
+            logger.info(f"🔄 Retrying close for ticket {ticket} in 1s...")
+            time.sleep(1)
+        else:
+            logger.critical(f"🚨 EMERGENCY: Failed to close position {ticket} after all attempts.")
+            return False
+
+        # 2. Final server-side verification
+        return self._verify_closure(ticket)
+
+    def _attempt_close(self, ticket: int, attempt: int) -> tuple[bool, bool]:
+        """Performs a single closing attempt. Returns (success, should_retry)."""
         with self.connection.lock:
+            # Check if position exists
             positions = self.mt5.positions_get(ticket=ticket)
             if not positions:
-                logger.error(f"❌ Failed to close position {ticket}: Position not found.")
-                return False
+                if attempt == 1:
+                    logger.warning(f"⚠️ Close position {ticket}: Not found (already closed).")
+                    return True, False
+                return True, False # Success on retry if it's gone
             
-            position = positions[0]
-            symbol = position.symbol
-            volume = position.volume
-            
-            tick = self.mt5.symbol_info_tick(symbol)
-            if position.type == self.mt5.POSITION_TYPE_BUY:
-                order_type = self.mt5.ORDER_TYPE_SELL
-                price = tick.bid if tick else None
-            else:
-                order_type = self.mt5.ORDER_TYPE_BUY
-                price = tick.ask if tick else None
+            # Prepare request
+            pos = positions[0]
+            tick = self.mt5.symbol_info_tick(pos.symbol)
+            if not tick:
+                logger.error(f"❌ Close attempt {attempt}: Failed to get tick for {pos.symbol}.")
+                return False, True
 
-            if not price:
-                logger.error(f"❌ Failed to close position {ticket}: Failed to get current price for {symbol}.")
-                return False
-            
             request = {
                 "action": self.mt5.TRADE_ACTION_DEAL,
-                "symbol": symbol,
-                "volume": volume,
-                "type": order_type,
+                "symbol": pos.symbol,
+                "volume": pos.volume,
+                "type": self.mt5.ORDER_TYPE_SELL if pos.type == self.mt5.POSITION_TYPE_BUY else self.mt5.ORDER_TYPE_BUY,
                 "position": ticket,
-                "price": price,
+                "price": tick.bid if pos.type == self.mt5.POSITION_TYPE_BUY else tick.ask,
                 "deviation": MT5_DEVIATION,
                 "magic": MT5_EMERGENCY_MAGIC_NUMBER,
                 "comment": "Auto-close",
@@ -146,12 +164,25 @@ class MT5Trader:
             
             result = self.mt5.order_send(request)
 
-        if result is None or result.retcode != self.mt5.TRADE_RETCODE_DONE:
-            err = self.mt5.last_error() if self.mt5 else "Unknown"
-            logger.error(f"❌ Failed to close position {ticket}. Result: {result.retcode if result else 'None'}, Error: {err}")
-            return False
+        # Evaluate result
+        if result and result.retcode == self.mt5.TRADE_RETCODE_DONE:
+            return True, False
             
-        logger.info(f"🛑 Position {ticket} closed successfully due to SL/TP verification failure.")
+        err_msg = f"Retcode: {result.retcode if result else 'None'}, Error: {self.mt5.last_error()}"
+        logger.error(f"❌ Close attempt {attempt} failed for ticket {ticket}. {err_msg}")
+        return False, True
+
+    def _verify_closure(self, ticket: int) -> bool:
+        """Final check to ensure the position is actually closed on the server."""
+        time.sleep(0.5) # Wait for server synchronization
+        with self.connection.lock:
+            remaining = self.mt5.positions_get(ticket=ticket)
+            if remaining:
+                logger.critical(f"🚨 VERIFICATION FAILED: Ticket {ticket} still OPEN after successful close signal!")
+                # TODO: Trigger extreme priority alert (WhatsApp)
+                return False
+
+        logger.info(f"🛑 Position {ticket} closed and verified successfully.")
         return True
 
     def verify_sl_tp_consistency(self, ticket: int, expected_sl: float, expected_tp: float) -> bool:

@@ -23,6 +23,7 @@ MT5_DEVIATION: int = int(os.getenv("MT5_DEVIATION", "20"))
 MT5_EXPIRATION_SECONDS: int = int(os.getenv("MT5_EXPIRATION_SECONDS", "90"))
 MT5_MAX_ACTIVE_TRADES: int = int(os.getenv("MT5_MAX_ACTIVE_TRADES", "4"))
 MT5_MIN_TRADE_INTERVAL_MINUTES: int = int(os.getenv("MT5_MIN_TRADE_INTERVAL_MINUTES", "210"))
+MT5_CLOSE_RETRY_ATTEMPTS: int = int(os.getenv("MT5_CLOSE_RETRY_ATTEMPTS", "2"))
 
 # MT5 broker timezone (for DST-aware offset calculation)
 # Default: Europe/Athens (EET/EEST) - standard for most forex brokers
