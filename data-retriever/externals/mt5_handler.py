@@ -308,9 +308,10 @@ def is_trade_open(symbol: str) -> tuple[bool, str]:
                 return True, f"Recent active position for {symbol} found ({hours_since_last_pos:.1f}h ago server time)."
 
         # 3b. Check historical deals (last 24 hours to be safe)
-        # We fetch history based on server time relative date
+        # We fetch history based on server time to avoid local clock drift
         from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=1)
-        history = mt5.history_deals_get(from_date, datetime.now(), group=f"*{symbol}*")
+        to_date = datetime.fromtimestamp(current_server_time + 60) # +1 min buffer for current deals
+        history = mt5.history_deals_get(from_date, to_date, group=f"*{symbol}*")
             
         if history:
             # Filter by magic number and entry type (DEAL_ENTRY_IN means trade opening)
