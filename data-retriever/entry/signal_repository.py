@@ -36,12 +36,6 @@ def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[
     if not DBValidator.validate_nullable_float(signal.atr_1h, "atr_1h"):
         return None
     
-    def _validate_candle_value(value: Any, field: str) -> Optional[float]:
-        if not isinstance(value, (int, float)):
-            logger.error(f"DB_VALIDATION: candle {field} must be numeric")
-            return None
-        return float(value)
-    
     def _persist(cursor):
         cursor.execute(
             INSERT_ENTRY_SIGNAL,

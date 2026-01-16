@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from logger import get_logger
-from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_HOURS
+from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_MINUTES
 
 logger = get_logger(__name__)
 
@@ -24,38 +24,62 @@ class MT5Constraints:
             
             current_server_time = tick.time
 
-            # 2. Total active trades limit check
-            all_positions = self.mt5.positions_get()
-            if all_positions is None:
-                err = self.mt5.last_error()
-                if err[0] != 1: # 1 = Success / No positions
-                     logger.error(f"Failed to get positions: {err}")
-                     return True, "Error fetching active positions"
-                all_positions = []
-                
-            bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
-            if len(bot_positions) >= MT5_MAX_ACTIVE_TRADES:
-                return True, f"Global limit reached: {len(bot_positions)} active trades"
+            # 2. Check global trade limit
+            is_blocked, reason = self._check_global_limit()
+            if is_blocked:
+                return True, reason
 
-            # 3. Per-symbol time limit check
-            symbol_positions = [p for p in bot_positions if p.symbol == symbol]
-            if symbol_positions:
-                most_recent_start_time = max(p.time for p in symbol_positions)
-                hours_since_last_pos = (current_server_time - most_recent_start_time) / 3600
-                if hours_since_last_pos < MT5_MIN_TRADE_INTERVAL_HOURS:
-                    return True, f"Recent active position for {symbol} found ({hours_since_last_pos:.1f}h ago server time)."
+            # 3. Check per-symbol time interval
+            is_blocked, reason = self._check_symbol_interval(symbol, current_server_time)
+            if is_blocked:
+                return True, reason
+                
+        return False, ""
 
-            # 3b. Check historical deals
-            from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=1)
-            to_date = datetime.fromtimestamp(current_server_time + 60)
-            history = self.mt5.history_deals_get(from_date, to_date, group=f"*{symbol}*")
-                
-            if history:
-                bot_deals = [d for d in history if d.magic == MT5_MAGIC_NUMBER and d.entry == self.mt5.DEAL_ENTRY_IN]
-                if bot_deals:
-                    last_deal_time = max(d.time for d in bot_deals)
-                    hours_since_last_deal = (current_server_time - last_deal_time) / 3600
-                    if hours_since_last_deal < MT5_MIN_TRADE_INTERVAL_HOURS:
-                        return True, f"Recent historical trade for {symbol} found ({hours_since_last_deal:.1f}h ago server time)."
-                
+    def _check_global_limit(self) -> tuple[bool, str]:
+        """Checks if the maximum allowed global trades for this bot has been reached."""
+        all_positions = self.mt5.positions_get()
+        if all_positions is None:
+            err = self.mt5.last_error()
+            if err[0] != 1: # 1 = Success / No positions
+                 logger.error(f"Failed to get positions: {err}")
+                 return True, "Error fetching active positions"
+            all_positions = []
+            
+        bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
+        if len(bot_positions) >= MT5_MAX_ACTIVE_TRADES:
+            return True, f"Global limit reached: {len(bot_positions)} active trades"
+        
+        return False, ""
+
+    def _check_symbol_interval(self, symbol: str, current_server_time: float) -> tuple[bool, str]:
+        """Checks if enough time has passed since the last trade for this symbol."""
+        # Convert minutes from config to seconds for precision
+        min_gap_seconds = MT5_MIN_TRADE_INTERVAL_MINUTES * 60 
+
+        # 1. Check active positions
+        all_positions = self.mt5.positions_get() or []
+        symbol_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER and p.symbol == symbol]
+        
+        if symbol_positions:
+            most_recent_start_time = max(p.time for p in symbol_positions)
+            seconds_since_last_pos = current_server_time - most_recent_start_time
+            if seconds_since_last_pos < min_gap_seconds:
+                hours_ago = seconds_since_last_pos / 3600
+                return True, f"Recent active position for {symbol} found ({hours_ago:.1f}h ago server time)."
+
+        # 2. Check historical deals (last 24 hours)
+        from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=1)
+        to_date = datetime.fromtimestamp(current_server_time + 60)
+        history = self.mt5.history_deals_get(from_date, to_date, group=f"*{symbol}*")
+            
+        if history:
+            bot_deals = [d for d in history if d.magic == MT5_MAGIC_NUMBER and d.entry == self.mt5.DEAL_ENTRY_IN]
+            if bot_deals:
+                last_deal_time = max(d.time for d in bot_deals)
+                seconds_since_last_deal = current_server_time - last_deal_time
+                if seconds_since_last_deal < min_gap_seconds:
+                    hours_ago = seconds_since_last_deal / 3600
+                    return True, f"Recent historical trade for {symbol} found ({hours_ago:.1f}h ago server time)."
+
         return False, ""
