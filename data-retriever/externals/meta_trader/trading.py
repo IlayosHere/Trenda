@@ -1,6 +1,5 @@
 import time
-from logger import get_logger
-from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES
+from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_SECONDS
 
 logger = get_logger(__name__)
 
@@ -13,9 +12,9 @@ class MT5Trader:
 
     def place_order(self, symbol: str, order_type: int, volume: float, price: float = 0.0, 
                     sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, 
-                    magic: int = MT5_MAGIC_NUMBER, comment: str = "", 
-                    expiration_minutes: int = MT5_EXPIRATION_MINUTES):
-        """Place an order in MT5 with automatic expiration."""
+                    magic: int = MT5_MAGIC_NUMBER, comment: str = "",
+                    expiration_seconds: int = MT5_EXPIRATION_SECONDS):
+        """Place an order in MT5 with a strict expiration window."""
         if not self.connection.initialize():
             return None
 
@@ -38,15 +37,18 @@ class MT5Trader:
                 return None
 
             if price == 0.0:
-                price = tick.ask if order_type == self.mt5.ORDER_TYPE_BUY else tick.bid
+                logger.error(f"Order failed for {symbol}: price is 0.0. A valid price must be provided.")
+                return None
 
             # 3. Normalize prices (Round to symbol's digits)
             price = round(price, symbol_info.digits)
             sl = round(sl, symbol_info.digits) if sl > 0 else 0.0
             tp = round(tp, symbol_info.digits) if tp > 0 else 0.0
 
-            # 4. Calculate expiration timestamp (Server time + minutes)
-            expiration_time = int(tick.time + (expiration_minutes * 60))
+            # 4. Calculate expiration timestamp (Server time + configured seconds)
+            # We use a short window because data is already ~60-80s old.
+            # If the broker cannot fill the order within this window, it should be killed.
+            expiration_time = int(tick.time + expiration_seconds)
 
             request = {
                 "action": self.mt5.TRADE_ACTION_DEAL,
