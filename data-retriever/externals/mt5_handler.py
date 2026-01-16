@@ -6,7 +6,7 @@ try:
 except ImportError:
     mt5 = None
 
-from configuration import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_HOURS
+from configuration.broker import MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_MINUTES, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_HOURS
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -63,19 +63,19 @@ def shutdown_mt5():
 
 def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0, sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, magic: int = MT5_MAGIC_NUMBER, comment: str = "", expiration_minutes: int = MT5_EXPIRATION_MINUTES):
     """
-    Unified function to place any type of order in MT5 with automatic 10-minute expiration.
+    Place an order in MT5 with automatic expiration.
     
     Args:
         symbol: The trading instrument (e.g., "EURUSD").
-        order_type: Direction (mt5.ORDER_TYPE_BUY/SELL) or Pending (mt5.ORDER_TYPE_BUY_LIMIT/STOP, etc.).
-        price: The price for pending orders. If 0.0, it uses current market price for direct deals.
+        order_type: Direction (mt5.ORDER_TYPE_BUY or mt5.ORDER_TYPE_SELL).
         volume: Order size in lots.
+        price: The price for the order. If 0.0, uses current market price.
         sl: Stop loss price.
         tp: Take profit price.
         deviation: Max allowed slippage (points).
         magic: Unique identifier for the EA/bot (default from config).
         comment: Personal note.
-        expiration_minutes: Minutes after which the order is canceled if not filled (default 10).
+        expiration_minutes: Minutes after which the order is canceled if not filled.
     """
     if not initialize_mt5():
         return None
@@ -132,7 +132,29 @@ def place_order(symbol: str, order_type: int, volume: float, price: float = 0.0,
         return None
 
     if result.retcode != mt5.TRADE_RETCODE_DONE:
-        logger.error(f"Order failed for {symbol}. Action: {mt5.TRADE_ACTION_DEAL}, Retcode: {result.retcode}, Error: {mt5.last_error()}")
+        # Common MT5 error codes for better debugging
+        error_messages = {
+            10004: "Requote - price changed",
+            10006: "Request rejected",
+            10007: "Request canceled by trader",
+            10010: "Only part of request completed",
+            10013: "Invalid request",
+            10014: "Invalid volume",
+            10015: "Invalid price",
+            10016: "Invalid stops (SL/TP)",
+            10017: "Trade disabled",
+            10018: "Market closed",
+            10019: "Insufficient funds",
+            10020: "Prices changed",
+            10021: "No quotes",
+            10022: "Invalid order expiration",
+            10024: "Too frequent requests",
+            10026: "AutoTrading disabled by server",
+            10027: "AutoTrading disabled in terminal (enable Algo Trading button)",
+            10030: "Invalid SL/TP for this symbol",
+        }
+        error_desc = error_messages.get(result.retcode, "Unknown error")
+        logger.error(f"Order failed for {symbol}. Retcode: {result.retcode} ({error_desc}), MT5 Error: {mt5.last_error()}")
         return result
 
     # 5. Success Logging
