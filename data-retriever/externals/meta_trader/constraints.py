@@ -58,8 +58,8 @@ class MT5Constraints:
         min_gap_seconds = MT5_MIN_TRADE_INTERVAL_MINUTES * 60 
 
         # 1. Check active positions
-        all_positions = self.mt5.positions_get() or []
-        symbol_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER and p.symbol == symbol]
+        all_positions = self.mt5.positions_get(symbol=symbol) or []
+        symbol_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
         
         if symbol_positions:
             most_recent_start_time = max(p.time for p in symbol_positions)
