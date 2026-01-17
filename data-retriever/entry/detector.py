@@ -57,6 +57,14 @@ def run_1h_entry_scan_job(
 
     for symbol in FOREX_PAIRS:
         logger.info(f"  -> Checking {symbol}...")
+        
+        # 1. Prevent duplicate trades or over-trading: skip if constraints are met
+        is_blocked, reason = is_trade_open(symbol)
+        if is_blocked:
+            logger.info(f"    ⏩ Skipped {symbol}: {reason}")
+            continue
+
+        # 2. Fetch candle data
         candles = fetch_data(
             symbol,
             mt5_timeframe,
@@ -86,11 +94,6 @@ def run_1h_entry_scan_job(
         if not aois:
             continue
 
-        # Prevent duplicate trades or over-trading: skip if constraints are met
-        is_blocked, reason = is_trade_open(symbol)
-        if is_blocked:
-            logger.info(f"    ⏩ Skipped {symbol}: {reason}")
-            continue
 
         # === SYMBOL-LEVEL CALCULATIONS (outside AOI loop) ===
         atr_1h = calculate_atr(candles)
