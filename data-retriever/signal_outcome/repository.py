@@ -1,6 +1,5 @@
 """Repository for signal outcome database operations."""
 
-from typing import Optional
 
 from psycopg2.extras import RealDictCursor
 

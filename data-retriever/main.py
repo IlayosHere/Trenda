@@ -1,5 +1,4 @@
 import os
-import core.env
 import time
 from scheduler import scheduler
 from externals import mt5_handler

@@ -10,7 +10,7 @@ from entry.gates import check_all_gates
 from entry.gates.config import SL_MODEL_NAME, SL_BUFFER_ATR, RR_MULTIPLE
 from entry.htf_context import compute_htf_context, get_conflicted_timeframe, HTFContext
 from entry.scoring import calculate_score, ScoreResult
-from entry.live_execution import compute_execution_data, ExecutionData
+from entry.live_execution import compute_execution_data
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
 from externals.data_fetcher import fetch_data

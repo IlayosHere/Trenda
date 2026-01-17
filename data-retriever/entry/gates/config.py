@@ -1,6 +1,6 @@
 """Gate configuration constants."""
 
-from typing import Final, FrozenSet, Tuple
+from typing import Final, Tuple
 
 # =============================================================================
 # Gate 2: Timeframe Conflict Filter

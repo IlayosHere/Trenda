@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, List, Dict, Any
 
 from psycopg2.extras import RealDictCursor  # To get results as dictionaries
@@ -16,11 +15,10 @@ from db import (
 # Ensure environment variables are loaded if this module is imported early
 load_dotenv()
 
+from logger import get_logger
+
 # --- Setup Logging ---
-log = logging.getLogger(__name__)
-# Basic config if run standalone, actual config often done in api.py
-if not log.handlers:
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] API_Repo: %(message)s')
+logger = get_logger(__name__)
 
 # --- Data Fetching ---
 
@@ -58,10 +56,10 @@ def fetch_all_trend_data() -> Optional[List[Dict[str, Any]]]:
         context="fetch_all_trend_data",
     )
     if results is None:
-        log.error("API Repo: Database query error while fetching trend data")
+        logger.error("API Repo: Database query error while fetching trend data")
         return None
 
-    log.info(f"API Repo: Retrieved {len(results)} records.")
+    logger.info(f"API Repo: Retrieved {len(results)} records.")
     return results
 
 
@@ -70,7 +68,7 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     VALIDATED_TIMEFRAME = "4H"
     normalized_symbol = validate_symbol(symbol)
     if not normalized_symbol:
-        log.error("API Repo: Invalid symbol provided for AOI lookup")
+        logger.error("API Repo: Invalid symbol provided for AOI lookup")
         return None
 
     trend_sql = """
@@ -127,7 +125,7 @@ def fetch_aoi_for_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     )
 
     if aoi_rows is None:
-        log.error("API Repo: Database query error while fetching AOI list")
+        logger.error("API Repo: Database query error while fetching AOI list")
         return None
 
     for row in aoi_rows:

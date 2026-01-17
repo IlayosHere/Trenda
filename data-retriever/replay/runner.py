@@ -16,7 +16,6 @@ from .config import (
     REPLAY_START_DATE,
     REPLAY_END_DATE,
     SCHEMA_NAME,
-    OUTCOME_WINDOW_BARS,
     MAX_CHUNK_DAYS,
 )
 from .candle_store import load_symbol_candles
@@ -254,12 +253,10 @@ def _compute_remaining_outcomes(
     from signal_outcome.outcome_calculator import compute_outcome
     from signal_outcome.models import PendingSignal
     from .replay_queries import (
-        FETCH_PENDING_REPLAY_SIGNALS,
         INSERT_REPLAY_SIGNAL_OUTCOME,
-        INSERT_REPLAY_CHECKPOINT_RETURN,
         MARK_REPLAY_OUTCOME_COMPUTED,
     )
-    from .config import BATCH_SIZE, OUTCOME_WINDOW_BARS
+    from .config import OUTCOME_WINDOW_BARS
     
     computed_count = 0
     skipped_no_idx = 0

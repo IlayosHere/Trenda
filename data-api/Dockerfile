@@ -15,7 +15,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="/home/appuser/.local/bin:$PATH"
 
 # Copy requirements with ownership
-COPY --chown=appuser:appuser requirements.txt /app/
+COPY --chown=appuser:appuser data-api/requirements.txt /app/
 
 # Switch to non-root user
 USER appuser
@@ -24,7 +24,8 @@ USER appuser
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Copy the current directory contents into the container at /app with ownership
-COPY --chown=appuser:appuser . /app/
+COPY --chown=appuser:appuser data-api/ /app/
+COPY --chown=appuser:appuser shared/logger/ /app/logger/
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000

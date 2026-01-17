@@ -7,17 +7,15 @@ calculations use only data that would have been known at that moment.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 from .candle_store import CandleStore
 from .config import (
-    TIMEFRAME_1H,
     TIMEFRAME_4H,
     TIMEFRAME_1D,
     TIMEFRAME_1W,
-    TIMEFRAME_HOURS,
 )
 
 

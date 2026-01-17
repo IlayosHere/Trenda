@@ -15,7 +15,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="/home/appuser/.local/bin:$PATH"
 
 # Copy requirements with ownership
-COPY --chown=appuser:appuser requirements.txt /app/
+COPY --chown=appuser:appuser data-retriever/requirements.txt /app/
 
 # Remove MetaTrader5 from requirements.txt as it is Windows-only
 # We need to do this as root or ensure appuser has permissions. 
@@ -29,7 +29,8 @@ USER appuser
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Copy the current directory contents into the container at /app with ownership
-COPY --chown=appuser:appuser . /app/
+COPY --chown=appuser:appuser data-retriever/ /app/
+COPY --chown=appuser:appuser shared/logger/ /app/logger/
 
 # Make port 8001 available to the world outside this container
 EXPOSE 8001

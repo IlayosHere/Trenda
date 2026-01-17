@@ -20,12 +20,10 @@ import numpy as np
 import pandas as pd
 
 from models import TrendDirection
-from trend.bias import calculate_trend_alignment_strength
 
 from .config import (
     PRE_ENTRY_V2_IMPULSE_THRESHOLD_ATR,
     PRE_ENTRY_V2_LARGE_BAR_MULTIPLIER,
-    PRE_ENTRY_V2_AOI_REACTION_LOOKBACK,
     PRE_ENTRY_V2_IMPULSE_LOOKBACK,
     SESSION_ASIA_START,
     SESSION_ASIA_END,
@@ -33,7 +31,6 @@ from .config import (
     SESSION_LONDON_END,
     SESSION_NY_START,
     SESSION_NY_END,
-    TREND_ALIGNMENT_TIMEFRAMES,
 )
 
 if TYPE_CHECKING:
