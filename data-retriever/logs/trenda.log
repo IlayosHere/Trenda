@@ -1,0 +1,3 @@
+2026-01-17 16:04:24 | INFO     | Core.Monitor | Starting engine...
+2026-01-17 16:04:24 | WARNING  | Core.Monitor | Symbol limit approaching
+2026-01-17 16:04:24 | ERROR    | Core.Monitor | MT5 Connection lost
