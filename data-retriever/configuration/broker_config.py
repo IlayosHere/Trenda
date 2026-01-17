@@ -3,18 +3,8 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Final, Literal
+from typing import Final
 
-
-BrokerProvider = Literal["MT5", "TWELVEDATA"]
-
-BROKER_MT5: Final[BrokerProvider] = "MT5"
-BROKER_TWELVEDATA: Final[BrokerProvider] = "TWELVEDATA"
-
-BROKER_PROVIDER: BrokerProvider = os.getenv("BROKER_PROVIDER")
-
-TWELVEDATA_API_KEY: str | None = os.getenv("TWELVEDATA_API_KEY")
-TWELVEDATA_BASE_URL: str = os.getenv("TWELVEDATA_BASE_URL", "https://api.twelvedata.com")
 
 # MT5 Config
 MT5_MAGIC_NUMBER: int = int(os.getenv("MT5_MAGIC_NUMBER", "123456"))

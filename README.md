@@ -35,7 +35,6 @@ DB_PORT=5432
 
 # Broker/MT5 Configuration (for data-retriever)
 BROKER_PROVIDER=mt5
-# If using TwelveData or others, configure keys here
 ```
 
 ### 3. Data Retriever (Background Service)
