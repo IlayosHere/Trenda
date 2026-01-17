@@ -1,22 +1,17 @@
-import logging
 import os
 import threading
-from typing import Any, Callable, Optional, Sequence, TypeVar, Union
+from typing import Any, Callable, Optional, Sequence, TypeVar
 
 import psycopg2
 from psycopg2 import extras
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2.extensions import connection as PgConnection, cursor as PgCursor
 from dotenv import load_dotenv
+from logger import get_logger
 
 load_dotenv()
 
-log = logging.getLogger(__name__)
-if not log.handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] API_DB: %(message)s",
-    )
+logger = get_logger(__name__)
 
 DB_CONFIG = {
     "dbname": os.getenv("DB_NAME", "trenda"),
@@ -33,7 +28,7 @@ _pool_lock = threading.Lock()
 _T = TypeVar("_T")
 
 if not DB_CONFIG["password"]:
-    log.warning("DB_PASSWORD environment variable not set. Database connection will likely fail.")
+    logger.warning("DB_PASSWORD environment variable not set. Database connection will likely fail.")
 
 
 class DBConnectionError(Exception):
@@ -58,7 +53,7 @@ def init_pool(minconn: Optional[int] = None, maxconn: Optional[int] = None) -> S
             return _pool
         except Exception as exc:
             _pool = None
-            log.error("DB_POOL_INIT_FAILED|error=%s", exc, exc_info=True)
+            logger.error("DB_POOL_INIT_FAILED|error=%s", exc, exc_info=True)
             raise
 
 
@@ -73,10 +68,10 @@ def _log_pool_details() -> None:
         with conn.cursor() as cur:
             cur.execute("SELECT current_database(), current_schema();")
             db_name, schema = cur.fetchone()
-            log.info("DB_POOL_READY|database=%s|schema=%s", db_name, schema)
+            logger.info("DB_POOL_READY|database=%s|schema=%s", db_name, schema)
             _pool_details_logged = True
     except Exception as exc:
-        log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
+        logger.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
     finally:
         if conn and _pool:
             _pool.putconn(conn)
@@ -90,7 +85,7 @@ def get_connection() -> PgConnection:
     try:
         return _require_pool().getconn()
     except Exception as exc:
-        log.error("DB_CONNECTION_RETRIEVE_FAILED|error=%s", exc, exc_info=True)
+        logger.error("DB_CONNECTION_RETRIEVE_FAILED|error=%s", exc, exc_info=True)
         raise DBConnectionError("Failed to acquire database connection") from exc
 
 
@@ -99,7 +94,7 @@ def release_connection(conn: Optional[PgConnection]) -> None:
         try:
             _pool.putconn(conn)
         except Exception as exc:
-            log.error("DB_CONNECTION_RELEASE_FAILED|error=%s", exc, exc_info=True)
+            logger.error("DB_CONNECTION_RELEASE_FAILED|error=%s", exc, exc_info=True)
 
 
 def close_pool() -> None:
@@ -108,7 +103,7 @@ def close_pool() -> None:
         try:
             _pool.closeall()
         except Exception as exc:
-            log.error("DB_POOL_CLOSE_FAILED|error=%s", exc, exc_info=True)
+            logger.error("DB_POOL_CLOSE_FAILED|error=%s", exc, exc_info=True)
         finally:
             _pool = None
     global _pool_details_logged
@@ -121,7 +116,7 @@ def _truncate_sql(sql: str, limit: int = 200) -> str:
 
 def _log_sql_error(context: str, sql: str, params: Optional[Sequence[Any]], exc: Exception) -> None:
     message_context = context or "unspecified"
-    log.error(
+    logger.error(
         "DB_ERROR|context=%s|sql=%s|params=%s|error=%s",
         message_context,
         _truncate_sql(sql),
@@ -230,17 +225,17 @@ def execute_transaction(
 
 def validate_symbol(symbol: str) -> Optional[str]:
     if not isinstance(symbol, str) or not symbol.strip():
-        log.error("DB_VALIDATION|context=symbol|error=invalid or empty")
+        logger.error("DB_VALIDATION|context=symbol|error=invalid or empty")
         return None
 
     normalized = symbol.strip().upper()
 
     if len(normalized) > 20:
-        log.error("DB_VALIDATION|context=symbol|error=length_exceeded")
+        logger.error("DB_VALIDATION|context=symbol|error=length_exceeded")
         return None
 
     if not normalized.isalnum():
-        log.error("DB_VALIDATION|context=symbol|error=non_alphanumeric")
+        logger.error("DB_VALIDATION|context=symbol|error=non_alphanumeric")
         return None
 
     return normalized
@@ -248,17 +243,17 @@ def validate_symbol(symbol: str) -> Optional[str]:
 
 def validate_timeframe(timeframe: str) -> Optional[str]:
     if not isinstance(timeframe, str) or not timeframe.strip():
-        log.error("DB_VALIDATION|context=timeframe|error=invalid or empty")
+        logger.error("DB_VALIDATION|context=timeframe|error=invalid or empty")
         return None
 
     normalized = timeframe.strip().upper()
 
     if len(normalized) > 20:
-        log.error("DB_VALIDATION|context=timeframe|error=length_exceeded")
+        logger.error("DB_VALIDATION|context=timeframe|error=length_exceeded")
         return None
 
     if not normalized.isalnum():
-        log.error("DB_VALIDATION|context=timeframe|error=non_alphanumeric")
+        logger.error("DB_VALIDATION|context=timeframe|error=non_alphanumeric")
         return None
 
     return normalized
@@ -268,6 +263,6 @@ def validate_nullable_float(value: Optional[float], field: str) -> bool:
     if value is None:
         return True
     if not isinstance(value, (int, float)):
-        log.error("DB_VALIDATION|context=%s|error=expected number or None", field)
+        logger.error("DB_VALIDATION|context=%s|error=expected number or None", field)
         return False
     return True

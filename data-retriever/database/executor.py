@@ -4,7 +4,10 @@ from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar, Union
 
 from psycopg2.extensions import cursor as PgCursor
 
-from .connection import DBConnectionManager, log
+from .connection import DBConnectionManager
+from logger import get_logger
+
+logger = get_logger(__name__)
 from psycopg2 import InterfaceError, OperationalError
 from psycopg2.extensions import connection as PgConnection
 
@@ -23,7 +26,7 @@ def _truncate_sql(sql: str, limit: int = 150) -> str:
 
 
 def _log_sql_error(context: str, sql: str, params: Optional[Sequence[Any]], exc: Exception) -> None:
-    log.error(
+    logger.error(
         "DB_ERROR|context=%s|sql=%s|params=%s|error=%s",
         context,
         _truncate_sql(sql),
@@ -85,7 +88,7 @@ def _execute_with_retry(
                 raise
 
             delay = RETRY_DELAY * (2**attempt)
-            log.warning(
+            logger.warning(
                 "DB_RETRY|context=%s|attempt=%d|max=%d|delay=%.2f|error=%s",
                 context,
                 attempt + 1,

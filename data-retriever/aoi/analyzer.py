@@ -4,7 +4,7 @@ This module delegates context building, zone generation, and scoring to
 helpers in the ``aoi`` package so the entrypoint stays focused on control flow.
 """
 
-from typing import List, Mapping, Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,6 @@ from utils.indicators import calculate_atr
 from constants import BREAK_BEARISH, BREAK_BULLISH, SwingPoint
 from models import TrendDirection
 from configuration import (
-    FOREX_PAIRS,
     require_aoi_lookback,
     require_analysis_params,
 )

@@ -8,8 +8,6 @@ Usage:
 """
 
 from datetime import datetime, timezone, timedelta
-from dataclasses import dataclass
-from typing import Optional, Dict, List
 
 import MetaTrader5 as mt5
 import pandas as pd
@@ -291,10 +289,9 @@ def compute_htf_context_historical(symbol: str, signal_time: datetime, entry_pri
     
     This matches what replay does - fetches candles ending at signal_time.
     """
-    from models import TrendDirection
     from entry.gates.config import NO_OBSTACLE_DISTANCE_ATR
     from dataclasses import dataclass
-    from typing import Optional, Dict
+    from typing import Optional
     
     @dataclass
     class HTFContextHistorical:

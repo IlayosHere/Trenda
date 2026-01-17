@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status # Import status codes
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any, Optional
-import logging
+from typing import List, Dict, Any, Optional
 
 # --- Load Environment Variables ---
 # Ensures .env is loaded BEFORE other modules that might need env vars
@@ -21,8 +21,8 @@ load_dotenv()
 
 # --- Setup Logging ---
 # Configure basic logging for the API application
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] API: %(message)s')
-log = logging.getLogger(__name__) # Get logger for this module
+from logger import get_logger
+logger = get_logger(__name__) # Get logger for this module
 
 # --- FastAPI App Initialization ---
 # Create the main FastAPI application instance
@@ -43,7 +43,7 @@ app = FastAPI(
 # Read allowed origins from environment variable, default to common dev origins.
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080")
 origins = [origin.strip() for origin in allowed_origins_str.split(',') if origin.strip()]
-log.info(f"Configuring CORS middleware for allowed origins: {origins}")
+logger.info(f"Configuring CORS middleware for allowed origins: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,7 +62,7 @@ TrendResponseModel = Optional[List[Dict[str, Any]]]
          response_model=TrendResponseModel, # Validate and document the response structure
          tags=["Trends"])
 async def get_trends():
-    log.info("Handling incoming request for /trends endpoint.")
+    logger.info("Handling incoming request for /trends endpoint.")
     try:
         data = get_trend_data_service()
         if data is None:
@@ -75,11 +75,11 @@ async def get_trends():
 
     except HTTPException as http_exc:
         # Re-raise exceptions already formatted for HTTP (e.g., from potential input validation later)
-        log.warning(f"HTTP exception during /trends request: {http_exc.detail} (Status: {http_exc.status_code})")
+        logger.warning(f"HTTP exception during /trends request: {http_exc.detail} (Status: {http_exc.status_code})")
         raise http_exc
     except Exception as e:
         # Catch any other unexpected errors within this endpoint handler
-        log.error(f"Unexpected error in /trends endpoint handler: {e}", exc_info=True) # Log full traceback
+        logger.error(f"Unexpected error in /trends endpoint handler: {e}", exc_info=True) # Log full traceback
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected internal server error occurred."
@@ -94,7 +94,7 @@ async def get_trends():
 async def get_aoi(symbol: str):
     """Retrieve area of interest details for the requested forex symbol."""
 
-    log.info("Handling incoming request for /aoi/%s endpoint.", symbol)
+    logger.info("Handling incoming request for /aoi/%s endpoint.", symbol)
     try:
         data = get_aoi_data_service(symbol)
         if data is None:
@@ -106,7 +106,7 @@ async def get_aoi(symbol: str):
         return data
 
     except HTTPException as http_exc:
-        log.warning(
+        logger.warning(
             "HTTP exception during /aoi/%s request: %s (Status: %s)",
             symbol,
             http_exc.detail,
@@ -114,7 +114,7 @@ async def get_aoi(symbol: str):
         )
         raise http_exc
     except Exception as e:
-        log.error(
+        logger.error(
             "Unexpected error in /aoi/%s endpoint handler: %s",
             symbol,
             e,

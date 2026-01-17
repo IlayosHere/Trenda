@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 
 from models import AOIZone, TrendDirection
-from constants import SwingPoint
 from trend.structure import TrendAnalysisResult, analyze_snake_trend, get_swing_points
 from trend.bias import get_overall_trend_from_values, calculate_trend_alignment_strength
 from aoi.pipeline import generate_aoi_zones
@@ -28,7 +27,6 @@ from configuration import require_analysis_params
 from .candle_store import CandleStore
 from .timeframe_alignment import (
     TimeframeAligner,
-    NewCloseFlags,
     get_candles_for_analysis,
 )
 from .config import (

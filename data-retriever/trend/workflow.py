@@ -6,7 +6,6 @@ trend calculations separate from the core trend logic.
 
 from __future__ import annotations
 
-from typing import Mapping
 
 import pandas as pd
 

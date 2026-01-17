@@ -22,7 +22,9 @@ services:
     # Port 5432 is intentionally NOT exposed to host for security
 
   data-api:
-    build: ./data-api
+    build:
+      context: .
+      dockerfile: data-api/Dockerfile
     container_name: trenda_api
     restart: unless-stopped
     depends_on:
@@ -54,7 +56,9 @@ services:
       - data-api
 
   data-retriever:
-    build: ./data-retriever
+    build:
+      context: .
+      dockerfile: data-retriever/Dockerfile
     container_name: trenda_retriever
     restart: unless-stopped
     depends_on:
