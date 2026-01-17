@@ -1,7 +1,10 @@
 import time
+from logger import get_logger
 from configuration.broker_config import (
     MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION, 
-    MT5_EXPIRATION_SECONDS, MT5_CLOSE_RETRY_ATTEMPTS
+    MT5_EXPIRATION_SECONDS, MT5_CLOSE_RETRY_ATTEMPTS,
+    MT5_SL_TP_THRESHOLD_MULTIPLIER, MT5_PRICE_THRESHOLD_FALLBACK,
+    MT5_VERIFICATION_SLEEP, MT5_ORDER_COMMENT
 )
 
 logger = get_logger(__name__)
@@ -15,7 +18,7 @@ class MT5Trader:
 
     def place_order(self, symbol: str, order_type: int, volume: float, price: float = 0.0, 
                     sl: float = 0.0, tp: float = 0.0, deviation: int = MT5_DEVIATION, 
-                    magic: int = MT5_MAGIC_NUMBER, comment: str = "",
+                    magic: int = MT5_MAGIC_NUMBER, comment: str = MT5_ORDER_COMMENT,
                     expiration_seconds: int = MT5_EXPIRATION_SECONDS):
         """Place an order in MT5 with a strict expiration window."""
         if not self.connection.initialize():
@@ -195,7 +198,7 @@ class MT5Trader:
         if not self.connection.initialize():
             return True
 
-        time.sleep(0.1) 
+        time.sleep(MT5_VERIFICATION_SLEEP) 
         
         with self.connection.lock:
             pos = self._get_active_position(ticket)
@@ -207,9 +210,9 @@ class MT5Trader:
             actual_tp = pos.tp
             symbol = pos.symbol
             
-            # 1.5 point threshold handles tiny broker-side floating point rounding errors
+            # multiplier threshold handles tiny broker-side floating point rounding errors
             sym_info = self.mt5.symbol_info(symbol)
-            threshold = (sym_info.point * 1.5) if sym_info else 0.00001
+            threshold = (sym_info.point * MT5_SL_TP_THRESHOLD_MULTIPLIER) if sym_info else MT5_PRICE_THRESHOLD_FALLBACK
         
         sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
         tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)

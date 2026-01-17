@@ -4,7 +4,7 @@ from typing import Mapping, Optional, Sequence
 
 import pandas as pd
 
-from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params, SIGNAL_SCORE_THRESHOLD
 from entry.pattern_finder import find_entry_pattern
 from entry.gates import check_all_gates
 from entry.gates.config import SL_MODEL_NAME, SL_BUFFER_ATR, RR_MULTIPLE
@@ -147,7 +147,7 @@ def run_1h_entry_scan_job(
         
         if not score_result.passed:
             logger.info(
-                f"    ⏩ Skipped {symbol}: Score {score_result.total_score:.2f} < 4.0 threshold"
+                f"    ⏩ Skipped {symbol}: Score {score_result.total_score:.2f} < {SIGNAL_SCORE_THRESHOLD} threshold"
             )
             continue
 

@@ -14,6 +14,16 @@ MT5_EXPIRATION_SECONDS: int = int(os.getenv("MT5_EXPIRATION_SECONDS", "90"))
 MT5_MAX_ACTIVE_TRADES: int = int(os.getenv("MT5_MAX_ACTIVE_TRADES", "4"))
 MT5_MIN_TRADE_INTERVAL_MINUTES: int = int(os.getenv("MT5_MIN_TRADE_INTERVAL_MINUTES", "210"))
 MT5_CLOSE_RETRY_ATTEMPTS: int = int(os.getenv("MT5_CLOSE_RETRY_ATTEMPTS", "2"))
+MT5_HISTORY_LOOKBACK_DAYS: int = int(os.getenv("MT5_HISTORY_LOOKBACK_DAYS", "1"))
+
+# SL/TP Verification & Thresholds
+MT5_SL_TP_THRESHOLD_MULTIPLIER: float = float(os.getenv("MT5_SL_TP_THRESHOLD_MULTIPLIER", "1.5"))
+MT5_PRICE_THRESHOLD_FALLBACK: float = float(os.getenv("MT5_PRICE_THRESHOLD_FALLBACK", "0.00001"))
+MT5_VERIFICATION_SLEEP: float = float(os.getenv("MT5_VERIFICATION_SLEEP", "0.1"))
+
+# Trading & Signaling
+MT5_ORDER_COMMENT: str = os.getenv("MT5_ORDER_COMMENT", "Trenda signal")
+SIGNAL_SCORE_THRESHOLD: float = float(os.getenv("SIGNAL_SCORE_THRESHOLD", "4.0"))
 
 # MT5 broker timezone (for DST-aware offset calculation)
 # Default: Europe/Athens (EET/EEST) - standard for most forex brokers

@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta
 from logger import get_logger
-from configuration.broker_config import MT5_MAGIC_NUMBER, MT5_MAX_ACTIVE_TRADES, MT5_MIN_TRADE_INTERVAL_MINUTES
+from configuration.broker_config import (
+    MT5_MAGIC_NUMBER, 
+    MT5_MAX_ACTIVE_TRADES, 
+    MT5_MIN_TRADE_INTERVAL_MINUTES,
+    MT5_HISTORY_LOOKBACK_DAYS
+)
 
 logger = get_logger(__name__)
 
@@ -68,8 +73,8 @@ class MT5Constraints:
                 hours_ago = seconds_since_last_pos / 3600
                 return True, f"Recent active position for {symbol} found ({hours_ago:.1f}h ago server time)."
 
-        # 2. Check historical deals (last 24 hours)
-        from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=1)
+        # 2. Check historical deals (based on configured lookback)
+        from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=MT5_HISTORY_LOOKBACK_DAYS)
         to_date = datetime.fromtimestamp(current_server_time + 60)
         history = self.mt5.history_deals_get(from_date, to_date, group=f"*{symbol}*")
             
