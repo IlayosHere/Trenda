@@ -5,24 +5,17 @@ including DST-aware offset calculation for historical data.
 """
 from __future__ import annotations
 
-import logging
-import threading
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd
-import tzlocal
 
 from constants import DATA_ERROR_MSG
 from utils.candles import last_expected_close_time, trim_to_closed_candles
+from externals.meta_trader import mt5_lock, initialize_mt5, mt5
+from logger import get_logger
 
-log = logging.getLogger(__name__)
-
-# Lock to serialize MT5 API calls (MT5 is not thread-safe)
-_mt5_lock = threading.Lock()
-
-# Import MT5
-import MetaTrader5 as mt5
+logger = get_logger(__name__)
 
 
 def fetch_data(
@@ -91,14 +84,18 @@ def _fetch_from_mt5(
         For historical data: Calculates per-candle offset to handle DST correctly.
     """
     if mt5 is None:
-        log.error("MetaTrader5 is not available in this environment.")
+        logger.error("MetaTrader5 is not available in this environment.")
         return None
 
     tf_int = int(timeframe_mt5)
     is_historical = end_date is not None
     
-    # Serialize MT5 API access with lock
-    with _mt5_lock:
+    # Ensure MT5 is initialized
+    if not initialize_mt5():
+        return None
+
+    # Serialize MT5 API access with shared lock
+    with mt5_lock:
         if is_historical:
             # Historical data fetch using copy_rates_range
             # Convert to naive datetime for MT5 (it expects local time or naive UTC)
@@ -131,13 +128,13 @@ def _fetch_from_mt5(
             if rates is None or len(rates) == 0:
                 error = mt5.last_error()
                 if error[0] != 1:  # 1 = success
-                    log.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
+                    logger.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
         else:
             # Live data fetch using current position
             rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)
 
         if rates is None or len(rates) == 0:
-            log.error("%s for %s on TF %s", DATA_ERROR_MSG, symbol, timeframe_mt5)
+            logger.error("%s for %s on TF %s", DATA_ERROR_MSG, symbol, timeframe_mt5)
             return None
 
     # DataFrame processing outside the lock
@@ -175,7 +172,8 @@ def _convert_mt5_timestamp_to_utc(mt5_timestamp: int) -> datetime:
     3. Subtracts the offset to get true UTC
     """
     # First, interpret as naive datetime (as if UTC)
-    naive_dt = datetime.utcfromtimestamp(mt5_timestamp)
+    # Using fromtimestamp with UTC instead of deprecated utcfromtimestamp
+    naive_dt = datetime.fromtimestamp(mt5_timestamp, tz=timezone.utc).replace(tzinfo=None)
     
     # Create a UTC datetime to pass to offset calculator
     assumed_utc = naive_dt.replace(tzinfo=timezone.utc)

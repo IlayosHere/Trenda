@@ -3,9 +3,27 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Final
-from zoneinfo import ZoneInfo
+from typing import Final, Literal
 
+
+BrokerProvider = Literal["MT5", "TWELVEDATA"]
+
+BROKER_MT5: Final[BrokerProvider] = "MT5"
+BROKER_TWELVEDATA: Final[BrokerProvider] = "TWELVEDATA"
+
+BROKER_PROVIDER: BrokerProvider = os.getenv("BROKER_PROVIDER")
+
+TWELVEDATA_API_KEY: str | None = os.getenv("TWELVEDATA_API_KEY")
+TWELVEDATA_BASE_URL: str = os.getenv("TWELVEDATA_BASE_URL", "https://api.twelvedata.com")
+
+# MT5 Config
+MT5_MAGIC_NUMBER: int = int(os.getenv("MT5_MAGIC_NUMBER", "123456"))
+MT5_EMERGENCY_MAGIC_NUMBER: int = int(os.getenv("MT5_EMERGENCY_MAGIC_NUMBER", "654321"))
+MT5_DEVIATION: int = int(os.getenv("MT5_DEVIATION", "20"))
+MT5_EXPIRATION_SECONDS: int = int(os.getenv("MT5_EXPIRATION_SECONDS", "90"))
+MT5_MAX_ACTIVE_TRADES: int = int(os.getenv("MT5_MAX_ACTIVE_TRADES", "4"))
+MT5_MIN_TRADE_INTERVAL_MINUTES: int = int(os.getenv("MT5_MIN_TRADE_INTERVAL_MINUTES", "210"))
+MT5_CLOSE_RETRY_ATTEMPTS: int = int(os.getenv("MT5_CLOSE_RETRY_ATTEMPTS", "2"))
 
 # MT5 broker timezone (for DST-aware offset calculation)
 # Default: Europe/Athens (EET/EEST) - standard for most forex brokers

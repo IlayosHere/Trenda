@@ -14,6 +14,18 @@ from entry.live_execution import compute_execution_data, ExecutionData
 from entry.signal_repository import store_entry_signal_with_symbol
 from aoi.aoi_repository import fetch_tradable_aois
 from externals.data_fetcher import fetch_data
+from externals.meta_trader import (
+    initialize_mt5,
+    place_order,
+    is_trade_open,
+    verify_sl_tp_consistency,
+    mt5,
+)
+
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
 from models import AOIZone, TrendDirection
 from models.market import SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
@@ -35,7 +47,13 @@ def run_1h_entry_scan_job(
     mt5_timeframe = TIMEFRAMES.get(timeframe)
     lookback = require_analysis_params(timeframe).lookback
 
-    logger.info(f"\n--- 🔍 Running {timeframe} entry scan across symbols ---")
+    num_symbols = len(FOREX_PAIRS)
+    logger.info(f"\n--- 🔍 Starting {timeframe} entry scan for {num_symbols} symbols ---")
+    
+    # Ensure MT5 is initialized before starting the scan
+    if mt5 and not initialize_mt5():
+        logger.error("❌ Failed to initialize MT5. Aborting scan job.")
+        return
 
     for symbol in FOREX_PAIRS:
         logger.info(f"  -> Checking {symbol}...")
@@ -68,10 +86,18 @@ def run_1h_entry_scan_job(
         if not aois:
             continue
 
+        # Prevent duplicate trades or over-trading: skip if constraints are met
+        is_blocked, reason = is_trade_open(symbol)
+        if is_blocked:
+            logger.info(f"    ⏩ Skipped {symbol}: {reason}")
+            continue
+
         # === SYMBOL-LEVEL CALCULATIONS (outside AOI loop) ===
         atr_1h = calculate_atr(candles)
-        trend_alignment_strength = _calculate_trend_alignment_strength(trend_snapshot, direction)
-        
+        if atr_1h <= 0:
+            logger.warning(f"    ⏩ Skipped {symbol}: ATR calculation failed (zero ATR).")
+            continue
+
         # Use last candle as reference for HTF context (price differences between AOIs are minimal)
         reference_price = candles.iloc[-1]["close"]
         signal_time = candles.iloc[-1]["time"]
@@ -142,18 +168,56 @@ def run_1h_entry_scan_job(
                     aoi_low=aoi.lower,
                     aoi_high=aoi.upper,
                     atr_1h=atr_1h,
-                    signal_time=signal.signal_time,
-                    candles=signal.candles,
-                    trade_quality=signal.trade_quality,
                 )
-                logger.info(
-                    f"    ✅ Entry signal {entry_id} found for {symbol} at AOI {aoi.lower}-{aoi.upper}."
-                )
-                # TODO: ADD HERE MT5 + WHATSAPP NOTIFICATIONS with execution data
+                
                 if not execution:
-                    logger.info(
+                    logger.warning(
                         f"    ⚠️ Pattern found but no live execution data for {symbol}"
                     )
+                    continue
+
+                # TODO: ADD HERE WHATSAPP NOTIFICATIONS with execution data
+                
+                # Place MT5 order (only if MT5 module is available)
+                if mt5:
+                    order_type = mt5.ORDER_TYPE_BUY if direction == TrendDirection.BULLISH else mt5.ORDER_TYPE_SELL
+                    order_result = place_order(
+                        symbol=symbol,
+                        order_type=order_type,
+                        price=execution.entry_price,
+                        volume=execution.lot_size,
+                        sl=execution.sl_price,
+                        tp=execution.tp_price,
+                        comment=f"Trenda signal",
+                    )
+                    
+                    if order_result is None or (hasattr(order_result, 'retcode') and order_result.retcode != mt5.TRADE_RETCODE_DONE):
+                        logger.error(
+                            f"    ❌ MT5 order failed for {symbol}. Skipping signal storage."
+                        )
+                        continue
+                    
+                    logger.info(
+                        f"    💰 MT5 ORDER PLACED: Ticket #{order_result.order} | "
+                        f"{direction.value} {symbol} @ {execution.entry_price:.5f}"
+                    )
+                    
+                    # Verify SL/TP consistency
+                    is_consistent = verify_sl_tp_consistency(
+                        ticket=order_result.order,
+                        expected_sl=execution.sl_price,
+                        expected_tp=execution.tp_price
+                    )
+                    
+                    if not is_consistent:
+                        logger.error(f"    ❌ Verification failed for {symbol}: SL/TP modified by broker. Trade CLOSED.")
+                        continue
+                else:
+                    logger.warning(f"    ⚠️ MT5 not available. Skipping order placement for {symbol}.")
+                    # Determine if we should skip storage or not. 
+                    # If we can't trade, maybe we strictly skip? 
+                    # For now, let's assume we skip storage if we can't place the trade, similar to the failure case.
+                    logger.error("    ❌ MT5 module missing. Skipping signal storage.")
                     continue
                 
                 # Populate SignalData with live execution values
@@ -165,31 +229,28 @@ def run_1h_entry_scan_job(
                 entry_id = store_entry_signal_with_symbol(symbol, signal)
                 if entry_id:
                     logger.info(
-                        f"    ✅ Entry signal {entry_id} (score: {signal.total_score:.2f}) "
-                        f"for {symbol} at AOI {aoi.lower}-{aoi.upper}"
+                        f"    ✅ Signal stored in DB (ID: {entry_id}, Score: {signal.total_score:.2f}) "
                     )
-                    logger.info(
-                        f"       📊 EXECUTION: {execution.direction.value} {execution.symbol} "
-                        f"@ {execution.entry_price:.5f} | "
-                        f"Lot: {execution.lot_size} | "
-                        f"SL: {execution.sl_price:.5f} | "
-                        f"TP: {execution.tp_price:.5f}"
-                    )
+                else:
+                    logger.error(f"    ❌ Failed to store signal for {symbol} in database, but MT5 trade is ACTIVE.")
 
+                # Always log execution details if we reached this point (order was placed)
+                logger.info(
+                    f"       📊 EXECUTION: {execution.direction.value} {execution.symbol} "
+                    f"@ {execution.entry_price:.5f} | "
+                    f"Lot: {execution.lot_size} | "
+                    f"SL: {execution.sl_price:.5f} | "
+                    f"TP: {execution.tp_price:.5f}"
+                )
+                
+                # Stop checking other AOIs for this symbol once an order is placed
+                break
 
 
 def _collect_trend_snapshot(
     timeframes: Sequence[str], symbol: str
 ) -> Mapping[str, Optional[TrendDirection]]:
     return {tf: get_trend_by_timeframe(symbol, tf) for tf in timeframes}
-
-
-def _calculate_trend_alignment_strength(
-    trend_snapshot: Mapping[str, Optional[TrendDirection]],
-    direction: TrendDirection,
-) -> int:
-    """Count how many timeframes align with the given direction."""
-    return sum(1 for tf_trend in trend_snapshot.values() if tf_trend == direction)
 
 
 def _get_trend_value(
@@ -252,30 +313,3 @@ def _scan_aoi_for_pattern(
         distance_to_next_htf_obstacle_atr=htf_context.distance_to_next_htf_obstacle_atr,
         conflicted_tf=conflicted_tf,
     )
-
-
-
-def _compute_sl_aoi_far_plus(
-    direction: TrendDirection,
-    entry_price: float,
-    aoi_low: float,
-    aoi_high: float,
-    atr_1h: float,
-) -> float:
-    """
-    Compute SL distance using SL_AOI_FAR_PLUS_0_25 model.
-    
-    SL = distance to far edge of AOI + SL_BUFFER_ATR
-    
-    For bullish: far edge = aoi_low
-    For bearish: far edge = aoi_high
-    """
-    if atr_1h <= 0:
-        return 0.0
-    
-    if direction == TrendDirection.BULLISH:
-        far_edge_distance = entry_price - aoi_low
-    else:
-        far_edge_distance = aoi_high - entry_price
-    
-    return (far_edge_distance / atr_1h) + SL_BUFFER_ATR
