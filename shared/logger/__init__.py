@@ -24,18 +24,29 @@ class BestPracticeColorFormatter(logging.Formatter):
     BASE_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     DATE_FORMAT = "%H:%M:%S"
 
-    COLORS = {
-        logging.DEBUG: CYAN,
-        logging.INFO: GREEN,
-        logging.WARNING: YELLOW,
-        logging.ERROR: RED,
-        logging.CRITICAL: BOLD_RED,
-    }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-initialize formatters for each level to optimize performance
+        self._formatters = {
+            level: logging.Formatter(
+                f"{color}{self.BASE_FORMAT}{self.RESET}", 
+                datefmt=self.DATE_FORMAT
+            )
+            for level, color in {
+                logging.DEBUG: self.CYAN,
+                logging.INFO: self.GREEN,
+                logging.WARNING: self.YELLOW,
+                logging.ERROR: self.RED,
+                logging.CRITICAL: self.BOLD_RED,
+            }.items()
+        }
+        self._default_formatter = logging.Formatter(
+            f"{self.RESET}{self.BASE_FORMAT}{self.RESET}", 
+            datefmt=self.DATE_FORMAT
+        )
 
     def format(self, record):
-        color = self.COLORS.get(record.levelno, self.RESET)
-        log_fmt = f"{color}{self.BASE_FORMAT}{self.RESET}"
-        formatter = logging.Formatter(log_fmt, datefmt=self.DATE_FORMAT)
+        formatter = self._formatters.get(record.levelno, self._default_formatter)
         return formatter.format(record)
 
 def setup_global_logging():

@@ -1,5 +1,6 @@
 import os
 from typing import Final, FrozenSet, Tuple
+from configuration.broker_config import SIGNAL_SCORE_THRESHOLD
 
 # =============================================================================
 # Gate 2: Timeframe Conflict Filter
@@ -48,7 +49,6 @@ BEARISH_SCORE_THRESHOLDS: Final[Tuple[Tuple[float, float], ...]] = (
 FIXED_OBSTACLE_SCORE: Final[float] = float(os.getenv("FIXED_OBSTACLE_SCORE", "3.0"))
 
 # Minimum total score to pass
-from configuration.broker_config import SIGNAL_SCORE_THRESHOLD
 MIN_TOTAL_SCORE: Final[float] = SIGNAL_SCORE_THRESHOLD
 
 # =============================================================================

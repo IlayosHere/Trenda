@@ -4,7 +4,7 @@ from typing import Mapping, Optional, Sequence
 
 import pandas as pd
 
-from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params, SIGNAL_SCORE_THRESHOLD
+from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params, SIGNAL_SCORE_THRESHOLD, MT5_ORDER_COMMENT
 from entry.pattern_finder import find_entry_pattern
 from entry.gates import check_all_gates
 from entry.gates.config import SL_MODEL_NAME, SL_BUFFER_ATR, RR_MULTIPLE
@@ -191,7 +191,7 @@ def run_1h_entry_scan_job(
                         volume=execution.lot_size,
                         sl=execution.sl_price,
                         tp=execution.tp_price,
-                        comment=f"Trenda signal",
+                        comment=MT5_ORDER_COMMENT,
                     )
                     
                     if order_result is None or (hasattr(order_result, 'retcode') and order_result.retcode != mt5.TRADE_RETCODE_DONE):
