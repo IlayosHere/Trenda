@@ -73,30 +73,6 @@ def setup_global_logging():
         console.setFormatter(BestPracticeColorFormatter())
         root.addHandler(console)
 
-        # 3. File Handler (Persistent logs with Rotation)
-        try:
-            # Create a 'logs' directory if it doesn't exist
-            log_dir = "logs"
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
-                
-            file_handler = RotatingFileHandler(
-                filename=os.path.join(log_dir, "trenda.log"),
-                maxBytes=5 * 1024 * 1024,  # 5 MB
-                backupCount=3,
-                encoding='utf-8'
-            )
-            # Use a plain, more detailed format for the file logs (no ANSI codes)
-            file_formatter = logging.Formatter(
-                fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S"
-            )
-            file_handler.setFormatter(file_formatter)
-            root.addHandler(file_handler)
-        except Exception:
-            # If we can't write to disk (e.g. permission issues), we just stick to console
-            pass
-
         _is_configured = True
 
 def get_logger(name: str) -> logging.Logger:
