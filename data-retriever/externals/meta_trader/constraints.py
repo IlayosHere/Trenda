@@ -1,3 +1,4 @@
+from typing import NamedTuple, Optional
 from datetime import datetime, timedelta
 from logger import get_logger
 from configuration.broker_config import (
@@ -9,6 +10,11 @@ from configuration.broker_config import (
 
 logger = get_logger(__name__)
 
+class TradeBlockStatus(NamedTuple):
+    """Result of a trade constraint check."""
+    is_blocked: bool
+    reason: str
+
 class MT5Constraints:
     """Checks and validates trading constraints."""
     
@@ -16,48 +22,52 @@ class MT5Constraints:
         self.connection = connection
         self.mt5 = connection.mt5
 
-    def is_trade_open(self, symbol: str) -> tuple[bool, str]:
-        """Checks if a new trade can be opened for the given symbol."""
+    def is_trade_open(self, symbol: str) -> TradeBlockStatus:
+        """Checks if a new trade can be opened for the given symbol.
+        
+        Returns:
+            TradeBlockStatus: is_blocked=True if trade is not allowed, with a reason string.
+        """
         if not self.connection.initialize():
-            return True, "MT5 initialization failed"
+            return TradeBlockStatus(True, "MT5 initialization failed")
             
         with self.connection.lock:
             # 1. Get server time from current tick
             tick = self.mt5.symbol_info_tick(symbol)
             if not tick:
-                return True, f"Failed to get tick for {symbol} to check server time"
+                return TradeBlockStatus(True, f"Failed to get tick for {symbol} to check server time")
             
             current_server_time = tick.time
-
+            
             # 2. Check global trade limit
-            is_blocked, reason = self._check_global_limit()
-            if is_blocked:
-                return True, reason
+            status = self._check_global_limit()
+            if status.is_blocked:
+                return status
 
             # 3. Check per-symbol time interval
-            is_blocked, reason = self._check_symbol_interval(symbol, current_server_time)
-            if is_blocked:
-                return True, reason
+            status = self._check_symbol_interval(symbol, current_server_time)
+            if status.is_blocked:
+                return status
                 
-        return False, ""
+        return TradeBlockStatus(False, "")
 
-    def _check_global_limit(self) -> tuple[bool, str]:
+    def _check_global_limit(self) -> TradeBlockStatus:
         """Checks if the maximum allowed global trades for this bot has been reached."""
         all_positions = self.mt5.positions_get()
         if all_positions is None:
             err = self.mt5.last_error()
             if err[0] != 1: # 1 = Success / No positions
                  logger.error(f"Failed to get positions: {err}")
-                 return True, "Error fetching active positions"
+                 return TradeBlockStatus(True, "Error fetching active positions")
             all_positions = []
             
         bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
         if len(bot_positions) >= MT5_MAX_ACTIVE_TRADES:
-            return True, f"Global limit reached: {len(bot_positions)} active trades"
+            return TradeBlockStatus(True, f"Global limit reached: {len(bot_positions)} active trades")
         
-        return False, ""
+        return TradeBlockStatus(False, "")
 
-    def _check_symbol_interval(self, symbol: str, current_server_time: float) -> tuple[bool, str]:
+    def _check_symbol_interval(self, symbol: str, current_server_time: float) -> TradeBlockStatus:
         """Checks if enough time has passed since the last trade for this symbol."""
         # Convert minutes from config to seconds for precision
         min_gap_seconds = MT5_MIN_TRADE_INTERVAL_MINUTES * 60 
@@ -71,7 +81,7 @@ class MT5Constraints:
             seconds_since_last_pos = current_server_time - most_recent_start_time
             if seconds_since_last_pos < min_gap_seconds:
                 hours_ago = seconds_since_last_pos / 3600
-                return True, f"Recent active position for {symbol} found ({hours_ago:.1f}h ago server time)."
+                return TradeBlockStatus(True, f"Recent active position for {symbol} found ({hours_ago:.1f}h ago server time).")
 
         # 2. Check historical deals (based on configured lookback)
         from_date = datetime.fromtimestamp(current_server_time) - timedelta(days=MT5_HISTORY_LOOKBACK_DAYS)
@@ -85,6 +95,6 @@ class MT5Constraints:
                 seconds_since_last_deal = current_server_time - last_deal_time
                 if seconds_since_last_deal < min_gap_seconds:
                     hours_ago = seconds_since_last_deal / 3600
-                    return True, f"Recent historical trade for {symbol} found ({hours_ago:.1f}h ago server time)."
+                    return TradeBlockStatus(True, f"Recent historical trade for {symbol} found ({hours_ago:.1f}h ago server time).")
 
-        return False, ""
+        return TradeBlockStatus(False, "")
