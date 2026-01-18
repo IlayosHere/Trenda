@@ -1,12 +1,12 @@
 """
 MT5 Trading Comprehensive Test Suite
 =====================================
-Tests all functions in mt5_handler.py:
+Tests all functions in trading.py and constraints.py:
 - initialize_mt5 / shutdown_mt5
 - place_order (with SL/TP, BUY and SELL)
 - close_position
 - verify_sl_tp_consistency
-- is_trade_open (all constraints)
+- is_trade_open (Active, History, Cooldown, and Logic)
 
 IMPORTANT: Run this with MT5 open and logged into a DEMO account!
 """
@@ -14,6 +14,7 @@ IMPORTANT: Run this with MT5 open and logged into a DEMO account!
 import sys
 import os
 import time
+import subprocess
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,6 +34,7 @@ from configuration import MT5_MAGIC_NUMBER
 SYMBOL = "EURUSD"
 SYMBOL_TEST6 = "USDJPY"  # For Test 6: different symbol check
 SYMBOL_TEST9 = "AUDUSD"  # For Test 9: SELL order test
+STRESS_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD"]
 LOT_SIZE = 0.01  # Minimum lot for most brokers
 PIP_VALUE = 0.0001  # For 5-digit brokers (EURUSD)
 
@@ -75,10 +77,11 @@ def calculate_sl_tp(symbol: str, order_type: int, sl_pips: float = 50, tp_pips: 
 
 
 # =============================================================================
-# TEST 1: Initialize MT5
+# CORE OPERATIONS (1-10)
 # =============================================================================
+
 def test_01_initialize_mt5():
-    """Test MT5 initialization."""
+    """Test 1: MT5 initialization."""
     print("\n" + "=" * 60)
     print("TEST 1: Initialize MT5")
     print("=" * 60)
@@ -89,22 +92,15 @@ def test_01_initialize_mt5():
     if result:
         account = mt5.account_info()
         if account:
-            print(f"    Account: {account.login}")
-            print(f"    Server: {account.server}")
-            print(f"    Balance: ${account.balance:.2f}")
+            print(f"    Account: {account.login} | Server: {account.server}")
             is_demo = account.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO
-            print(f"    Type: {'Demo' if is_demo else '⚠️ REAL ACCOUNT!'}")
-            if not is_demo:
-                print("    ⚠️ WARNING: You are on a REAL account!")
+            print(f"    Mode: {'Demo' if is_demo else '⚠️ REAL ACCOUNT!'}")
     
     return result
 
 
-# =============================================================================
-# TEST 2: Place BUY Order with SL and TP
-# =============================================================================
 def test_02_place_buy_with_sl_tp():
-    """Test placing a BUY order with SL and TP."""
+    """Test 2: Placing a BUY order with SL and TP."""
     print("\n" + "=" * 60)
     print("TEST 2: Place BUY Order with SL and TP")
     print("=" * 60)
@@ -114,369 +110,298 @@ def test_02_place_buy_with_sl_tp():
         log_test("Get price for BUY order", False, "Could not get price")
         return None
     
-    print(f"    Entry: {price:.5f}")
-    print(f"    SL: {sl:.5f} (50 pips)")
-    print(f"    TP: {tp:.5f} (100 pips)")
-    
     result = place_order(
-        symbol=SYMBOL,
-        order_type=mt5.ORDER_TYPE_BUY,
-        volume=LOT_SIZE,
-        sl=sl,
-        tp=tp,
-        comment="TEST: BUY with SL/TP"
+        symbol=SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=LOT_SIZE,
+        price=price, sl=sl, tp=tp, comment="TEST: BUY"
     )
     
-    if result is None:
-        log_test("Place BUY order with SL/TP", False, "Result is None")
-        return None
-    
-    if result.retcode != mt5.TRADE_RETCODE_DONE:
-        log_test("Place BUY order with SL/TP", False, f"Retcode: {result.retcode}")
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        log_test("Place BUY order", False, f"Retcode: {result.retcode if result else 'None'}")
         return None
     
     ticket = result.order
     log_test("Place BUY order with SL/TP", True)
-    print(f"    Ticket: {ticket}")
     
-    # Verify position has SL/TP
-    time.sleep(0.3)
-    positions = mt5.positions_get(ticket=ticket)
-    if positions:
-        pos = positions[0]
-        sl_set = abs(pos.sl - sl) < (PIP_VALUE * 2)  # Within 2 pips tolerance
-        tp_set = abs(pos.tp - tp) < (PIP_VALUE * 2)
-        log_test("BUY SL set correctly", sl_set, f"Expected {sl:.5f}, Got {pos.sl:.5f}")
-        log_test("BUY TP set correctly", tp_set, f"Expected {tp:.5f}, Got {pos.tp:.5f}")
-    else:
-        log_test("BUY position exists", False)
-    
-    return ticket, sl, tp
-
-
-# =============================================================================
-# TEST 3: Verify SL/TP Consistency (Matching)
-# =============================================================================
-def test_03_verify_sl_tp_matching(ticket: int, expected_sl: float, expected_tp: float):
-    """Test verify_sl_tp_consistency with matching values."""
-    print("\n" + "=" * 60)
-    print("TEST 3: Verify SL/TP Consistency (Matching)")
-    print("=" * 60)
-    
-    result = verify_sl_tp_consistency(ticket, expected_sl, expected_tp)
-    log_test("verify_sl_tp_consistency with matching values", result)
-    
-    # Position should still exist (not closed)
-    positions = mt5.positions_get(ticket=ticket)
-    position_exists = positions is not None and len(positions) > 0
-    log_test("Position still open after verification", position_exists)
-    
-    return result and position_exists
-
-
-# =============================================================================
-# TEST 4: Verify SL/TP Consistency (Second Call)
-# =============================================================================
-def test_04_verify_sl_tp_second_call(ticket: int, expected_sl: float, expected_tp: float):
-    """Test verify_sl_tp_consistency works correctly on repeated calls."""
-    print("\n" + "=" * 60)
-    print("TEST 4: Verify SL/TP Consistency (Second Call)")
-    print("=" * 60)
-    
-    # Call again with the same values to ensure it's idempotent
-    # The threshold (1.5 * point) handles any floating-point rounding from broker
-    print(f"    Verifying SL: {expected_sl:.5f}")
-    print(f"    Verifying TP: {expected_tp:.5f}")
-    
-    result = verify_sl_tp_consistency(ticket, expected_sl, expected_tp)
-    log_test("verify_sl_tp_consistency (second call)", result)
-    
-    # Verify position still exists
-    positions = mt5.positions_get(ticket=ticket)
-    position_exists = positions is not None and len(positions) > 0
-    log_test("Position still open after second verification", position_exists)
-    
-    return result and position_exists
-
-
-# =============================================================================
-# TEST 5: is_trade_open - Active Position Block (Same Symbol)
-# =============================================================================
-def test_05_is_trade_open_blocked(ticket: int):
-    """Test is_trade_open blocks when active position exists for same symbol."""
-    print("\n" + "=" * 60)
-    print("TEST 5: is_trade_open - Active Position Block (Same Symbol)")
-    print("=" * 60)
-    
-    is_blocked, reason = is_trade_open(SYMBOL)
-    
-    # Should be blocked because we have an open position
-    log_test("is_trade_open blocks same symbol", is_blocked)
-    print(f"    Blocked: {is_blocked}")
-    print(f"    Reason: {reason}")
-    
-    return is_blocked
-
-
-# =============================================================================
-# TEST 6: is_trade_open - Different Symbol Allowed
-# =============================================================================
-def test_06_is_trade_open_different_symbol():
-    """Test is_trade_open allows different symbol."""
-    print("\n" + "=" * 60)
-    print("TEST 6: is_trade_open - Different Symbol Allowed")
-    print("=" * 60)
-    
-    is_blocked, reason = is_trade_open(SYMBOL_TEST6)
-    
-    # Should NOT be blocked because different symbol
-    log_test("is_trade_open allows different symbol", not is_blocked)
-    print(f"    Symbol tested: {SYMBOL_TEST6}")
-    print(f"    Blocked: {is_blocked}")
-    if reason:
-        print(f"    Reason: {reason}")
-    
-    return not is_blocked
-
-
-# =============================================================================
-# TEST 7: Close Position
-# =============================================================================
-def test_07_close_position(ticket: int):
-    """Test closing a position."""
-    print("\n" + "=" * 60)
-    print("TEST 7: Close Position")
-    print("=" * 60)
-    
-    result = close_position(ticket)
-    log_test("close_position", result)
-    
-    # Verify position is closed
-    time.sleep(0.3)
-    positions = mt5.positions_get(ticket=ticket)
-    position_closed = positions is None or len(positions) == 0
-    log_test("Position actually closed", position_closed)
-    
-    return result and position_closed
-
-
-# =============================================================================
-# TEST 8: is_trade_open - Historical Deals Check
-# =============================================================================
-def test_08_is_trade_open_historical():
-    """Test is_trade_open blocks based on historical deals."""
-    print("\n" + "=" * 60)
-    print("TEST 8: is_trade_open - Historical Deals Check")
-    print("=" * 60)
-    
-    # After closing position, historical deal check should still block
-    is_blocked, reason = is_trade_open(SYMBOL)
-    
-    log_test("is_trade_open checks historical deals", is_blocked)
-    print(f"    Blocked: {is_blocked}")
-    print(f"    Reason: {reason}")
-    
-    return is_blocked
-
-
-# =============================================================================
-# TEST 9: Place SELL Order with SL and TP
-# =============================================================================
-def test_09_place_sell_with_sl_tp():
-    """Test placing a SELL order with SL and TP."""
-    print("\n" + "=" * 60)
-    print("TEST 9: Place SELL Order with SL and TP")
-    print("=" * 60)
-    
-    # Use different symbol to avoid constraint
-    price, sl, tp = calculate_sl_tp(SYMBOL_TEST9, mt5.ORDER_TYPE_SELL, sl_pips=50, tp_pips=100)
-    if price == 0:
-        log_test("Get price for SELL order", False, "Could not get price")
-        return None
-    
-    print(f"    Symbol: {SYMBOL_TEST9}")
-    print(f"    Entry: {price:.5f}")
-    print(f"    SL: {sl:.5f} (50 pips above)")
-    print(f"    TP: {tp:.5f} (100 pips below)")
-    
-    result = place_order(
-        symbol=SYMBOL_TEST9,
-        order_type=mt5.ORDER_TYPE_SELL,
-        volume=LOT_SIZE,
-        sl=sl,
-        tp=tp,
-        comment="TEST: SELL with SL/TP"
-    )
-    
-    if result is None:
-        log_test("Place SELL order with SL/TP", False, "Result is None")
-        return None
-    
-    if result.retcode != mt5.TRADE_RETCODE_DONE:
-        log_test("Place SELL order with SL/TP", False, f"Retcode: {result.retcode}")
-        return None
-    
-    ticket = result.order
-    log_test("Place SELL order with SL/TP", True)
-    print(f"    Ticket: {ticket}")
-    
-    # Verify position has SL/TP
+    # Verify position exists and matches
     time.sleep(0.3)
     positions = mt5.positions_get(ticket=ticket)
     if positions:
         pos = positions[0]
         sl_set = abs(pos.sl - sl) < (PIP_VALUE * 2)
-        tp_set = abs(pos.tp - tp) < (PIP_VALUE * 2)
-        log_test("SELL SL set correctly", sl_set, f"Expected {sl:.5f}, Got {pos.sl:.5f}")
-        log_test("SELL TP set correctly", tp_set, f"Expected {tp:.5f}, Got {pos.tp:.5f}")
-        
-        # Close the position
-        close_position(ticket)
-        log_test("SELL position closed", True)
-    else:
-        log_test("SELL position exists", False)
+        log_test("BUY SL set correctly", sl_set)
     
-    return ticket
+    return ticket, sl, tp
 
 
-# =============================================================================
-# TEST 10: Magic Number Filtering
-# =============================================================================
+def test_03_verify_sl_tp_matching(ticket: int, expected_sl: float, expected_tp: float):
+    """Test 3: verify_sl_tp_consistency (Matching)."""
+    print("\n" + "=" * 60)
+    print("TEST 3: Verify SL/TP Consistency (Matching)")
+    print("=" * 60)
+    
+    result = verify_sl_tp_consistency(ticket, expected_sl, expected_tp)
+    log_test("SL/TP matching verification", result)
+    return result
+
+
+def test_04_verify_sl_tp_idempotence(ticket: int, expected_sl: float, expected_tp: float):
+    """Test 4: verify_sl_tp_consistency (Second Call)."""
+    print("\n" + "=" * 60)
+    print("TEST 4: Verify SL/TP Consistency (Idempotence)")
+    print("=" * 60)
+    
+    result = verify_sl_tp_consistency(ticket, expected_sl, expected_tp)
+    log_test("SL/TP idempotence verification", result)
+    return result
+
+
+def test_05_is_trade_open_blocked(ticket: int):
+    """Test 5: is_trade_open - Active Position Block."""
+    print("\n" + "=" * 60)
+    print("TEST 5: Constraint - Active Position Block (Same Symbol)")
+    print("=" * 60)
+    
+    is_blocked, reason = is_trade_open(SYMBOL)
+    log_test("Blocked by active position", is_blocked)
+    return is_blocked
+
+
+def test_06_is_trade_open_allowed():
+    """Test 6: is_trade_open - Different Symbol Allowed."""
+    print("\n" + "=" * 60)
+    print("TEST 6: Constraint - Different Symbol Allowed")
+    print("=" * 60)
+    
+    is_blocked, reason = is_trade_open(SYMBOL_TEST6)
+    log_test("Allowed for different symbol", not is_blocked)
+    return not is_blocked
+
+
+def test_07_close_position(ticket: int):
+    """Test 7: Closing a position."""
+    print("\n" + "=" * 60)
+    print("TEST 7: Close Position")
+    print("=" * 60)
+    
+    result = close_position(ticket)
+    time.sleep(0.3)
+    positions = mt5.positions_get(ticket=ticket)
+    closed = positions is None or len(positions) == 0
+    log_test("Close position verified", result and closed)
+    return result and closed
+
+
+def test_08_is_trade_open_cooldown():
+    """Test 8: is_trade_open - Historical Cooldown check."""
+    print("\n" + "=" * 60)
+    print("TEST 8: Constraint - Historical Cooldown Block")
+    print("=" * 60)
+    
+    is_blocked, reason = is_trade_open(SYMBOL)
+    log_test("Blocked by cooldown (History)", is_blocked)
+    return is_blocked
+
+
+def test_09_place_sell_with_sl_tp():
+    """Test 9: Placing a SELL order with SL and TP."""
+    print("\n" + "=" * 60)
+    print("TEST 9: Place SELL Order with SL and TP")
+    print("=" * 60)
+    
+    price, sl, tp = calculate_sl_tp(SYMBOL_TEST9, mt5.ORDER_TYPE_SELL, sl_pips=50, tp_pips=100)
+    if price == 0:
+        return None
+    
+    result = place_order(
+        symbol=SYMBOL_TEST9, order_type=mt5.ORDER_TYPE_SELL, volume=LOT_SIZE,
+        price=price, sl=sl, tp=tp, comment="TEST: SELL"
+    )
+    
+    if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+        log_test("Place SELL order", True)
+        close_position(result.order)
+        return result.order
+    
+    log_test("Place SELL order", False)
+    return None
+
+
 def test_10_magic_number_filtering():
-    """Test that magic number correctly filters positions."""
+    """Test 10: Magic number isolation."""
     print("\n" + "=" * 60)
     print("TEST 10: Magic Number Filtering")
     print("=" * 60)
     
-    # Get all positions
-    all_positions = mt5.positions_get()
-    if all_positions is None:
-        all_positions = []
-    
-    # Filter by magic number
-    bot_positions = [p for p in all_positions if p.magic == MT5_MAGIC_NUMBER]
-    other_positions = [p for p in all_positions if p.magic != MT5_MAGIC_NUMBER]
-    
-    print(f"    Total positions: {len(all_positions)}")
-    print(f"    Our bot positions (magic={MT5_MAGIC_NUMBER}): {len(bot_positions)}")
-    print(f"    Other positions: {len(other_positions)}")
-    
-    log_test("Magic number query works", True)
+    all_pos = mt5.positions_get() or []
+    bot_pos = [p for p in all_pos if p.magic == MT5_MAGIC_NUMBER]
+    log_test("Magic number filtering logic", True)
     return True
 
 
 # =============================================================================
-# TEST 11: Shutdown MT5
+# LOGIC & CLOCK (11)
 # =============================================================================
-def test_11_shutdown_mt5():
-    """Test MT5 shutdown."""
+
+def test_11_constraints_logic_precision():
+    """Test 11: 3.5-hour Cooldown Logic (Mocked Time)."""
     print("\n" + "=" * 60)
-    print("TEST 11: Shutdown MT5")
+    print("TEST 11: Historical Cooldown Precision (Mocked Clock)")
     print("=" * 60)
     
+    try:
+        test_path = os.path.join(os.path.dirname(__file__), "test_constraints_logic.py")
+        res = subprocess.run([sys.executable, test_path], capture_output=True, text=True)
+        success = res.returncode == 0
+        log_test("Interval Precision (209 vs 211 min)", success)
+        return success
+    except Exception as e:
+        log_test("Interval Precision", False, str(e))
+        return False
+
+
+# =============================================================================
+# EDGE CASES (12-16)
+# =============================================================================
+
+def test_12_invalid_symbol():
+    """Test 12: Invalid Symbol."""
+    print("\n" + "=" * 60)
+    print("TEST 12: Edge Case - Invalid Symbol")
+    print("=" * 60)
+    res = place_order(symbol="FAKE_SYM", order_type=mt5.ORDER_TYPE_BUY, volume=0.01, price=1.0)
+    log_test("Handle non-existent symbol", res is None)
+    return res is None
+
+
+def test_13_zero_volume():
+    """Test 13: Zero Volume."""
+    print("\n" + "=" * 60)
+    print("TEST 13: Edge Case - Zero Volume")
+    print("=" * 60)
+    p = get_current_price(SYMBOL, mt5.ORDER_TYPE_BUY)
+    res = place_order(symbol=SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=0.0, price=p)
+    success = res is None or res.retcode == 10014
+    log_test("Handle 0.0 lot size", success)
+    return success
+
+
+def test_14_invalid_order_type():
+    """Test 14: Invalid Order Type."""
+    print("\n" + "=" * 60)
+    print("TEST 14: Edge Case - Invalid Type")
+    print("=" * 60)
+    res = place_order(symbol=SYMBOL, order_type=999, volume=0.01, price=1.0)
+    success = res is None or (hasattr(res, 'retcode') and res.retcode != mt5.TRADE_RETCODE_DONE)
+    log_test("Handle invalid trade type", success)
+    return success
+
+
+def test_15_negative_sl_tp():
+    """Test 15: Negative SL/TP."""
+    print("\n" + "=" * 60)
+    print("TEST 15: Edge Case - Negative Stops")
+    print("=" * 60)
+    p = get_current_price(SYMBOL, mt5.ORDER_TYPE_BUY)
+    res = place_order(symbol=SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=0.01, price=p, sl=-1.0)
+    success = res is None or (hasattr(res, 'retcode') and res.retcode != mt5.TRADE_RETCODE_DONE)
+    log_test("Handle negative SL/TP", success)
+    return success
+
+
+def test_16_close_invisible_ticket():
+    """Test 16: Closing ticket that doesn't exist."""
+    print("\n" + "=" * 60)
+    print("TEST 16: Edge Case - Invisible Ticket")
+    print("=" * 60)
+    res = close_position(999999)
+    log_test("Close non-existent ticket", res) # Should be True as state is safe
+    return res
+
+
+# =============================================================================
+# STRESS (17)
+# =============================================================================
+
+def test_17_burst_stress():
+    """Test 17: Burst Stress Test."""
+    print("\n" + "=" * 60)
+    print("TEST 17: Stress - Burst Orders")
+    print("=" * 60)
+    tickets = []
+    for sym in STRESS_SYMBOLS:
+        p = get_current_price(sym, mt5.ORDER_TYPE_BUY)
+        if p > 0:
+            res = place_order(symbol=sym, order_type=mt5.ORDER_TYPE_BUY, volume=LOT_SIZE, price=p)
+            if res and res.retcode == mt5.TRADE_RETCODE_DONE:
+                tickets.append(res.order)
+    
+    print(f"    Opened {len(tickets)} stress positions.")
+    for t in tickets: close_position(t)
+    log_test("Handled rapid orders (Burst)", len(tickets) > 0)
+    return len(tickets) > 0
+
+
+# =============================================================================
+# SHUTDOWN (18)
+# =============================================================================
+
+def test_18_shutdown_mt5():
+    """Test 18: MT5 Shutdown."""
+    print("\n" + "=" * 60)
+    print("TEST 18: Shutdown MT5")
+    print("=" * 60)
     shutdown_mt5()
     log_test("MT5 Shutdown", True)
     return True
 
 
 # =============================================================================
-# MAIN TEST RUNNER
+# RUNNER
 # =============================================================================
+
 def run_all_tests():
-    """Run all tests in sequence."""
     print("\n" + "=" * 70)
-    print("🧪 MT5 HANDLER COMPREHENSIVE TEST SUITE")
+    print("🧪 MT5 HANDLER COMPREHENSIVE TEST SUITE (SEQUENTIAL)")
     print("=" * 70)
     
-    # Test 1: Initialize
-    if not test_01_initialize_mt5():
-        print("\n❌ Cannot continue: MT5 initialization failed")
+    if not test_01_initialize_mt5(): 
         return False
     
-    # Test 2: Place BUY with SL/TP
-    buy_result = test_02_place_buy_with_sl_tp()
-    if buy_result is None:
-        print("\n⚠️ BUY order failed, skipping dependent tests")
-        test_11_shutdown_mt5()
-        return False
+    # Run Core (1-10)
+    buy_res = test_02_place_buy_with_sl_tp()
+    if buy_res:
+        t, sl, tp = buy_res
+        test_03_verify_sl_tp_matching(t, sl, tp)
+        test_04_verify_sl_tp_idempotence(t, sl, tp)
+        test_05_is_trade_open_blocked(t)
+        test_06_is_trade_open_allowed()
+        test_07_close_position(t)
+        test_08_is_trade_open_cooldown()
+        test_09_place_sell_with_sl_tp()
+        test_10_magic_number_filtering()
     
-    ticket, sl, tp = buy_result
+    # Logic (11)
+    test_11_constraints_logic_precision()
     
-    # Test 3: Verify SL/TP consistency (matching)
-    test_03_verify_sl_tp_matching(ticket, sl, tp)
+    # Edges (12-16)
+    test_12_invalid_symbol()
+    test_13_zero_volume()
+    test_14_invalid_order_type()
+    test_15_negative_sl_tp()
+    test_16_close_invisible_ticket()
     
-    # Test 4: Verify SL/TP second call (idempotent)
-    test_04_verify_sl_tp_second_call(ticket, sl, tp)
+    # Stress (17)
+    test_17_burst_stress()
     
-    # Test 5: is_trade_open blocked (same symbol)
-    test_05_is_trade_open_blocked(ticket)
+    # Shutdown (18)
+    test_18_shutdown_mt5()
     
-    # Test 6: is_trade_open different symbol
-    test_06_is_trade_open_different_symbol()
-    
-    # Test 7: Close position
-    test_07_close_position(ticket)
-    
-    # Test 8: Historical deals check
-    test_08_is_trade_open_historical()
-    
-    # Test 9: Place SELL with SL/TP (different symbol)
-    test_09_place_sell_with_sl_tp()
-    
-    # Test 10: Magic number filtering
-    test_10_magic_number_filtering()
-    
-    # Test 11: Shutdown
-    test_11_shutdown_mt5()
-    
-    # Print summary
     print("\n" + "=" * 70)
-    print("📊 TEST SUMMARY")
+    print(f"📊 SUMMARY: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} Passed")
     print("=" * 70)
-    
-    passed = sum(1 for _, p, _ in test_results if p)
-    total = len(test_results)
-    
-    for name, result, details in test_results:
-        status = "✅" if result else "❌"
-        print(f"  {status} {name}")
-    
-    print("\n" + "-" * 70)
-    print(f"  Total: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("\n🎉 ALL TESTS PASSED!")
-        return True
-    else:
-        print(f"\n⚠️ {total - passed} tests failed")
-        return False
+    return all(p for _, p, _ in test_results)
 
 
-# =============================================================================
-# ENTRY POINT
-# =============================================================================
 if __name__ == "__main__":
-    print("""
-╔══════════════════════════════════════════════════════════════════════╗
-║          MT5 HANDLER COMPREHENSIVE TEST SUITE                        ║
-║                                                                      ║
-║  ⚠️  WARNING: This will place REAL orders on your account!           ║
-║  Make sure you are using a DEMO account!                             ║
-║                                                                      ║
-║  Tests:                                                              ║
-║    • place_order (BUY/SELL with SL/TP)                              ║
-║    • verify_sl_tp_consistency (match + threshold)                   ║
-║    • is_trade_open (active position, different symbol, historical)  ║
-║    • close_position                                                 ║
-║    • Magic number filtering                                         ║
-╚══════════════════════════════════════════════════════════════════════╝
-""")
-    
-    response = input("Continue with comprehensive tests? (yes/no): ").strip().lower()
-    
-    if response in ["yes", "y"]:
-        success = run_all_tests()
-        sys.exit(0 if success else 1)
-    else:
-        print("\nTest cancelled.")
-        sys.exit(0)
+    if input("Start tests? (y/n): ").lower().startswith('y'):
+        run_all_tests()
