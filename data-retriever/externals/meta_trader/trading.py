@@ -53,6 +53,11 @@ class MT5Trader:
 
             # 3. Normalize prices (Round to symbol's digits)
             price = round(price, symbol_info.digits)
+            
+            if sl < 0 or tp < 0:
+                logger.error(f"Order failed for {symbol}: SL/TP cannot be negative (sl={sl}, tp={tp}).")
+                return None
+
             sl = round(sl, symbol_info.digits) if sl > 0 else 0.0
             tp = round(tp, symbol_info.digits) if tp > 0 else 0.0
 
@@ -90,7 +95,7 @@ class MT5Trader:
             self._log_order_error(symbol, result)
             return result
 
-        logger.info(f"✅ Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{result.order}")
+        logger.info(f"Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{result.order}")
         return result
 
     def _log_order_error(self, symbol: str, result: Any):
@@ -130,10 +135,10 @@ class MT5Trader:
             if not status.should_retry:
                 return False
             
-            logger.info(f"🔄 Retrying close for ticket {ticket} in 1s...")
+            logger.info(f"Retrying close for ticket {ticket} in 1s...")
             time.sleep(1)
         else:
-            logger.critical(f"🚨 EMERGENCY: Failed to close position {ticket} after all attempts.")
+            logger.critical(f"EMERGENCY: Failed to close position {ticket} after all attempts.")
             return False
 
         return self._verify_closure(ticket)
@@ -144,12 +149,12 @@ class MT5Trader:
             pos = self._get_active_position(ticket)
             if not pos:
                 if attempt == 1:
-                    logger.warning(f"⚠️ Close position {ticket}: Not found (already closed).")
+                    logger.warning(f"Close position {ticket}: Not found (already closed).")
                 return CloseAttemptStatus(True, False)
             
             tick = self.mt5.symbol_info_tick(pos.symbol)
             if not tick:
-                logger.error(f"❌ Close attempt {attempt}: Failed to get tick for {pos.symbol}.")
+                logger.error(f"Close attempt {attempt}: Failed to get tick for {pos.symbol}.")
                 return CloseAttemptStatus(False, True)
 
             request = {
@@ -172,7 +177,7 @@ class MT5Trader:
             return CloseAttemptStatus(True, False)
             
         err_msg = f"Retcode: {result.retcode if result else 'None'}, Error: {self.mt5.last_error()}"
-        logger.error(f"❌ Close attempt {attempt} failed for ticket {ticket}. {err_msg}")
+        logger.error(f"Close attempt {attempt} failed for ticket {ticket}. {err_msg}")
         return CloseAttemptStatus(False, True)
 
     def _verify_closure(self, ticket: int) -> bool:
@@ -180,10 +185,10 @@ class MT5Trader:
         time.sleep(0.5) 
         with self.connection.lock:
             if self._get_active_position(ticket):
-                logger.critical(f"🚨 VERIFICATION FAILED: Ticket {ticket} still OPEN after close signal!")
+                logger.critical(f"VERIFICATION FAILED: Ticket {ticket} still OPEN after close signal!")
                 return False
 
-        logger.info(f"🛑 Position {ticket} closed and verified successfully.")
+        logger.info(f"Position {ticket} closed and verified successfully.")
         return True
 
     def _get_active_position(self, ticket: int) -> Optional[Any]:
@@ -201,7 +206,7 @@ class MT5Trader:
         with self.connection.lock:
             pos = self._get_active_position(ticket)
             if not pos:
-                logger.warning(f"⚠️ Verification: Position {ticket} not found (closed?).")
+                logger.warning(f"Verification: Position {ticket} not found (closed?).")
                 return True
             
             # Match check using precision threshold
@@ -213,9 +218,9 @@ class MT5Trader:
         tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)
         
         if not sl_match or not tp_match:
-            logger.warning(f"❌ SL/TP MISMATCH for ticket {ticket} ({pos.symbol})! Requested: {expected_sl}/{expected_tp}, Actual: {actual_sl}/{actual_tp}")
+            logger.warning(f"SL/TP MISMATCH for ticket {ticket} ({pos.symbol})! Requested: {expected_sl}/{expected_tp}, Actual: {actual_sl}/{actual_tp}")
             self.close_position(ticket)
             return False
             
-        logger.info(f"✅ SL/TP verified for ticket {ticket} ({pos.symbol}).")
+        logger.info(f"SL/TP verified for ticket {ticket} ({pos.symbol}).")
         return True

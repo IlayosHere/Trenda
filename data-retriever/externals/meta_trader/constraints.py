@@ -32,19 +32,28 @@ class MT5Constraints:
             return TradeBlockStatus(True, "MT5 initialization failed")
             
         with self.connection.lock:
-            # 1. Get server time from current tick
+            # 1. Ensure symbol is visible
+            symbol_info = self.mt5.symbol_info(symbol)
+            if symbol_info is None:
+                return TradeBlockStatus(True, f"Symbol {symbol} not found")
+            
+            if not symbol_info.visible:
+                if not self.mt5.symbol_select(symbol, True):
+                    return TradeBlockStatus(True, f"Failed to select symbol {symbol}")
+
+            # 2. Get server time from current tick
             tick = self.mt5.symbol_info_tick(symbol)
             if not tick:
                 return TradeBlockStatus(True, f"Failed to get tick for {symbol} to check server time")
             
             current_server_time = tick.time
             
-            # 2. Check global trade limit
+            # 3. Check global trade limit
             status = self._check_global_limit()
             if status.is_blocked:
                 return status
 
-            # 3. Check per-symbol time interval
+            # 4. Check per-symbol time interval
             status = self._check_symbol_interval(symbol, current_server_time)
             if status.is_blocked:
                 return status

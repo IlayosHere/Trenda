@@ -2,7 +2,7 @@ import logging
 import sys
 import os
 import threading
-from logging.handlers import RotatingFileHandler
+# from logging.handlers import RotatingFileHandler
 
 # Thread-safe initialization flag
 _lock = threading.Lock()
@@ -50,7 +50,7 @@ class BestPracticeColorFormatter(logging.Formatter):
         return formatter.format(record)
 
 def setup_global_logging():
-    """Configures the root logger with dual outputs: Console (Colored) and File (Plain)."""
+    """Configures the root logger with Console output (Colored)."""
     global _is_configured
     
     with _lock:

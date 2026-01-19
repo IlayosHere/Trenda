@@ -1,6 +1,6 @@
 # MT5 Trading Test Suite - Explained (Sequential)
 
-This document explains each test case performed in `test_mt5_trading.py` in its exact execution order (1 to 18).
+This document explains each test case performed in `test_mt5_trading.py` in its exact execution order (1 to 30).
 
 ## Core Operations (1-10)
 
@@ -42,7 +42,7 @@ This document explains each test case performed in `test_mt5_trading.py` in its 
 
 ### 10. Magic Number Filtering
 - **Goal**: Ensure the bot only "sees" its own trades and ignores your manual trades.
-- **Expectation**: Filtering logic shows a isolated counts for the bot.
+- **Expectation**: Filtering logic shows isolated counts for the bot.
 
 ---
 
@@ -82,8 +82,60 @@ This document explains each test case performed in `test_mt5_trading.py` in its 
 ## Stress & Load (17)
 
 ### 17. Burst Orders
-- **Goal**: Attempt to open 5 different pairs in a split second.
+- **Goal**: Attempt to open multiple different pairs in a split second.
 - **Expectation**: Locks/queues handle it correctly; multiple trades are opened sequentially.
+
+---
+
+## Extended Coverage (19-30)
+
+### 19. Connection Re-init (Mocked)
+- **Goal**: Ensure the bot can reconnect if the terminal/broker disconnects during a task.
+- **Expectation**: Automatical re-initialization triggered on first failure.
+
+### 20. Initialization Failure
+- **Goal**: Handle cases where MT5 terminal is closed or refuses to start.
+- **Expectation**: Graceful exit without crashing.
+
+### 21. Reject 0.0 Price
+- **Goal**: Prevent sending trades with 0.0 price to the broker.
+- **Expectation**: Application-level block.
+
+### 22. Symbol Visibility
+- **Goal**: Verify the bot can auto-select and enable symbols that are hidden in the Market Watch.
+- **Expectation**: Symbol is selected and trade is placed.
+
+### 23. Price Normalization
+- **Goal**: Ensure prices are rounded to the correct decimals (digits) for each symbol (e.g., 3 vs 5).
+- **Expectation**: Request sent with correctly rounded numbers.
+
+### 24. Tick Info Failure
+- **Goal**: Handle cases where the broker fails to provide current price data.
+- **Expectation**: Graceful abort of order placement.
+
+### 25. Recovery after Transient Failure
+- **Goal**: Test retry logic when a "Close" signal is rejected by the server (e.g., "Request Rejected").
+- **Expectation**: Succeeds on second attempt; position is confirmed closed.
+
+### 26. Retry Exhaustion
+- **Goal**: Ensure the bot gives up and logs a CRITICAL error after maximum close attempts fail.
+- **Expectation**: Detected failure after all retries; emergency alerted.
+
+### 27. Detect Ghost Positions
+- **Goal**: Handle cases where the broker says "DONE" but the position remains open in the terminal.
+- **Expectation**: Verification logic detects the leak and returns `False`.
+
+### 28. Mismatch triggers closure
+- **Goal**: If a position's SL/TP doesn't match the signal (due to broker error), close it immediately for safety.
+- **Expectation**: Auto-closure triggered and logged.
+
+### 29. Missing Position in Verification
+- **Goal**: Handle cases where a position is closed (e.g., by SL hit) while the bot is trying to verify it.
+- **Expectation**: Returns `True` (safe) since the position is indeed gone.
+
+### 30. Concurrency (Shared Lock)
+- **Goal**: Simulate multi-threaded signals to ensure the global `mt5_lock` prevents race conditions.
+- **Expectation**: All threads wait for the lock and execute sequentially without errors.
 
 ---
 

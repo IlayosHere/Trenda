@@ -43,7 +43,7 @@ class MT5Connection:
                      logger.error("MT5 terminal initialized but not connected to server.")
                      return False
 
-                logger.info("✅ MT5 initialized and connected successfully.")
+                logger.info("MT5 initialized and connected successfully.")
                 self._initialized = True
                 return True
             except Exception as e:
