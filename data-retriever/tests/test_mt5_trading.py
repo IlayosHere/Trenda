@@ -6,7 +6,7 @@ Tests all functions in trading.py and constraints.py:
 - place_order (with SL/TP, BUY and SELL)
 - close_position
 - verify_sl_tp_consistency
-- is_trade_open (Active, History, Cooldown, and Logic)
+- can_execute_trade (Active, History, Cooldown, and Logic)
 
 IMPORTANT: Run this with MT5 open and logged into a DEMO account!
 """
@@ -27,14 +27,14 @@ from externals.meta_trader import (
     shutdown_mt5,
     place_order,
     close_position,
-    is_trade_open,
-    verify_sl_tp_consistency,
+    can_execute_trade,
+    verify_position_consistency,
 )
 from configuration import MT5_MAGIC_NUMBER
 
 # Test configuration
 SYMBOL = "EURUSD"
-SYMBOL_TEST6 = "USDJPY"  # For Test 6: different symbol check
+SYMBOL_TEST6 = "NZDUSD"  # For Test 6: different symbol check
 SYMBOL_TEST9 = "AUDUSD"  # For Test 9: SELL order test
 STRESS_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD"]
 LOT_SIZE = 0.01  # Minimum lot for most brokers
@@ -135,46 +135,47 @@ def test_02_place_buy_with_sl_tp():
     return ticket, sl, tp
 
 
-def test_03_verify_sl_tp_matching(ticket: int, expected_sl: float, expected_tp: float):
-    """Test 3: verify_sl_tp_consistency (Matching)."""
+def test_03_verify_position_matching(ticket: int, expected_sl: float, expected_tp: float, vol: float, price: float):
+    """Test 3: verify_position_consistency (Matching)."""
     print("\n" + "=" * 60)
-    print("TEST 3: Verify SL/TP Consistency (Matching)")
+    print("TEST 3: Verify Position Consistency (Matching)")
     print("=" * 60)
     
-    result = verify_sl_tp_consistency(ticket, expected_sl, expected_tp)
-    log_test("SL/TP matching verification", result)
+    result = verify_position_consistency(ticket, expected_sl, expected_tp, vol, price)
+    log_test("Position parameters matching verification", result)
     return result
 
 
-def test_04_verify_sl_tp_idempotence(ticket: int, expected_sl: float, expected_tp: float):
-    """Test 4: verify_sl_tp_consistency (Second Call)."""
+def test_04_verify_position_idempotence(ticket: int, expected_sl: float, expected_tp: float, vol: float, price: float):
+    """Test 4: verify_position_consistency (Second Call)."""
     print("\n" + "=" * 60)
-    print("TEST 4: Verify SL/TP Consistency (Idempotence)")
+    print("TEST 4: Verify Position Consistency (Idempotence)")
     print("=" * 60)
     
-    result = verify_sl_tp_consistency(ticket, expected_sl, expected_tp)
-    log_test("SL/TP idempotence verification", result)
+    result = verify_position_consistency(ticket, expected_sl, expected_tp, vol, price)
+    log_test("Position idempotence verification", result)
     return result
 
 
-def test_05_is_trade_open_blocked(ticket: int):
-    """Test 5: is_trade_open - Active Position Block."""
+def test_05_can_execute_trade_blocked(ticket: int):
+    """Test 5: can_execute_trade - Active Position Block."""
     print("\n" + "=" * 60)
     print("TEST 5: Constraint - Active Position Block (Same Symbol)")
     print("=" * 60)
     
-    is_blocked, reason = is_trade_open(SYMBOL)
+    is_blocked, reason = can_execute_trade(SYMBOL)
     log_test("Blocked by active position", is_blocked, reason if not is_blocked else "")
     return is_blocked
 
 
-def test_06_is_trade_open_allowed():
-    """Test 6: is_trade_open - Different Symbol Allowed."""
+def test_06_can_execute_trade_allowed():
+    """Test 6: can_execute_trade - Different Symbol Allowed."""
     print("\n" + "=" * 60)
     print("TEST 6: Constraint - Different Symbol Allowed")
     print("=" * 60)
     
-    is_blocked, reason = is_trade_open(SYMBOL_TEST6)
+    time.sleep(1.0) # Avoid historical cooldown from previous tests
+    is_blocked, reason = can_execute_trade(SYMBOL_TEST6)
     log_test("Allowed for different symbol", not is_blocked, reason if is_blocked else "")
     return not is_blocked
 
@@ -193,13 +194,13 @@ def test_07_close_position(ticket: int):
     return result and closed
 
 
-def test_08_is_trade_open_cooldown():
-    """Test 8: is_trade_open - Historical Cooldown check."""
+def test_08_can_execute_trade_cooldown():
+    """Test 8: can_execute_trade - Historical Cooldown check."""
     print("\n" + "=" * 60)
     print("TEST 8: Constraint - Historical Cooldown Block")
     print("=" * 60)
     
-    is_blocked, reason = is_trade_open(SYMBOL)
+    is_blocked, reason = can_execute_trade(SYMBOL)
     log_test("Blocked by cooldown (History)", is_blocked, reason if not is_blocked else "")
     return is_blocked
 
@@ -374,6 +375,9 @@ def setup_mock_mt5(mock_mt5):
     mock_mt5.TRADE_RETCODE_DONE = mt5.TRADE_RETCODE_DONE
     mock_mt5.TRADE_RETCODE_REJECT = mt5.TRADE_RETCODE_REJECT
     mock_mt5.TRADE_RETCODE_CANCEL = mt5.TRADE_RETCODE_CANCEL
+    mock_mt5.SYMBOL_TRADE_MODE_DISABLED = mt5.SYMBOL_TRADE_MODE_DISABLED
+    mock_mt5.SYMBOL_TRADE_MODE_CLOSEONLY = mt5.SYMBOL_TRADE_MODE_CLOSEONLY
+    mock_mt5.TRADE_RETCODE_FROZEN = mt5.TRADE_RETCODE_FROZEN
 
 def test_19_connection_reinit():
     """Test 19: Connection Re-initialization on Disconnect."""
@@ -447,6 +451,10 @@ def test_22_symbol_visibility():
     sym_info = MagicMock()
     sym_info.visible = False
     sym_info.digits = 5
+    sym_info.trade_stops_level = 0
+    sym_info.trade_freeze_level = 0
+    sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
+    sym_info.point = 0.0001
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_select.return_value = True
     mock_conn.mt5.symbol_info_tick.return_value.time = 1000
@@ -476,6 +484,10 @@ def test_23_price_normalization():
     sym_info = MagicMock()
     sym_info.digits = 3 # Round to 3 digits
     sym_info.visible = True
+    sym_info.trade_stops_level = 0
+    sym_info.trade_freeze_level = 0
+    sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
+    sym_info.point = 0.0001
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value.time = 1000
     
@@ -506,7 +518,12 @@ def test_24_tick_failure():
     setup_mock_mt5(mock_conn.mt5)
     mock_conn.lock = MagicMock()
     
-    mock_conn.mt5.symbol_info.return_value.visible = True
+    sym_info = mock_conn.mt5.symbol_info.return_value
+    sym_info.visible = True
+    sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
+    sym_info.trade_stops_level = 0
+    sym_info.trade_freeze_level = 0
+    sym_info.point = 0.0001
     mock_conn.mt5.symbol_info_tick.return_value = None # Tick fail
     
     trader = MT5Trader(mock_conn)
@@ -631,7 +648,7 @@ def test_28_mismatch_triggers_close():
     with patch.object(trader, 'close_position') as mock_close:
         with patch('time.sleep'):
              # Requested 1.05 SL, actual is 1.10
-             res = trader.verify_sl_tp_consistency(12345, 1.05, 1.20)
+             res = trader.verify_position_consistency(12345, 1.05, 1.20)
              log_test("Close triggered on mismatch", res is False and mock_close.called)
              return res is False and mock_close.called
 
@@ -655,7 +672,7 @@ def test_29_verification_missing_pos():
     trader._get_active_position = MagicMock(return_value=None)
     
     with patch('time.sleep'):
-        res = trader.verify_sl_tp_consistency(12345, 1.1, 1.2)
+        res = trader.verify_position_consistency(12345, 1.1, 1.2)
         log_test("Handle missing position in verification", res is True) # Returns True (safe)
         return res is True
 
@@ -694,6 +711,153 @@ def test_30_concurrency_stress():
     log_test("Concurrent lock handling", True)
     return True
 
+def test_31_trade_mode_validation():
+    """Test 31: Reject trade if mode is DISABLED or CLOSE-ONLY."""
+    print("\n" + "=" * 60)
+    print("TEST 31: Trade Mode Validation (Disabled/Close-Only)")
+    print("=" * 60)
+    
+    from externals.meta_trader.connection import MT5Connection
+    from externals.meta_trader.trading import MT5Trader
+    
+    mock_conn = MagicMock(spec=MT5Connection)
+    mock_conn.initialize.return_value = True
+    mock_conn.mt5 = MagicMock()
+    setup_mock_mt5(mock_conn.mt5)
+    mock_conn.lock = MagicMock()
+    
+    # 1. Test Disabled
+    sym_info_disabled = MagicMock(visible=True, trade_mode=mt5.SYMBOL_TRADE_MODE_DISABLED)
+    mock_conn.mt5.symbol_info.return_value = sym_info_disabled
+    
+    trader = MT5Trader(mock_conn)
+    res_disabled = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
+    
+    # 2. Test Close-Only
+    sym_info_close_only = MagicMock(visible=True, trade_mode=mt5.SYMBOL_TRADE_MODE_CLOSEONLY)
+    mock_conn.mt5.symbol_info.return_value = sym_info_close_only
+    res_close_only = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
+    
+    log_test("Reject Disabled mode", res_disabled is None)
+    log_test("Reject Close-Only mode", res_close_only is None)
+    return res_disabled is None and res_close_only is None
+
+def test_32_sl_tp_distance_validation():
+    """Test 32: Reject trade if SL/TP is too close (freeze/stops level)."""
+    print("\n" + "=" * 60)
+    print("TEST 32: SL/TP Distance Validation (Stops/Freeze Level)")
+    print("=" * 60)
+    
+    from externals.meta_trader.connection import MT5Connection
+    from externals.meta_trader.trading import MT5Trader
+    
+    mock_conn = MagicMock(spec=MT5Connection)
+    mock_conn.initialize.return_value = True
+    mock_conn.mt5 = MagicMock()
+    setup_mock_mt5(mock_conn.mt5)
+    mock_conn.lock = MagicMock()
+    
+    # Symbol info with 10 points stops level
+    sym_info = MagicMock(visible=True, trade_mode=mt5.SYMBOL_TRADE_MODE_FULL, 
+                         digits=5, point=0.0001, 
+                         trade_stops_level=10, trade_freeze_level=0)
+    mock_conn.mt5.symbol_info.return_value = sym_info
+    
+    trader = MT5Trader(mock_conn)
+    
+    # Price 1.1000, SL 1.0995 (5 points away, but level is 10)
+    res = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1000, sl=1.0995)
+    
+    log_test("Reject SL too close to price", res is None)
+    return res is None
+
+def test_33_close_frozen_retry():
+    """Test 33: Retry on frozen positions during close."""
+    print("\n" + "=" * 60)
+    print("TEST 33: Retry on Frozen positions during close")
+    print("=" * 60)
+    
+    from externals.meta_trader.connection import MT5Connection
+    from externals.meta_trader.trading import MT5Trader
+    
+    mock_conn = MagicMock(spec=MT5Connection)
+    mock_conn.initialize.return_value = True
+    mock_conn.mt5 = MagicMock()
+    setup_mock_mt5(mock_conn.mt5)
+    mock_conn.lock = MagicMock()
+    
+    # 1. First attempt returns FROZEN, second returns DONE
+    res_frozen = MagicMock(retcode=mt5.TRADE_RETCODE_FROZEN)
+    res_ok = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+    mock_conn.mt5.order_send.side_effect = [res_frozen, res_ok]
+    
+    # Position exists for first two calls, then becomes None (closed)
+    pos = MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY)
+    
+    trader = MT5Trader(mock_conn)
+    with patch('time.sleep'):
+        with patch.object(trader, '_get_active_position', side_effect=[pos, pos, None]):
+            res = trader.close_position(12345)
+            
+    log_test("Retry triggered on FROZEN retcode", res)
+    return res
+
+def test_34_verify_volume_mismatch():
+    """Test 34: Volume mismatch triggers closure."""
+    print("\n" + "=" * 60)
+    print("TEST 34: Volume Mismatch triggers closure")
+    print("=" * 60)
+    
+    from externals.meta_trader.connection import MT5Connection
+    from externals.meta_trader.trading import MT5Trader
+    
+    mock_conn = MagicMock(spec=MT5Connection)
+    mock_conn.initialize.return_value = True
+    mock_conn.mt5 = MagicMock()
+    setup_mock_mt5(mock_conn.mt5)
+    mock_conn.lock = MagicMock()
+    
+    # Position has different volume (0.02) than requested (0.01)
+    mock_conn.mt5.positions_get.return_value = [
+        MagicMock(ticket=12345, symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.02, price_open=1.15)
+    ]
+    mock_conn.mt5.symbol_info.return_value.point = 0.0001
+    
+    trader = MT5Trader(mock_conn)
+    res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01)
+    
+    log_test("Close triggered on volume mismatch", res is False)
+    return res is False
+
+def test_35_verify_slippage_mismatch():
+    """Test 35: Extreme slippage triggers closure."""
+    print("\n" + "=" * 60)
+    print("TEST 35: Slippage Mismatch (Price) triggers closure")
+    print("=" * 60)
+    
+    from externals.meta_trader.connection import MT5Connection
+    from externals.meta_trader.trading import MT5Trader
+    
+    mock_conn = MagicMock(spec=MT5Connection)
+    mock_conn.initialize.return_value = True
+    mock_conn.mt5 = MagicMock()
+    setup_mock_mt5(mock_conn.mt5)
+    mock_conn.lock = MagicMock()
+    
+    # Position has different price (1.16) than requested (1.15) -> 100 points diff
+    mock_conn.mt5.positions_get.return_value = [
+        MagicMock(ticket=12345, symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.01, price_open=1.16)
+    ]
+    mock_conn.mt5.symbol_info.return_value.point = 0.0001
+    
+    trader = MT5Trader(mock_conn)
+    # Threshold is deviation (20) or 5 points. 100 points should fail.
+    res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.15)
+    
+    log_test("Close triggered on price slippage mismatch", res is False)
+    return res is False
+
+
 
 # =============================================================================
 # RUNNER
@@ -711,12 +875,13 @@ def run_all_tests():
     buy_res = test_02_place_buy_with_sl_tp()
     if buy_res:
         t, sl, tp = buy_res
-        test_03_verify_sl_tp_matching(t, sl, tp)
-        test_04_verify_sl_tp_idempotence(t, sl, tp)
-        test_05_is_trade_open_blocked(t)
-        test_06_is_trade_open_allowed()
+        price_open = mt5.positions_get(ticket=t)[0].price_open
+        test_03_verify_position_matching(t, sl, tp, LOT_SIZE, price_open)
+        test_04_verify_position_idempotence(t, sl, tp, LOT_SIZE, price_open)
+        test_05_can_execute_trade_blocked(t)
+        test_06_can_execute_trade_allowed()
         test_07_close_position(t)
-        test_08_is_trade_open_cooldown()
+        test_08_can_execute_trade_cooldown()
         test_09_place_sell_with_sl_tp()
         test_10_magic_number_filtering()
     
@@ -746,6 +911,11 @@ def run_all_tests():
     test_28_mismatch_triggers_close()
     test_29_verification_missing_pos()
     test_30_concurrency_stress()
+    test_31_trade_mode_validation()
+    test_32_sl_tp_distance_validation()
+    test_33_close_frozen_retry()
+    test_34_verify_volume_mismatch()
+    test_35_verify_slippage_mismatch()
 
     # Shutdown (18)
     test_18_shutdown_mt5()

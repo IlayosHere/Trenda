@@ -1,6 +1,6 @@
 import os
 from typing import Final, FrozenSet, Tuple
-from configuration.broker_config import SIGNAL_SCORE_THRESHOLD
+from configuration.trading_config import SIGNAL_SCORE_THRESHOLD
 
 # =============================================================================
 # Gate 2: Timeframe Conflict Filter

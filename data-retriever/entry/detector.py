@@ -17,7 +17,7 @@ from externals.data_fetcher import fetch_data
 from externals.meta_trader import (
     initialize_mt5,
     place_order,
-    is_trade_open,
+    can_execute_trade,
     verify_sl_tp_consistency,
     mt5,
 )
@@ -59,7 +59,7 @@ def run_1h_entry_scan_job(
         logger.info(f"  -> Checking {symbol}...")
         
         # 1. Prevent duplicate trades or over-trading: skip if constraints are met
-        is_blocked, reason = is_trade_open(symbol)
+        is_blocked, reason = can_execute_trade(symbol)
         if is_blocked:
             logger.info(f"    ⏩ Skipped {symbol}: {reason}")
             continue
@@ -205,15 +205,17 @@ def run_1h_entry_scan_job(
                         f"{direction.value} {symbol} @ {execution.entry_price:.5f}"
                     )
                     
-                    # Verify SL/TP consistency
-                    is_consistent = verify_sl_tp_consistency(
+                    # Verify position consistency (SL/TP, Volume, Price)
+                    is_consistent = verify_position_consistency(
                         ticket=order_result.order,
                         expected_sl=execution.sl_price,
-                        expected_tp=execution.tp_price
+                        expected_tp=execution.tp_price,
+                        expected_volume=execution.lot_size,
+                        expected_price=execution.entry_price
                     )
                     
                     if not is_consistent:
-                        logger.error(f"    ❌ Verification failed for {symbol}: SL/TP modified by broker. Trade CLOSED.")
+                        logger.error(f"    ❌ Verification failed for {symbol}: Position mismatch or excessive slippage. Trade CLOSED.")
                         continue
                 else:
                     logger.warning(f"    ⚠️ MT5 not available. Skipping order placement for {symbol}.")

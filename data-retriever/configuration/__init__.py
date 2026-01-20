@@ -18,11 +18,13 @@ from .broker_config import (
     MT5_SL_TP_THRESHOLD_MULTIPLIER,
     MT5_PRICE_THRESHOLD_FALLBACK,
     MT5_VERIFICATION_SLEEP,
-    MT5_ORDER_COMMENT,
-    SIGNAL_SCORE_THRESHOLD,
     MT5_BROKER_TIMEZONE,
     MT5_BROKER_UTC_OFFSET,
     get_broker_utc_offset,
+)
+from .trading_config import (
+    MT5_ORDER_COMMENT,
+    SIGNAL_SCORE_THRESHOLD,
 )
 from .scheduler_config import SCHEDULE_CONFIG
 

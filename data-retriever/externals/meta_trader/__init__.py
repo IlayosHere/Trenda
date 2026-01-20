@@ -17,8 +17,8 @@ initialize_mt5 = _connection.initialize
 shutdown_mt5 = _connection.shutdown
 place_order = _trader.place_order
 close_position = _trader.close_position
-verify_sl_tp_consistency = _trader.verify_sl_tp_consistency
-is_trade_open = _constraints.is_trade_open
+verify_position_consistency = _trader.verify_position_consistency
+can_execute_trade = _constraints.can_execute_trade
 
 __all__ = [
     "mt5",
@@ -27,6 +27,6 @@ __all__ = [
     "shutdown_mt5",
     "place_order",
     "close_position",
-    "verify_sl_tp_consistency",
-    "is_trade_open",
+    "verify_position_consistency",
+    "can_execute_trade",
 ]

@@ -30,10 +30,11 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         tick.time = timestamp
         self.mock_mt5.symbol_info_tick.return_value = tick
 
-    def create_mock_trade(self, start_time):
+    def create_mock_trade(self, start_time, symbol="EURUSD"):
         trade = MagicMock()
         trade.time = start_time
         trade.magic = MT5_MAGIC_NUMBER
+        trade.symbol = symbol
         return trade
 
     def test_fresh_start_allowed(self):
@@ -42,7 +43,7 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         self.mock_mt5.positions_get.return_value = []
         self.mock_mt5.history_deals_get.return_value = []
         
-        is_blocked, reason = self.constraints.is_trade_open("EURUSD")
+        is_blocked, reason = self.constraints.can_execute_trade("EURUSD")
         self.assertFalse(is_blocked)
         self.assertEqual(reason, "")
 
@@ -53,7 +54,7 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         trades = [self.create_mock_trade(self.now_ts - 1000) for _ in range(4)]
         self.mock_mt5.positions_get.return_value = trades
         
-        is_blocked, reason = self.constraints.is_trade_open("EURUSD")
+        is_blocked, reason = self.constraints.can_execute_trade("EURUSD")
         self.assertTrue(is_blocked)
         self.assertIn("Global limit reached", reason)
 
@@ -62,12 +63,9 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         # 209 minutes = 12540 seconds
         start_time = self.now_ts - (209 * 60)
         self.mock_tick(self.now_ts)
-        self.mock_mt5.positions_get.return_value = [self.create_mock_trade(start_time)]
-        # ensure it's filtered by symbol in the code
-        self.mock_mt5.positions_get.side_effect = lambda symbol=None, ticket=None: \
-            [self.create_mock_trade(start_time)] if symbol == "EURUSD" else []
+        self.mock_mt5.positions_get.return_value = [self.create_mock_trade(start_time, "EURUSD")]
 
-        is_blocked, reason = self.constraints.is_trade_open("EURUSD")
+        is_blocked, reason = self.constraints.can_execute_trade("EURUSD")
         self.assertTrue(is_blocked)
         self.assertIn("Recent active position", reason)
 
@@ -81,7 +79,7 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         self.mock_mt5.positions_get.return_value = [self.create_mock_trade(start_time)]
         self.mock_mt5.history_deals_get.return_value = []
 
-        is_blocked, reason = self.constraints.is_trade_open("EURUSD")
+        is_blocked, reason = self.constraints.can_execute_trade("EURUSD")
         self.assertFalse(is_blocked)
 
     def test_history_trade_too_recent(self):
@@ -95,7 +93,7 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         deal.entry = self.mock_mt5.DEAL_ENTRY_IN
         self.mock_mt5.history_deals_get.return_value = [deal]
 
-        is_blocked, reason = self.constraints.is_trade_open("EURUSD")
+        is_blocked, reason = self.constraints.can_execute_trade("EURUSD")
         self.assertTrue(is_blocked)
         self.assertIn("Recent historical trade", reason)
 
@@ -109,7 +107,7 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         deal.entry = self.mock_mt5.DEAL_ENTRY_IN
         self.mock_mt5.history_deals_get.return_value = [deal]
 
-        is_blocked, reason = self.constraints.is_trade_open("EURUSD")
+        is_blocked, reason = self.constraints.can_execute_trade("EURUSD")
         self.assertFalse(is_blocked)
 
 if __name__ == "__main__":
