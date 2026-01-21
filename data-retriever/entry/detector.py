@@ -183,7 +183,14 @@ def run_1h_entry_scan_job(
                 
                 # Place MT5 order (only if MT5 module is available)
                 if mt5:
-                    order_type = mt5.ORDER_TYPE_BUY if direction == TrendDirection.BULLISH else mt5.ORDER_TYPE_SELL
+                    if direction == TrendDirection.BULLISH:
+                        order_type = mt5.ORDER_TYPE_BUY
+                    elif direction == TrendDirection.BEARISH:
+                        order_type = mt5.ORDER_TYPE_SELL
+                    else:
+                         logger.error(f"    ❌ Invalid trend direction for {symbol}: {direction}. Skipping trade.")
+                         continue
+
                     order_result = place_order(
                         symbol=symbol,
                         order_type=order_type,
@@ -216,7 +223,8 @@ def run_1h_entry_scan_job(
                     
                     if not is_consistent:
                         logger.error(f"    ❌ Verification failed for {symbol}: Position mismatch or excessive slippage. Trade CLOSED.")
-                        continue
+                        # Stop processing other AOIs for this symbol to avoid rapid re-entry (churning)
+                        break
                 else:
                     logger.warning(f"    ⚠️ MT5 not available. Skipping order placement for {symbol}.")
                     # Determine if we should skip storage or not. 
