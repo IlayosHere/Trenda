@@ -2,7 +2,7 @@ import os
 import core.env
 import time
 from scheduler import scheduler
-from externals import mt5_handler
+from externals import meta_trader
 from scheduler import start_scheduler, run_startup_data_refresh
 from replay_runner import run as run_replay
 from logger import get_logger
@@ -16,7 +16,7 @@ RUN_MODE = os.getenv("RUN_MODE", "replay").lower()
 def main():
     logger.info("--- 🚀 Starting Trend Analyzer Bot ---")
 
-    if not mt5_handler.initialize_mt5():
+    if not meta_trader.initialize_mt5():
         return  # Exit if MT5 can't start
 
     try:
@@ -42,7 +42,7 @@ def main():
         # Always shut down MT5 and scheduler
         if scheduler.running:
             scheduler.shutdown()
-        mt5_handler.shutdown_mt5()
+        meta_trader.shutdown_mt5()
 
 
 # --- Run the bot ---

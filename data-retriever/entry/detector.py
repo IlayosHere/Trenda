@@ -18,14 +18,10 @@ from externals.meta_trader import (
     initialize_mt5,
     place_order,
     can_execute_trade,
-    verify_sl_tp_consistency,
+    verify_position_consistency,
     mt5,
 )
 
-try:
-    import MetaTrader5 as mt5
-except ImportError:
-    mt5 = None
 from models import AOIZone, TrendDirection
 from models.market import SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
@@ -76,9 +72,11 @@ def run_1h_entry_scan_job(
                 f"  ❌ Skipping {symbol}: no candle data returned for timeframe {timeframe}."
             )
             continue
-        if candles.empty:
-            logger.error(
-                f"  ❌ Skipping {symbol}: no closed candles available after trimming."
+
+        # 3. Data sufficiency check
+        if len(candles) < lookback:
+            logger.warning(
+                f"    ⏩ Skipped {symbol}: Insufficient data ({len(candles)} < {lookback} required)."
             )
             continue
 
