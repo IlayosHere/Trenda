@@ -2,6 +2,7 @@
 from .connection import MT5Connection
 from .trading import MT5Trader
 from .constraints import MT5Constraints
+from .safeguards import _safeguards  # Only import singleton, not class
 
 # Singleton instances for global access (similar to old the mt5_handler module)
 _connection = MT5Connection()
@@ -20,6 +21,11 @@ close_position = _trader.close_position
 verify_position_consistency = _trader.verify_position_consistency
 can_execute_trade = _constraints.can_execute_trade
 
+# Safeguard API
+is_trading_allowed = _safeguards.is_trading_allowed
+trigger_emergency_lock = _safeguards.trigger_emergency_lock
+clear_trading_lock = _safeguards.clear_lock
+
 __all__ = [
     "mt5",
     "mt5_lock",
@@ -29,4 +35,8 @@ __all__ = [
     "close_position",
     "verify_position_consistency",
     "can_execute_trade",
+    "is_trading_allowed",
+    "trigger_emergency_lock",
+    "clear_trading_lock",
 ]
+

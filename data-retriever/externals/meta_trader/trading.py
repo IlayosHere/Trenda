@@ -8,6 +8,7 @@ from configuration.broker_config import (
     MT5_VERIFICATION_SLEEP
 )
 from configuration.trading_config import MT5_ORDER_COMMENT
+from .safeguards import _safeguards
 
 logger = get_logger(__name__)
 
@@ -60,7 +61,7 @@ class MT5Trader:
                 logger.error(f"Order failed for {symbol}: price is 0.0. A valid price must be provided.")
                 return None
 
-            # 3. Normalize prices (Round to symbol's digits)
+            # 4. Normalize prices (Round to symbol's digits)
             price = round(price, symbol_info.digits)
             
             if sl < 0 or tp < 0:
@@ -167,6 +168,10 @@ class MT5Trader:
             logger.info(f"Retrying close for ticket {ticket} in 1s...")
             time.sleep(1)
         else:
+            # All retry attempts exhausted - this is a critical failure
+            _safeguards.trigger_emergency_lock(
+                f"Failed to close position {ticket} after {MT5_CLOSE_RETRY_ATTEMPTS} attempts"
+            )
             logger.critical(f"EMERGENCY: Failed to close position {ticket} after all attempts.")
             return False
 
@@ -218,6 +223,10 @@ class MT5Trader:
         time.sleep(0.5) 
         with self.connection.lock:
             if self._get_active_position(ticket):
+                # Position still open after close signal - critical failure
+                _safeguards.trigger_emergency_lock(
+                    f"Position {ticket} still OPEN after close signal was confirmed"
+                )
                 logger.critical(f"VERIFICATION FAILED: Ticket {ticket} still OPEN after close signal!")
                 return False
 
@@ -243,7 +252,8 @@ class MT5Trader:
         different volumes/prices) from going unnoticed.
         """
         if not self.connection.initialize():
-            return True
+            logger.error("Cannot verify position: MT5 initialization failed")
+            return False  # Safer default: treat as unverified
 
         time.sleep(MT5_VERIFICATION_SLEEP) 
         
@@ -257,40 +267,45 @@ class MT5Trader:
             point = sym_info.point if sym_info else 0.00001
             threshold = (point * MT5_SL_TP_THRESHOLD_MULTIPLIER) if sym_info else MT5_PRICE_THRESHOLD_FALLBACK
             
+            # Capture all values atomically inside lock
+            symbol_name = pos.symbol
             actual_sl, actual_tp = pos.sl, pos.tp
             actual_volume, actual_price = pos.volume, pos.price_open
         
-        # 1. SL/TP Consistency
-        sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
-        tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)
-        
-        if not sl_match or not tp_match:
-            logger.warning(f"SL/TP MISMATCH for ticket {ticket} ({pos.symbol})! "
-                           f"Requested: {expected_sl}/{expected_tp}, Actual: {actual_sl}/{actual_tp}")
-            self.close_position(ticket)
-            return False
-
-        # 2. Volume Consistency (Exact match with small epsilon)
-        if expected_volume > 0 and abs(actual_volume - expected_volume) > 0.00001:
-            logger.warning(f"VOLUME MISMATCH for ticket {ticket} ({pos.symbol})! "
-                           f"Requested: {expected_volume}, Actual: {actual_volume}")
-            self.close_position(ticket)
-            return False
-        
-        # 3. Open Price Consistency (Slippage check)
-        if expected_price > 0:
-            # Allow slippage up to MT5_DEVIATION points
-            max_allowed_slip = point * MT5_DEVIATION
+            # 1. SL/TP Consistency
+            sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
+            tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)
             
-            actual_slippage = abs(actual_price - expected_price)
-            if actual_slippage > max_allowed_slip:
-                logger.warning(
-                    f"PRICE MISMATCH (SLIPPAGE) for ticket {ticket} ({pos.symbol})! "
-                    f"Requested: {expected_price}, Actual: {actual_price}, "
-                    f"Slippage: {actual_slippage:.5f}, Limit: {max_allowed_slip:.5f}"
-                )
-                self.close_position(ticket)
-                return False
+            if not sl_match or not tp_match:
+                logger.warning(f"SL/TP MISMATCH for ticket {ticket} ({symbol_name})! "
+                               f"Requested: {expected_sl}/{expected_tp}, Actual: {actual_sl}/{actual_tp}")
+                # Note: close_position will acquire its own lock, so we exit this block first
+                needs_close = "sl_tp"
+            elif expected_volume > 0 and abs(actual_volume - expected_volume) > 0.00001:
+                # 2. Volume Consistency (Exact match with small epsilon)
+                logger.warning(f"VOLUME MISMATCH for ticket {ticket} ({symbol_name})! "
+                               f"Requested: {expected_volume}, Actual: {actual_volume}")
+                needs_close = "volume"
+            elif expected_price > 0:
+                # 3. Open Price Consistency (Slippage check)
+                max_allowed_slip = point * MT5_DEVIATION
+                actual_slippage = abs(actual_price - expected_price)
+                if actual_slippage > max_allowed_slip:
+                    logger.warning(
+                        f"PRICE MISMATCH (SLIPPAGE) for ticket {ticket} ({symbol_name})! "
+                        f"Requested: {expected_price}, Actual: {actual_price}, "
+                        f"Slippage: {actual_slippage:.5f}, Limit: {max_allowed_slip:.5f}"
+                    )
+                    needs_close = "price"
+                else:
+                    needs_close = None
+            else:
+                needs_close = None
+        
+        # Close position outside the lock if needed
+        if needs_close:
+            self.close_position(ticket)
+            return False
 
-        logger.info(f"Position parameters verified for ticket {ticket} ({pos.symbol}).")
+        logger.info(f"Position parameters verified for ticket {ticket} ({symbol_name}).")
         return True
