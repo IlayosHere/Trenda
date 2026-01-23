@@ -241,16 +241,19 @@ class MT5Trader:
         if not self.connection.initialize():
             return False
 
+        success = False
         for attempt in range(1, MT5_CLOSE_RETRY_ATTEMPTS + 1):
             status = self._attempt_close(ticket, attempt)
             if status.success:
+                success = True
                 break
             if not status.should_retry:
                 return False
             
             logger.info(f"Retrying close for ticket {ticket} in 1s...")
             time.sleep(1)
-        else:
+        
+        if not success:
             # All retry attempts exhausted - this is a critical failure
             _safeguards.trigger_emergency_lock(
                 f"Failed to close position {ticket} after {MT5_CLOSE_RETRY_ATTEMPTS} attempts"
