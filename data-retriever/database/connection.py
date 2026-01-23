@@ -72,24 +72,47 @@ class DBConnectionManager:
         close_conn = False
         try:
             with cls._pool_lock:
+                # Double-check pool still exists after acquiring lock
+                if not cls._pool:
+                    return
                 conn = cls._pool.getconn()
 
-            with conn.cursor() as cur:
-                cur.execute("SELECT current_database(), current_schema();")
-                db_name, schema = cur.fetchone()
-                log.info("DB_POOL_READY|database=%s|schema=%s", db_name, schema)
-                cls._pool_details_logged = True
-        except (OperationalError, InterfaceError) as exc:
-            close_conn = True
-            logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
-            log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
+            # Perform query in try block to ensure connection is released on error
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT current_database(), current_schema();")
+                    db_name, schema = cur.fetchone()
+                    log.info("DB_POOL_READY|database=%s|schema=%s", db_name, schema)
+                    cls._pool_details_logged = True
+            except (OperationalError, InterfaceError) as exc:
+                close_conn = True
+                logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
+                log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
+            except Exception as exc:
+                close_conn = True
+                logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
+                log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
         except Exception as exc:
-            logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
-            log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
+            # If getconn() itself fails, ensure we don't leak
+            logger.error(f"DB_CONNECTION_ACQUIRE_FAILED: {exc}")
+            log.error("DB_CONNECTION_ACQUIRE_FAILED|error=%s", exc, exc_info=True)
+            close_conn = True
         finally:
-            if conn and cls._pool:
-                with cls._pool_lock:
-                    cls._pool.putconn(conn, close=close_conn)
+            if conn is not None:
+                # Capture pool reference before lock to avoid race condition
+                pool = cls._pool
+                if pool:
+                    try:
+                        with cls._pool_lock:
+                            # Verify pool still exists before returning connection
+                            if cls._pool:
+                                cls._pool.putconn(conn, close=close_conn)
+                            else:
+                                # Pool was closed, connection is lost - log warning
+                                logger.warning("Pool was closed while connection was in use")
+                    except Exception as exc:
+                        logger.error(f"DB_CONNECTION_RELEASE_FAILED: {exc}")
+                        log.error("DB_CONNECTION_RELEASE_FAILED|error=%s", exc, exc_info=True)
 
     @classmethod
     def _require_pool(cls) -> SimpleConnectionPool:

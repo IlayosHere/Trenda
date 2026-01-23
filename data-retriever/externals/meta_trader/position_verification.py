@@ -36,6 +36,9 @@ class PositionVerifier:
         import time
         time.sleep(MT5_VERIFICATION_SLEEP) 
         
+        # Capture position data atomically inside lock and perform validation
+        # We keep the lock during validation to prevent position state from changing
+        # between data capture and validation decision
         with self.connection.lock:
             pos = self._get_active_position(ticket)
             if not pos:
@@ -50,26 +53,31 @@ class PositionVerifier:
             symbol_name = pos.symbol
             actual_sl, actual_tp = pos.sl, pos.tp
             actual_volume, actual_price = pos.volume, pos.price_open
+            
+            # Perform validation while still holding lock to ensure consistency
+            # This prevents race conditions where position changes between capture and validation
+            needs_close = False
+            mismatch_reason = self._validate_sl_tp_consistency(
+                ticket, symbol_name, actual_sl, actual_tp, expected_sl, expected_tp, threshold
+            )
+            if mismatch_reason:
+                needs_close = True
+            else:
+                mismatch_reason = self._validate_volume_consistency(
+                    ticket, symbol_name, actual_volume, expected_volume
+                )
+                if mismatch_reason:
+                    needs_close = True
+                else:
+                    mismatch_reason = self._validate_price_consistency(
+                        ticket, symbol_name, actual_price, expected_price, point
+                    )
+                    if mismatch_reason:
+                        needs_close = True
         
-        # Validate position parameters (outside lock to allow close_position to acquire its own lock)
-        mismatch_reason = self._validate_sl_tp_consistency(
-            ticket, symbol_name, actual_sl, actual_tp, expected_sl, expected_tp, threshold
-        )
-        if mismatch_reason:
-            self.position_closer.close_position(ticket)
-            return False
-
-        mismatch_reason = self._validate_volume_consistency(
-            ticket, symbol_name, actual_volume, expected_volume
-        )
-        if mismatch_reason:
-            self.position_closer.close_position(ticket)
-            return False
-
-        mismatch_reason = self._validate_price_consistency(
-            ticket, symbol_name, actual_price, expected_price, point
-        )
-        if mismatch_reason:
+        # Now outside lock: close position if mismatch was detected
+        # This allows close_position to acquire its own lock without deadlock
+        if needs_close:
             self.position_closer.close_position(ticket)
             return False
 
@@ -77,9 +85,27 @@ class PositionVerifier:
         return True
 
     def _get_active_position(self, ticket: int):
-        """Helper to get a single active position by its unique ticket ID."""
-        positions = self.mt5.positions_get(ticket=ticket)
-        return positions[0] if positions else None
+        """Helper to get a single active position by its unique ticket ID.
+        
+        Returns:
+            Position object if found, None otherwise.
+        """
+        try:
+            positions = self.mt5.positions_get(ticket=ticket)
+            if positions is None:
+                logger.warning(f"positions_get returned None for ticket {ticket}")
+                return None
+            if not positions:  # Empty list
+                return None
+            if len(positions) == 0:
+                return None
+            return positions[0]
+        except (IndexError, TypeError, AttributeError) as e:
+            logger.error(f"Error getting position {ticket}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting position {ticket}: {e}")
+            return None
 
     def _validate_sl_tp_consistency(
         self, ticket: int, symbol_name: str, actual_sl: float, actual_tp: float,

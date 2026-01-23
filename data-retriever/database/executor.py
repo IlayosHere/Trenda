@@ -146,10 +146,16 @@ class DBExecutor:
                 if many:
                     _validate_batch_params(params)
 
+                # 'with conn:' context manager handles transaction:
+                # - Commits automatically on successful exit
+                # - Rolls back automatically on exception
+                # This ensures atomicity - either all rows succeed or all fail
+                # Note: psycopg2 connections have autocommit=False by default
                 with conn:
                     with conn.cursor(cursor_factory=cursor_factory) as cursor:
                         _execute_sql(cursor, sql, params, many)
                         result = _fetch_results(cursor, fetch)
+                    # Commit happens automatically here on successful exit
 
                 return result
 
@@ -239,9 +245,14 @@ class DBExecutor:
             try:
                 conn = DBConnectionManager.get_connection()
 
+                # 'with conn:' context manager handles transaction:
+                # - Commits automatically on successful exit
+                # - Rolls back automatically on exception
+                # Note: psycopg2 connections have autocommit=False by default
                 with conn:
                     with conn.cursor(cursor_factory=cursor_factory) as cursor:
                         result = work(cursor)
+                    # Commit happens automatically here on successful exit
                     return result
 
             except Exception as exc:

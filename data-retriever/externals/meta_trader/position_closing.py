@@ -74,11 +74,16 @@ class PositionCloser:
             
             result = self.mt5.order_send(request)
 
-        if result and result.retcode == self.mt5.TRADE_RETCODE_DONE:
+        # Safe attribute access: check if result has retcode before accessing
+        if result and hasattr(result, 'retcode') and result.retcode == self.mt5.TRADE_RETCODE_DONE:
             return CloseAttemptStatus(True, False)
-            
-        err_msg = f"Retcode: {result.retcode if result else 'None'}, Error: {self.mt5.last_error()}"
-        if result and result.retcode == self.mt5.TRADE_RETCODE_FROZEN:
+        
+        # Safe access to retcode and last_error
+        retcode = getattr(result, 'retcode', None) if result else None
+        mt5_error = self.mt5.last_error() if hasattr(self.mt5, 'last_error') else "N/A"
+        err_msg = f"Retcode: {retcode if retcode is not None else 'None'}, Error: {mt5_error}"
+        
+        if result and retcode == self.mt5.TRADE_RETCODE_FROZEN:
             logger.warning(f"Close attempt {attempt} for ticket {ticket}: Position is FROZEN. Retrying...")
         else:
             logger.error(f"Close attempt {attempt} failed for ticket {ticket}. {err_msg}")

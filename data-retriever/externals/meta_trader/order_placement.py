@@ -24,6 +24,29 @@ class OrderPlacer:
         Returns:
             mt5.OrderSendResult or None: The result of the order placement.
         """
+        # Input validation
+        if not symbol or not isinstance(symbol, str) or not symbol.strip():
+            logger.error(f"Invalid symbol: {symbol}. Must be a non-empty string.")
+            return None
+        
+        if volume <= 0:
+            logger.error(f"Invalid volume: {volume}. Must be > 0")
+            return None
+        
+        # Validate order_type is a valid MT5 constant
+        valid_order_types = (self.mt5.ORDER_TYPE_BUY, self.mt5.ORDER_TYPE_SELL)
+        if order_type not in valid_order_types:
+            logger.error(f"Invalid order_type: {order_type}. Must be ORDER_TYPE_BUY ({self.mt5.ORDER_TYPE_BUY}) or ORDER_TYPE_SELL ({self.mt5.ORDER_TYPE_SELL})")
+            return None
+        
+        if expiration_seconds < 0:
+            logger.error(f"Invalid expiration_seconds: {expiration_seconds}. Must be >= 0")
+            return None
+        
+        if deviation < 0:
+            logger.error(f"Invalid deviation: {deviation}. Must be >= 0")
+            return None
+        
         if not self.connection.initialize():
             return None
 
@@ -195,11 +218,23 @@ class OrderPlacer:
             logger.error(f"Order send failed for {symbol}. Result is None.")
             return None
 
+        # Safe attribute access: check if retcode exists before accessing
+        if not hasattr(result, 'retcode'):
+            logger.error(f"Order result for {symbol} missing 'retcode' attribute. Result type: {type(result)}")
+            return None
+
         if result.retcode != self.mt5.TRADE_RETCODE_DONE:
             self._log_order_error(symbol, result)
             return result
 
-        logger.info(f"Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{result.order}")
+        # Safe access to result.order - use getattr with None default
+        ticket = getattr(result, 'order', None)
+        if ticket is None:
+            logger.warning(f"Order succeeded for {symbol} but no ticket returned. Result: {result}")
+            # Still return result even without ticket for caller to handle
+            return result
+        
+        logger.info(f"Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{ticket}")
         return result
 
     def _log_order_error(self, symbol: str, result: Any):
@@ -224,5 +259,12 @@ class OrderPlacer:
             10027: "AutoTrading disabled in terminal (enable Algo Trading button)",
             10030: "Invalid SL/TP for this symbol",
         }
-        desc = error_messages.get(result.retcode, "Unknown error")
-        logger.error(f"Order failed for {symbol}. Retcode: {result.retcode} ({desc}), MT5 Error: {self.mt5.last_error()}")
+        # Safe access to retcode
+        retcode = getattr(result, 'retcode', None)
+        if retcode is None:
+            logger.error(f"Order failed for {symbol}. Result missing 'retcode' attribute. Result: {result}")
+            return
+        
+        desc = error_messages.get(retcode, "Unknown error")
+        mt5_error = self.mt5.last_error() if hasattr(self.mt5, 'last_error') else "N/A"
+        logger.error(f"Order failed for {symbol}. Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}")
