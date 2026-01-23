@@ -355,40 +355,79 @@ class MT5Trader:
             actual_sl, actual_tp = pos.sl, pos.tp
             actual_volume, actual_price = pos.volume, pos.price_open
         
-            # 1. SL/TP Consistency
-            sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
-            tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)
-            
-            if not sl_match or not tp_match:
-                logger.warning(f"SL/TP MISMATCH for ticket {ticket} ({symbol_name})! "
-                               f"Requested: {expected_sl}/{expected_tp}, Actual: {actual_sl}/{actual_tp}")
-                # Note: close_position will acquire its own lock, so we exit this block first
-                needs_close = "sl_tp"
-            elif expected_volume > 0 and abs(actual_volume - expected_volume) > 0.00001:
-                # 2. Volume Consistency (Exact match with small epsilon)
-                logger.warning(f"VOLUME MISMATCH for ticket {ticket} ({symbol_name})! "
-                               f"Requested: {expected_volume}, Actual: {actual_volume}")
-                needs_close = "volume"
-            elif expected_price > 0:
-                # 3. Open Price Consistency (Slippage check)
-                max_allowed_slip = point * MT5_DEVIATION
-                actual_slippage = abs(actual_price - expected_price)
-                if actual_slippage > max_allowed_slip:
-                    logger.warning(
-                        f"PRICE MISMATCH (SLIPPAGE) for ticket {ticket} ({symbol_name})! "
-                        f"Requested: {expected_price}, Actual: {actual_price}, "
-                        f"Slippage: {actual_slippage:.5f}, Limit: {max_allowed_slip:.5f}"
-                    )
-                    needs_close = "price"
-                else:
-                    needs_close = None
-            else:
-                needs_close = None
-        
-        # Close position outside the lock if needed
-        if needs_close:
+        # Validate position parameters (outside lock to allow close_position to acquire its own lock)
+        mismatch_reason = self._validate_sl_tp_consistency(
+            ticket, symbol_name, actual_sl, actual_tp, expected_sl, expected_tp, threshold
+        )
+        if mismatch_reason:
+            self.close_position(ticket)
+            return False
+
+        mismatch_reason = self._validate_volume_consistency(
+            ticket, symbol_name, actual_volume, expected_volume
+        )
+        if mismatch_reason:
+            self.close_position(ticket)
+            return False
+
+        mismatch_reason = self._validate_price_consistency(
+            ticket, symbol_name, actual_price, expected_price, point
+        )
+        if mismatch_reason:
             self.close_position(ticket)
             return False
 
         logger.info(f"Position parameters verified for ticket {ticket} ({symbol_name}).")
         return True
+
+    def _validate_sl_tp_consistency(
+        self, ticket: int, symbol_name: str, actual_sl: float, actual_tp: float,
+        expected_sl: float, expected_tp: float, threshold: float
+    ) -> Optional[str]:
+        """Validate that SL/TP values match expected values within threshold.
+        
+        Returns:
+            "sl_tp" if mismatch found, None otherwise.
+        """
+        sl_match = abs(actual_sl - expected_sl) < threshold if expected_sl > 0 else (actual_sl == 0)
+        tp_match = abs(actual_tp - expected_tp) < threshold if expected_tp > 0 else (actual_tp == 0)
+        
+        if not sl_match or not tp_match:
+            logger.warning(f"SL/TP MISMATCH for ticket {ticket} ({symbol_name})! "
+                           f"Requested: {expected_sl}/{expected_tp}, Actual: {actual_sl}/{actual_tp}")
+            return "sl_tp"
+        return None
+
+    def _validate_volume_consistency(
+        self, ticket: int, symbol_name: str, actual_volume: float, expected_volume: float
+    ) -> Optional[str]:
+        """Validate that volume matches expected value exactly (with small epsilon).
+        
+        Returns:
+            "volume" if mismatch found, None otherwise.
+        """
+        if expected_volume > 0 and abs(actual_volume - expected_volume) > 0.00001:
+            logger.warning(f"VOLUME MISMATCH for ticket {ticket} ({symbol_name})! "
+                           f"Requested: {expected_volume}, Actual: {actual_volume}")
+            return "volume"
+        return None
+
+    def _validate_price_consistency(
+        self, ticket: int, symbol_name: str, actual_price: float, expected_price: float, point: float
+    ) -> Optional[str]:
+        """Validate that open price matches expected value within allowed slippage.
+        
+        Returns:
+            "price" if mismatch found, None otherwise.
+        """
+        if expected_price > 0:
+            max_allowed_slip = point * MT5_DEVIATION
+            actual_slippage = abs(actual_price - expected_price)
+            if actual_slippage > max_allowed_slip:
+                logger.warning(
+                    f"PRICE MISMATCH (SLIPPAGE) for ticket {ticket} ({symbol_name})! "
+                    f"Requested: {expected_price}, Actual: {actual_price}, "
+                    f"Slippage: {actual_slippage:.5f}, Limit: {max_allowed_slip:.5f}"
+                )
+                return "price"
+        return None
