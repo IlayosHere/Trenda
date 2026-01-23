@@ -139,17 +139,17 @@ class MT5Trader:
             return True
 
         min_dist_points = max(symbol_info.trade_stops_level, symbol_info.trade_freeze_level)
-        min_dist_price = min_dist_points * symbol_info.point
+        min_dist_price = round(min_dist_points * symbol_info.point, symbol_info.digits)
         
         if sl > 0:
-            dist_sl = abs(price - sl)
+            dist_sl = round(abs(price - sl), symbol_info.digits)
             if dist_sl < min_dist_price:
                 logger.error(f"Order failed for {symbol}: SL too close to price. "
                              f"Dist: {dist_sl:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
                 return False
         
         if tp > 0:
-            dist_tp = abs(tp - price)
+            dist_tp = round(abs(tp - price), symbol_info.digits)
             if dist_tp < min_dist_price:
                 logger.error(f"Order failed for {symbol}: TP too close to price. "
                              f"Dist: {dist_tp:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
@@ -426,7 +426,8 @@ class MT5Trader:
         if expected_price > 0:
             max_allowed_slip = point * MT5_DEVIATION
             actual_slippage = abs(actual_price - expected_price)
-            if actual_slippage > max_allowed_slip:
+            # Use small epsilon for float comparison safety
+            if actual_slippage > (max_allowed_slip + 1e-9):
                 logger.warning(
                     f"PRICE MISMATCH (SLIPPAGE) for ticket {ticket} ({symbol_name})! "
                     f"Requested: {expected_price}, Actual: {actual_price}, "

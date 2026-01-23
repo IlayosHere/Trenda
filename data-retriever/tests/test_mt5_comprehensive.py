@@ -208,7 +208,7 @@ def test_price_movement_scenarios():
     sym_info.trade_stops_level = 0
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
-    sym_info.point = 0.0001
+    sym_info.point = 0.00001
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
@@ -216,20 +216,20 @@ def test_price_movement_scenarios():
     # Test scenarios
     scenarios = [
         # (requested_price, actual_price, point, should_fail)
-        (1.10000, 1.10000, 0.0001, False),  # Exact match
-        (1.10000, 1.10001, 0.0001, False),  # 1 pip slippage (within deviation)
-        (1.10000, 1.10020, 0.0001, False),  # 20 pips (exactly at deviation limit)
-        (1.10000, 1.10021, 0.0001, True),   # 21 pips (exceeds deviation)
-        (1.10000, 1.10100, 0.0001, True),   # 100 pips (extreme slippage)
-        (1.10000, 1.09999, 0.0001, False),  # 1 pip negative slippage
-        (1.10000, 1.09980, 0.0001, False),  # 20 pips negative
-        (1.10000, 1.09979, 0.0001, True),   # 21 pips negative (exceeds)
+        (1.10000, 1.10000, 0.00001, False),  # Exact match
+        (1.10000, 1.10001, 0.00001, False),  # 1 pip slippage (within deviation)
+        (1.10000, 1.10020, 0.00001, False),  # 20 pips (exactly at deviation limit)
+        (1.10000, 1.10021, 0.00001, True),   # 21 pips (exceeds deviation)
+        (1.10000, 1.10100, 0.00001, True),   # 100 pips (extreme slippage)
+        (1.10000, 1.09999, 0.00001, False),  # 1 pip negative slippage
+        (1.10000, 1.09980, 0.00001, False),  # 20 pips negative
+        (1.10000, 1.09979, 0.00001, True),   # 21 pips negative (exceeds)
         # Different point values
         (110.000, 110.001, 0.01, False),   # JPY pair, 1 pip
-        (110.000, 110.020, 0.01, False),    # JPY pair, 20 pips
-        (110.000, 110.021, 0.01, True),    # JPY pair, 21 pips
+        (110.000, 110.200, 0.01, False),    # JPY pair, 20 pips
+        (110.000, 110.210, 0.01, True),     # JPY pair, 21 pips
         # Edge cases
-        (0.00001, 0.00002, 0.00001, True), # Very small prices
+        (0.00001, 0.00022, 0.00001, True), # Very small prices (21 pips)
         (99999.99, 100000.00, 0.01, False), # Large prices
     ]
     
@@ -563,7 +563,7 @@ def test_realtime_trading_scenarios():
     prices = [1.10000, 1.10001, 1.10002, 1.10005, 1.10010]
     price_index = [-1]  # Start at -1 so first call returns index 0
     
-    def get_tick():
+    def get_tick(*args):
         price_index[0] = (price_index[0] + 1) % len(prices)
         return MagicMock(time=1000, bid=prices[price_index[0]], ask=prices[price_index[0]] + 0.0001)
     
@@ -866,7 +866,7 @@ def test_massive_granular_expansion():
         sym_info.trade_stops_level = stops_level
         sym_info.trade_freeze_level = freeze_level
         sym_info.trade_mode = trade_mode or mt5.SYMBOL_TRADE_MODE_FULL
-        sym_info.point = 10 ** (-digits) if digits <= 5 else 0.01
+        sym_info.point = 10 ** (-digits)
         return sym_info
     
     # Test 1: All digit precisions (0-8 digits)
@@ -1162,7 +1162,7 @@ def test_real_world_scenarios():
     prices = [1.1000, 1.1005, 1.1010]
     price_idx = [-1]  # Start at -1 so first call returns index 0
     
-    def get_tick():
+    def get_tick(*args):
         price_idx[0] = (price_idx[0] + 1) % len(prices)
         return MagicMock(time=1000, bid=prices[price_idx[0]], ask=prices[price_idx[0]] + 0.0001)
     
@@ -1181,7 +1181,7 @@ def test_real_world_scenarios():
     volatile_prices = [1.1000 + i * 0.0001 for i in range(50)]  # 50 pip movement
     price_idx_vol = [-1]  # Start at -1 so first call returns index 0
     
-    def get_volatile_tick():
+    def get_volatile_tick(*args):
         price_idx_vol[0] = (price_idx_vol[0] + 1) % len(volatile_prices)
         return MagicMock(time=1000, bid=volatile_prices[price_idx_vol[0]], ask=volatile_prices[price_idx_vol[0]] + 0.0001)
     
