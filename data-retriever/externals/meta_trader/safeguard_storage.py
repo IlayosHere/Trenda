@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -23,6 +24,8 @@ class SafeguardStorage:
     
     def __init__(self, lock_file: Path = SAFEGUARD_LOCK_FILE):
         self.lock_file = lock_file
+        # Clean up old temp files on initialization
+        self.cleanup_old_temp_files()
         
     def read_lock_data(self) -> Optional[Dict[str, Any]]:
         """Reads lock data from file.
@@ -62,6 +65,9 @@ class SafeguardStorage:
                 except (OSError, PermissionError) as e:
                     logger.critical(f"Failed to create lock file directory {self.lock_file.parent}: {e}")
                     raise RuntimeError(f"CRITICAL: Failed to create lock directory: {e}") from e
+                
+                # Clean up old temp files before creating a new one
+                self.cleanup_old_temp_files()
                 
                 # Atomic write: write to temp file first, then rename
                 # Use a unique temp filename to avoid conflicts
@@ -153,3 +159,49 @@ class SafeguardStorage:
         """Checks if lock file exists (thread-safe)."""
         with self._file_lock:
             return self.lock_file.exists()
+    
+    def cleanup_old_temp_files(self, max_age_hours: float = 1.0) -> int:
+        """Clean up old temporary lock files.
+        
+        Removes temporary lock files (`.tmp` files) that are older than the
+        specified age. These files are created during atomic writes and should
+        normally be cleaned up, but may remain if the process is interrupted.
+        
+        Args:
+            max_age_hours: Maximum age in hours for temp files to be kept.
+                          Files older than this will be deleted. Default: 1 hour.
+        
+        Returns:
+            Number of files deleted.
+        """
+        with self._file_lock:
+            if not self.lock_file.parent.exists():
+                return 0
+            
+            deleted_count = 0
+            current_time = time.time()
+            max_age_seconds = max_age_hours * 3600
+            
+            # Find all temp files matching the pattern: trading_lock.*.tmp
+            temp_pattern = f"{self.lock_file.stem}.*.tmp"
+            for temp_file in self.lock_file.parent.glob(temp_pattern):
+                try:
+                    # Check file age
+                    file_age = current_time - temp_file.stat().st_mtime
+                    
+                    if file_age > max_age_seconds:
+                        # File is old enough to delete
+                        temp_file.unlink()
+                        deleted_count += 1
+                        logger.debug(f"Cleaned up old temp lock file: {temp_file.name}")
+                except (OSError, PermissionError) as e:
+                    # Ignore errors for individual files, but log them
+                    logger.warning(f"Could not delete temp file {temp_file.name}: {e}")
+                except Exception as e:
+                    # Unexpected error - log but don't fail
+                    logger.warning(f"Unexpected error cleaning up {temp_file.name}: {e}")
+            
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} old temporary lock file(s)")
+            
+            return deleted_count

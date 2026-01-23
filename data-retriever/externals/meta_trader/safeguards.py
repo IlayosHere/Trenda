@@ -103,6 +103,25 @@ class TradingLock:
     def is_locked(self) -> bool:
         """Check if trading is currently locked."""
         return not self.is_trading_allowed().is_allowed
+    
+    def cleanup_old_temp_files(self, max_age_hours: float = 1.0) -> int:
+        """Clean up old temporary lock files.
+        
+        Removes temporary lock files (`.tmp` files) that are older than the
+        specified age. These files are created during atomic writes and should
+        normally be cleaned up automatically, but this method allows manual cleanup.
+        
+        Args:
+            max_age_hours: Maximum age in hours for temp files to be kept.
+                          Files older than this will be deleted. Default: 1 hour.
+        
+        Returns:
+            Number of files deleted.
+        """
+        deleted_count = self.storage.cleanup_old_temp_files(max_age_hours)
+        if deleted_count > 0:
+            logger.info(f"Cleaned up {deleted_count} old temporary lock file(s)")
+        return deleted_count
 
 
 # Global instance - use this throughout the codebase
