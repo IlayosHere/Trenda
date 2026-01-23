@@ -1,5 +1,5 @@
 import time
-from typing import NamedTuple, Optional, Any
+from typing import NamedTuple, Optional, Any, Tuple
 from logger import get_logger
 from configuration.broker_config import (
     MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION, 
@@ -37,91 +37,174 @@ class MT5Trader:
             return None
 
         with self.connection.lock:
-            # 1. Ensure symbol is visible and select it
-            symbol_info = self.mt5.symbol_info(symbol)
+            symbol_info = self._ensure_symbol_available(symbol)
             if symbol_info is None:
-                logger.error(f"Symbol {symbol} not found.")
-                return None
-            
-            if not symbol_info.visible:
-                if not self.mt5.symbol_select(symbol, True):
-                    logger.error(f"Failed to select symbol {symbol}.")
-                    return None
-
-            # 2. Trade mode validation
-            if symbol_info.trade_mode == self.mt5.SYMBOL_TRADE_MODE_DISABLED:
-                logger.error(f"Order failed: Trading is DISABLED for {symbol}.")
-                return None
-            if symbol_info.trade_mode == self.mt5.SYMBOL_TRADE_MODE_CLOSEONLY:
-                logger.error(f"Order failed: Symbol {symbol} is in CLOSE-ONLY mode.")
                 return None
 
-            # 3. Price validation
-            if price == 0.0:
-                logger.error(f"Order failed for {symbol}: price is 0.0. A valid price must be provided.")
+            if not self._validate_trade_mode(symbol, symbol_info):
                 return None
 
-            # 4. Normalize prices (Round to symbol's digits)
-            price = round(price, symbol_info.digits)
-            
-            if sl < 0 or tp < 0:
-                logger.error(f"Order failed for {symbol}: SL/TP cannot be negative (sl={sl}, tp={tp}).")
+            if not self._validate_price(symbol, price):
                 return None
 
-            sl = round(sl, symbol_info.digits) if sl > 0 else 0.0
-            tp = round(tp, symbol_info.digits) if tp > 0 else 0.0
-
-            # 5. SL/TP Distance Validation (Stops Level & Freeze Level)
-            if sl > 0 or tp > 0:
-                # Minimum distance in points
-                min_dist_points = max(symbol_info.trade_stops_level, symbol_info.trade_freeze_level)
-                min_dist_price = min_dist_points * symbol_info.point
-                
-                if sl > 0:
-                    dist_sl = abs(price - sl)
-                    if dist_sl < min_dist_price:
-                        logger.error(f"Order failed for {symbol}: SL too close to price. "
-                                     f"Dist: {dist_sl:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
-                        return None
-                
-                if tp > 0:
-                    dist_tp = abs(tp - price)
-                    if dist_tp < min_dist_price:
-                        logger.error(f"Order failed for {symbol}: TP too close to price. "
-                                     f"Dist: {dist_tp:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
-                        return None
-
-            # 6. Calculate expiration timestamp
-            tick = self.mt5.symbol_info_tick(symbol)
-            if tick is None:
-                logger.error(f"Failed to get tick info for {symbol}. Error: {self.mt5.last_error()}")
+            price, sl, tp = self._normalize_prices(symbol, symbol_info, price, sl, tp)
+            if price is None:
                 return None
-            expiration_time = int(tick.time + expiration_seconds)
 
-            request = {
-                "action": self.mt5.TRADE_ACTION_DEAL,
-                "symbol": symbol,
-                "volume": volume,
-                "type": order_type,
-                "price": price,
-                "sl": sl,
-                "tp": tp,
-                "deviation": deviation,
-                "magic": magic,
-                "comment": comment,
-                "type_time": self.mt5.ORDER_TIME_SPECIFIED,
-                "expiration": expiration_time,
-                "type_filling": self.mt5.ORDER_FILLING_IOC,
-            }
+            if not self._validate_sl_tp_distances(symbol, symbol_info, price, sl, tp):
+                return None
+
+            expiration_time = self._calculate_expiration_time(symbol, expiration_seconds)
+            if expiration_time is None:
+                return None
+
+            request = self._build_order_request(
+                symbol, order_type, volume, price, sl, tp, 
+                deviation, magic, comment, expiration_time
+            )
 
             result = self.mt5.order_send(request)
         
+        return self._process_order_result(symbol, order_type, volume, price, result)
+
+    def _ensure_symbol_available(self, symbol: str) -> Optional[Any]:
+        """Ensure symbol is visible and select it if needed.
+        
+        Returns:
+            Symbol info if available, None otherwise.
+        """
+        symbol_info = self.mt5.symbol_info(symbol)
+        if symbol_info is None:
+            logger.error(f"Symbol {symbol} not found.")
+            return None
+        
+        if not symbol_info.visible:
+            if not self.mt5.symbol_select(symbol, True):
+                logger.error(f"Failed to select symbol {symbol}.")
+                return None
+        
+        return symbol_info
+
+    def _validate_trade_mode(self, symbol: str, symbol_info: Any) -> bool:
+        """Validate that trading is allowed for the symbol.
+        
+        Returns:
+            True if trading is allowed, False otherwise.
+        """
+        if symbol_info.trade_mode == self.mt5.SYMBOL_TRADE_MODE_DISABLED:
+            logger.error(f"Order failed: Trading is DISABLED for {symbol}.")
+            return False
+        if symbol_info.trade_mode == self.mt5.SYMBOL_TRADE_MODE_CLOSEONLY:
+            logger.error(f"Order failed: Symbol {symbol} is in CLOSE-ONLY mode.")
+            return False
+        return True
+
+    def _validate_price(self, symbol: str, price: float) -> bool:
+        """Validate that price is not zero.
+        
+        Returns:
+            True if price is valid, False otherwise.
+        """
+        if price == 0.0:
+            logger.error(f"Order failed for {symbol}: price is 0.0. A valid price must be provided.")
+            return False
+        return True
+
+    def _normalize_prices(self, symbol: str, symbol_info: Any, price: float, 
+                         sl: float, tp: float) -> Tuple[Optional[float], float, float]:
+        """Normalize prices by rounding to symbol's digits and validate SL/TP are non-negative.
+        
+        Returns:
+            Tuple of (normalized_price, normalized_sl, normalized_tp) or (None, 0.0, 0.0) if invalid.
+        """
+        price = round(price, symbol_info.digits)
+        
+        if sl < 0 or tp < 0:
+            logger.error(f"Order failed for {symbol}: SL/TP cannot be negative (sl={sl}, tp={tp}).")
+            return None, 0.0, 0.0
+
+        sl = round(sl, symbol_info.digits) if sl > 0 else 0.0
+        tp = round(tp, symbol_info.digits) if tp > 0 else 0.0
+        
+        return price, sl, tp
+
+    def _validate_sl_tp_distances(self, symbol: str, symbol_info: Any, 
+                                  price: float, sl: float, tp: float) -> bool:
+        """Validate that SL/TP distances meet minimum requirements (Stops Level & Freeze Level).
+        
+        Returns:
+            True if distances are valid, False otherwise.
+        """
+        if sl == 0 and tp == 0:
+            return True
+
+        min_dist_points = max(symbol_info.trade_stops_level, symbol_info.trade_freeze_level)
+        min_dist_price = min_dist_points * symbol_info.point
+        
+        if sl > 0:
+            dist_sl = abs(price - sl)
+            if dist_sl < min_dist_price:
+                logger.error(f"Order failed for {symbol}: SL too close to price. "
+                             f"Dist: {dist_sl:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
+                return False
+        
+        if tp > 0:
+            dist_tp = abs(tp - price)
+            if dist_tp < min_dist_price:
+                logger.error(f"Order failed for {symbol}: TP too close to price. "
+                             f"Dist: {dist_tp:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
+                return False
+        
+        return True
+
+    def _calculate_expiration_time(self, symbol: str, expiration_seconds: int) -> Optional[int]:
+        """Calculate expiration timestamp based on current tick time.
+        
+        Returns:
+            Expiration timestamp or None if tick info cannot be retrieved.
+        """
+        tick = self.mt5.symbol_info_tick(symbol)
+        if tick is None:
+            logger.error(f"Failed to get tick info for {symbol}. Error: {self.mt5.last_error()}")
+            return None
+        return int(tick.time + expiration_seconds)
+
+    def _build_order_request(self, symbol: str, order_type: int, volume: float, 
+                            price: float, sl: float, tp: float, deviation: int,
+                            magic: int, comment: str, expiration_time: int) -> dict:
+        """Build the order request dictionary.
+        
+        Returns:
+            Dictionary containing order request parameters.
+        """
+        return {
+            "action": self.mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": volume,
+            "type": order_type,
+            "price": price,
+            "sl": sl,
+            "tp": tp,
+            "deviation": deviation,
+            "magic": magic,
+            "comment": comment,
+            "type_time": self.mt5.ORDER_TIME_SPECIFIED,
+            "expiration": expiration_time,
+            "type_filling": self.mt5.ORDER_FILLING_IOC,
+        }
+
+    def _process_order_result(self, symbol: str, order_type: int, volume: float, 
+                              price: float, result: Optional[Any]) -> Optional[Any]:
+        """Process the order send result and log appropriately.
+        
+        Returns:
+            Order result if successful, None or result object if failed.
+        """
         if result is None:
             logger.error(f"Order send failed for {symbol}. Result is None.")
             return None
 
         if result.retcode != self.mt5.TRADE_RETCODE_DONE:
-            # Enhanced error logging based on MT5 retcodes
             self._log_order_error(symbol, result)
             return result
 
