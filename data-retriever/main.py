@@ -17,7 +17,7 @@ from externals import meta_trader
 from scheduler import start_scheduler, run_startup_data_refresh
 from replay_runner import run as run_replay
 from logger import get_logger
-from system_shutdown import request_shutdown, is_shutdown_requested
+from system_shutdown import request_shutdown, is_shutdown_requested, get_shutdown_reason
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,17 @@ def main():
             start_scheduler()
             
             # Main loop: keep system running until shutdown is requested
-            while not is_shutdown_requested():
+            while True:
+                # Check if shutdown was requested
+                if is_shutdown_requested():
+                    reason = get_shutdown_reason()
+                    if reason:
+                        logger.critical(f"🛑 System shutdown requested. Reason: {reason}")
+                        # TODO: add WhatsApp message
+                    else:
+                        logger.critical("🛑 System shutdown requested (no reason provided)")
+                    break  # Exit the loop to proceed to cleanup in finally block
+                
                 time.sleep(1)  # Check shutdown flag every second
                 
                 # Health check: warn if scheduler has no jobs
@@ -55,7 +65,7 @@ def main():
     except KeyboardInterrupt:
         # User pressed Ctrl+C - stop the system
         logger.info("Shutdown requested by user (Ctrl+C)")
-        request_shutdown()
+        request_shutdown("User requested shutdown (Ctrl+C)")
     except Exception as e:
         logger.exception(f"Critical error in main: {e}")
         raise  # Re-raise to trigger finally block for cleanup

@@ -15,21 +15,49 @@ logger = get_logger(__name__)
 
 # Global flag to track if shutdown was requested
 _shutdown_requested = False
+_shutdown_reason = None
 
 
-def request_shutdown():
+def request_shutdown(reason: str = None):
     """Request the system to shut down gracefully.
     
     This sets a flag that the main loop checks. The actual shutdown
     happens in the finally block of main() to ensure cleanup.
+    
+    Args:
+        reason: Optional reason for the shutdown request.
     """
-    global _shutdown_requested
+    global _shutdown_requested, _shutdown_reason
     _shutdown_requested = True
+    if reason:
+        _shutdown_reason = reason
 
 
 def is_shutdown_requested() -> bool:
     """Check if shutdown has been requested."""
     return _shutdown_requested
+
+
+def get_shutdown_reason() -> str:
+    """Get the reason for shutdown from the trading lock file.
+    
+    The reason is stored in the trading lock file when shutdown_system()
+    is called. If no lock file exists, returns the stored reason (if any).
+    
+    Returns:
+        The shutdown reason string, or None if no reason is available.
+    """
+    # First, try to read from the trading lock file (most reliable source)
+    try:
+        from externals.meta_trader.safeguards import _trading_lock
+        lock_data = _trading_lock.storage.read_lock_data()
+        if lock_data and "reason" in lock_data:
+            return lock_data.get("reason")
+    except Exception:
+        pass  # If we can't read the lock file, fall back to stored reason
+    
+    # Fall back to stored reason (e.g., from KeyboardInterrupt)
+    return _shutdown_reason
 
 
 def shutdown_system(reason: str):
@@ -54,7 +82,7 @@ def shutdown_system(reason: str):
         logger.critical(f"Failed to create lock file during shutdown: {e}")
     
     # Request shutdown (if main loop is running, it will check this flag)
-    request_shutdown()
+    request_shutdown(reason)
     
     # Exit the process immediately
     logger.critical("Exiting system due to critical failure...")
