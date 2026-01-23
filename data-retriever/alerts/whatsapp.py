@@ -1,7 +1,6 @@
 import requests
 import os
 from dotenv import load_dotenv
-import utils.display as display
 
 load_dotenv()
 
@@ -33,4 +32,7 @@ def send_whatsapp_message(text, to_numbers=None):
             "text": {"body": text}
         }
         response = requests.post(url, json=payload, headers=headers)
-        display.print_status(f"{number} | {response.status_code} | {response.text}")
+        print(f"{number} | {response.status_code} | {response.text}")
+
+
+#send_whatsapp_message("text")
