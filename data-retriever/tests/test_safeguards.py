@@ -1,4 +1,4 @@
-"""Tests for the TradingSafeguards module."""
+"""Tests for the TradingLock module."""
 import sys
 import os
 import unittest
@@ -9,17 +9,19 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from externals.meta_trader.safeguards import TradingSafeguards
+from externals.meta_trader.safeguards import TradingLock
+from externals.meta_trader.safeguard_storage import SafeguardStorage
 
 
-class TestTradingSafeguards(unittest.TestCase):
-    """Unit tests for TradingSafeguards class."""
+class TestTradingLock(unittest.TestCase):
+    """Unit tests for TradingLock class."""
     
     def setUp(self):
         """Create a temporary lock file path for each test."""
         self.temp_dir = tempfile.mkdtemp()
         self.lock_file = Path(self.temp_dir) / "test_lock.json"
-        self.safeguards = TradingSafeguards(lock_file=self.lock_file)
+        storage = SafeguardStorage(lock_file=self.lock_file)
+        self.trading_lock = TradingLock(storage=storage)
     
     def tearDown(self):
         """Clean up temp files after each test."""
@@ -32,35 +34,35 @@ class TestTradingSafeguards(unittest.TestCase):
     # ─────────────────────────────────────────────────────────────
     def test_1_fresh_state_trading_allowed(self):
         """Without lock file, trading should be allowed."""
-        is_allowed, reason = self.safeguards.is_trading_allowed()
+        is_allowed, reason = self.trading_lock.is_trading_allowed()
         
         self.assertTrue(is_allowed)
         self.assertEqual(reason, "")
-        self.assertFalse(self.safeguards.is_locked())
+        self.assertFalse(self.trading_lock.is_locked())
     
     # ─────────────────────────────────────────────────────────────
-    # TEST 2: Emergency lock creates file and blocks trading
+    # TEST 2: Create lock creates file and blocks trading
     # ─────────────────────────────────────────────────────────────
-    def test_2_emergency_lock_blocks_trading(self):
-        """trigger_emergency_lock should create lock file and block trading."""
+    def test_2_create_lock_blocks_trading(self):
+        """create_lock should create lock file and block trading."""
         reason = "Test emergency - position close failed"
-        self.safeguards.trigger_emergency_lock(reason)
+        self.trading_lock.create_lock(reason)
         
         # Lock file should exist
         self.assertTrue(self.lock_file.exists())
         
         # Trading should be blocked
-        is_allowed, lock_reason = self.safeguards.is_trading_allowed()
+        is_allowed, lock_reason = self.trading_lock.is_trading_allowed()
         self.assertFalse(is_allowed)
         self.assertIn(reason, lock_reason)
-        self.assertTrue(self.safeguards.is_locked())
+        self.assertTrue(self.trading_lock.is_locked())
     
     # ─────────────────────────────────────────────────────────────
     # TEST 3: Lock file content is valid JSON
     # ─────────────────────────────────────────────────────────────
     def test_3_lock_file_json_structure(self):
         """Lock file should contain valid JSON with required fields."""
-        self.safeguards.trigger_emergency_lock("Test reason")
+        self.trading_lock.trigger_emergency_lock("Test reason")
         
         with open(self.lock_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -75,7 +77,7 @@ class TestTradingSafeguards(unittest.TestCase):
     # ─────────────────────────────────────────────────────────────
     def test_4_clear_lock_resumes_trading(self):
         """clear_lock should remove lock file and allow trading again."""
-        self.safeguards.trigger_emergency_lock("Test lock")
+        self.trading_lock.trigger_emergency_lock("Test lock")
         self.assertTrue(self.safeguards.is_locked())
         
         # Clear the lock
@@ -114,8 +116,8 @@ class TestTradingSafeguards(unittest.TestCase):
     # ─────────────────────────────────────────────────────────────
     def test_7_multiple_locks_overwrite(self):
         """Multiple lock calls should overwrite with latest reason."""
-        self.safeguards.trigger_emergency_lock("First reason")
-        self.safeguards.trigger_emergency_lock("Second reason")
+        self.trading_lock.trigger_emergency_lock("First reason")
+        self.trading_lock.trigger_emergency_lock("Second reason")
         
         is_allowed, reason = self.safeguards.is_trading_allowed()
         self.assertFalse(is_allowed)
@@ -137,10 +139,11 @@ class TestTradingSafeguards(unittest.TestCase):
             # Unix: Use root path that requires elevated permissions
             invalid_path = Path("/root_that_does_not_exist_xyz/lock.json")
         
-        safeguards = TradingSafeguards(lock_file=invalid_path)
+        storage = SafeguardStorage(lock_file=invalid_path)
+        trading_lock = TradingLock(storage=storage)
         
         with self.assertRaises(RuntimeError) as context:
-            safeguards.trigger_emergency_lock("Should fail")
+            trading_lock.create_lock("Should fail")
         
         self.assertIn("CRITICAL", str(context.exception))
 
@@ -169,12 +172,13 @@ class TestSafeguardsIntegration(unittest.TestCase):
         mock_conn.initialize.return_value = True
         constraints = MT5Constraints(mock_conn)
         
-        # Create locked safeguards
-        safeguards = TradingSafeguards(lock_file=self.lock_file)
-        safeguards.trigger_emergency_lock("Test integration lock")
+        # Create locked trading lock
+        storage = SafeguardStorage(lock_file=self.lock_file)
+        trading_lock = TradingLock(storage=storage)
+        trading_lock.create_lock("Test integration lock")
         
         # Patch in the constraints module where it's imported at top-level
-        with patch('externals.meta_trader.constraints._safeguards', safeguards):
+        with patch('externals.meta_trader.constraints._trading_lock', trading_lock):
             is_blocked, reason = constraints.can_execute_trade("EURUSD")
         
         self.assertTrue(is_blocked)

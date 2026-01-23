@@ -7,7 +7,7 @@ from configuration.broker_config import (
     MT5_MIN_TRADE_INTERVAL_MINUTES,
     MT5_HISTORY_LOOKBACK_DAYS
 )
-from .safeguards import _safeguards
+from .safeguards import _trading_lock
 
 logger = get_logger(__name__)
 
@@ -29,10 +29,10 @@ class MT5Constraints:
         Returns:
             TradeBlockStatus: is_blocked=True if trade is not allowed, with a reason string.
         """
-        # 0. Check global trading lock FIRST (before any MT5 calls)
-        is_allowed, lock_reason = _safeguards.is_trading_allowed()
+        # 0. Check if trading is locked (before any MT5 calls)
+        is_allowed, lock_reason = _trading_lock.is_trading_allowed()
         if not is_allowed:
-            return TradeBlockStatus(True, f"🚨 TRADING LOCKED: {lock_reason}")
+            return TradeBlockStatus(True, f"🔒 TRADING LOCKED: {lock_reason}")
         
         if not self.connection.initialize():
             return TradeBlockStatus(True, "MT5 initialization failed")

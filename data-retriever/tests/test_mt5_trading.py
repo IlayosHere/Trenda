@@ -85,7 +85,7 @@ def calculate_sl_tp(symbol: str, order_type: int, sl_pips: float = 50, tp_pips: 
 def test_01_initialize_mt5():
     """Test 1: MT5 initialization."""
     print("\n" + "=" * 60)
-    print("TEST 1: Initialize MT5")
+    print("TEST 01: Initialize MT5")
     print("=" * 60)
     
     result = initialize_mt5()
@@ -104,7 +104,7 @@ def test_01_initialize_mt5():
 def test_02_place_buy_with_sl_tp():
     """Test 2: Placing a BUY order with SL and TP."""
     print("\n" + "=" * 60)
-    print("TEST 2: Place BUY Order with SL and TP")
+    print("TEST 02: Place BUY Order with SL and TP")
     print("=" * 60)
     
     price, sl, tp = calculate_sl_tp(SYMBOL, mt5.ORDER_TYPE_BUY, sl_pips=50, tp_pips=100)
@@ -138,7 +138,7 @@ def test_02_place_buy_with_sl_tp():
 def test_03_verify_position_matching(ticket: int, expected_sl: float, expected_tp: float, vol: float, price: float):
     """Test 3: verify_position_consistency (Matching)."""
     print("\n" + "=" * 60)
-    print("TEST 3: Verify Position Consistency (Matching)")
+    print("TEST 03: Verify Position Consistency (Matching)")
     print("=" * 60)
     
     result = verify_position_consistency(ticket, expected_sl, expected_tp, vol, price)
@@ -149,7 +149,7 @@ def test_03_verify_position_matching(ticket: int, expected_sl: float, expected_t
 def test_04_verify_position_idempotence(ticket: int, expected_sl: float, expected_tp: float, vol: float, price: float):
     """Test 4: verify_position_consistency (Second Call)."""
     print("\n" + "=" * 60)
-    print("TEST 4: Verify Position Consistency (Idempotence)")
+    print("TEST 04: Verify Position Consistency (Idempotence)")
     print("=" * 60)
     
     result = verify_position_consistency(ticket, expected_sl, expected_tp, vol, price)
@@ -160,7 +160,7 @@ def test_04_verify_position_idempotence(ticket: int, expected_sl: float, expecte
 def test_05_can_execute_trade_blocked(ticket: int):
     """Test 5: can_execute_trade - Active Position Block."""
     print("\n" + "=" * 60)
-    print("TEST 5: Constraint - Active Position Block (Same Symbol)")
+    print("TEST 05: Constraint - Active Position Block (Same Symbol)")
     print("=" * 60)
     
     is_blocked, reason = can_execute_trade(SYMBOL)
@@ -171,8 +171,12 @@ def test_05_can_execute_trade_blocked(ticket: int):
 def test_06_can_execute_trade_allowed():
     """Test 6: can_execute_trade - Different Symbol Allowed."""
     print("\n" + "=" * 60)
-    print("TEST 6: Constraint - Different Symbol Allowed")
+    print("TEST 06: Constraint - Different Symbol Allowed")
     print("=" * 60)
+    
+    # Clear any trading lock that might have been triggered by previous tests
+    from externals.meta_trader.safeguards import _trading_lock
+    _trading_lock.clear_lock()
     
     time.sleep(1.0) # Avoid historical cooldown from previous tests
     is_blocked, reason = can_execute_trade(SYMBOL_TEST6)
@@ -183,7 +187,7 @@ def test_06_can_execute_trade_allowed():
 def test_07_close_position(ticket: int):
     """Test 7: Closing a position."""
     print("\n" + "=" * 60)
-    print("TEST 7: Close Position")
+    print("TEST 07: Close Position")
     print("=" * 60)
     
     result = close_position(ticket)
@@ -197,7 +201,7 @@ def test_07_close_position(ticket: int):
 def test_08_can_execute_trade_cooldown():
     """Test 8: can_execute_trade - Historical Cooldown check."""
     print("\n" + "=" * 60)
-    print("TEST 8: Constraint - Historical Cooldown Block")
+    print("TEST 08: Constraint - Historical Cooldown Block")
     print("=" * 60)
     
     is_blocked, reason = can_execute_trade(SYMBOL)
@@ -208,7 +212,7 @@ def test_08_can_execute_trade_cooldown():
 def test_09_place_sell_with_sl_tp():
     """Test 9: Placing a SELL order with SL and TP."""
     print("\n" + "=" * 60)
-    print("TEST 9: Place SELL Order with SL and TP")
+    print("TEST 09: Place SELL Order with SL and TP")
     print("=" * 60)
     
     price, sl, tp = calculate_sl_tp(SYMBOL_TEST9, mt5.ORDER_TYPE_SELL, sl_pips=50, tp_pips=100)
@@ -552,16 +556,27 @@ def test_25_retry_logic_success():
     res_ok = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
     mock_conn.mt5.order_send.side_effect = [res_fail, res_ok]
     
-    # Position exists
-    mock_conn.mt5.positions_get.return_value = [MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY)]
-    # Final verification: position gone
+    # Create position mock for initial state
+    position_mock = MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY, ticket=12345)
+    
+    # Setup positions_get to return position initially, then empty after close
+    call_count = [0]
     def mock_pos_get(*args, **kwargs):
-        if 'ticket' in kwargs: return [] # Empty if looking for specific ticket after close
-        return []
+        call_count[0] += 1
+        # First call: position exists (first attempt in _attempt_close)
+        # Second call: position still exists (second attempt after first failed)
+        # Third call: position is gone (verification in _verify_closure after successful close)
+        if call_count[0] <= 2:
+            return [position_mock]
+        return []  # Position closed
+    
+    mock_conn.mt5.positions_get.side_effect = mock_pos_get
+    # Setup symbol_info_tick for order placement
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
     
     trader = MT5Trader(mock_conn)
     with patch('time.sleep'): # Don't actually wait
-        with patch.object(trader, '_get_active_position', side_effect=[MagicMock(), MagicMock(), None]):
+        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
             res = trader.close_position(12345)
             
     log_test("Retry success after transient failure", res)
@@ -588,7 +603,14 @@ def test_26_retry_exhaustion():
     
     trader = MT5Trader(mock_conn)
     with patch('time.sleep'):
-        res = trader.close_position(12345)
+        with patch('system_shutdown.shutdown_system') as mock_shutdown:
+            # Mock shutdown to raise SystemExit so we can catch it
+            mock_shutdown.side_effect = SystemExit("Test shutdown")
+            try:
+                res = trader.close_position(12345)
+            except SystemExit:
+                res = False
+                mock_shutdown.assert_called_once()
         
     log_test("Detect retry exhaustion", res is False)
     return res is False
@@ -615,7 +637,14 @@ def test_27_verification_leak():
     
     trader = MT5Trader(mock_conn)
     with patch('time.sleep'):
-        res = trader.close_position(12345)
+        with patch('system_shutdown.shutdown_system') as mock_shutdown:
+            # Mock shutdown to raise SystemExit so we can catch it
+            mock_shutdown.side_effect = SystemExit("Test shutdown")
+            try:
+                res = trader.close_position(12345)
+            except SystemExit:
+                res = False
+                mock_shutdown.assert_called_once()
         
     log_test("Detect failed verification (Ghost)", res is False)
     return res is False
@@ -636,16 +665,18 @@ def test_28_mismatch_triggers_close():
     mock_conn.lock = MagicMock()
     
     # Position has different SL than requested
-    def mock_pos_get(*args, **kwargs):
-        return MagicMock(sl=1.10, tp=1.20, symbol=SYMBOL)
+    pos = MagicMock(ticket=12345, sl=1.10, tp=1.20, symbol=SYMBOL, volume=0.01, price_open=1.15, type=mt5.POSITION_TYPE_BUY)
     
+    # Setup positions_get to return position with mismatched SL
+    mock_conn.mt5.positions_get.return_value = [pos]
     # sym_info
-    mock_conn.mt5.symbol_info.return_value.point = 0.0001
+    sym_info = MagicMock()
+    sym_info.point = 0.0001
+    mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
-    trader._get_active_position = mock_pos_get
     
-    with patch.object(trader, 'close_position') as mock_close:
+    with patch.object(trader._position_closer, 'close_position') as mock_close:
         with patch('time.sleep'):
              # Requested 1.05 SL, actual is 1.10
              res = trader.verify_position_consistency(12345, 1.05, 1.20)
@@ -667,9 +698,13 @@ def test_29_verification_missing_pos():
     setup_mock_mt5(mock_conn.mt5)
     mock_conn.lock = MagicMock()
     
+    # Position not found - positions_get returns empty
+    mock_conn.mt5.positions_get.return_value = []
+    sym_info = MagicMock()
+    sym_info.point = 0.0001
+    mock_conn.mt5.symbol_info.return_value = sym_info
+    
     trader = MT5Trader(mock_conn)
-    # Position not found
-    trader._get_active_position = MagicMock(return_value=None)
     
     with patch('time.sleep'):
         res = trader.verify_position_consistency(12345, 1.1, 1.2)
@@ -792,11 +827,26 @@ def test_33_close_frozen_retry():
     mock_conn.mt5.order_send.side_effect = [res_frozen, res_ok]
     
     # Position exists for first two calls, then becomes None (closed)
-    pos = MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY)
+    pos = MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY, ticket=12345)
+    
+    # Setup positions_get to return position initially, then empty after close
+    call_count = [0]
+    def mock_pos_get(*args, **kwargs):
+        call_count[0] += 1
+        # First call: position exists (first attempt in _attempt_close)
+        # Second call: position still exists (second attempt after FROZEN)
+        # Third call: position is gone (verification in _verify_closure after successful close)
+        if call_count[0] <= 2:
+            return [pos]
+        return []  # Position closed
+    
+    mock_conn.mt5.positions_get.side_effect = mock_pos_get
+    # Setup symbol_info_tick for order placement
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
     
     trader = MT5Trader(mock_conn)
     with patch('time.sleep'):
-        with patch.object(trader, '_get_active_position', side_effect=[pos, pos, None]):
+        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
             res = trader.close_position(12345)
             
     log_test("Retry triggered on FROZEN retcode", res)
@@ -818,13 +868,32 @@ def test_34_verify_volume_mismatch():
     mock_conn.lock = MagicMock()
     
     # Position has different volume (0.02) than requested (0.01)
-    mock_conn.mt5.positions_get.return_value = [
-        MagicMock(ticket=12345, symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.02, price_open=1.15)
-    ]
-    mock_conn.mt5.symbol_info.return_value.point = 0.0001
+    pos = MagicMock(ticket=12345, symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.02, price_open=1.15, type=mt5.POSITION_TYPE_BUY)
+    
+    # Setup positions_get to return position initially, then empty after close
+    call_count = [0]
+    def mock_pos_get(*args, **kwargs):
+        call_count[0] += 1
+        # First call: position exists (for verification check)
+        # Second call: position still exists (for close attempt)
+        # Third call: position is gone (after successful close)
+        if call_count[0] <= 2:
+            return [pos]
+        return []  # Position closed
+    
+    mock_conn.mt5.positions_get.side_effect = mock_pos_get
+    sym_info = MagicMock()
+    sym_info.point = 0.0001
+    mock_conn.mt5.symbol_info.return_value = sym_info
+    
+    # Setup successful close
+    mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
     
     trader = MT5Trader(mock_conn)
-    res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01)
+    with patch('time.sleep'):
+        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
+            res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01)
     
     log_test("Close triggered on volume mismatch", res is False)
     return res is False
@@ -845,14 +914,25 @@ def test_35_verify_slippage_mismatch():
     mock_conn.lock = MagicMock()
     
     # Position has different price (1.16) than requested (1.15) -> 100 points diff
-    mock_conn.mt5.positions_get.return_value = [
-        MagicMock(ticket=12345, symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.01, price_open=1.16)
-    ]
-    mock_conn.mt5.symbol_info.return_value.point = 0.0001
+    position_mock = MagicMock(ticket=12345, symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.01, price_open=1.16, type=mt5.POSITION_TYPE_BUY)
+    mock_conn.mt5.positions_get.return_value = [position_mock]
+    
+    sym_info = MagicMock()
+    sym_info.point = 0.0001
+    mock_conn.mt5.symbol_info.return_value = sym_info
+    
+    # Configure mocks for close attempt (will be triggered by verify_position_consistency)
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
+    # Configure order_send to fail with a proper retcode
+    mock_conn.mt5.order_send.return_value = MagicMock(retcode=10006)  # Invalid request
+    mock_conn.mt5.last_error.return_value = (10006, "Invalid request")
     
     trader = MT5Trader(mock_conn)
-    # Threshold is deviation (20) or 5 points. 100 points should fail.
-    res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.15)
+    
+    with patch('time.sleep'):
+        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
+            # Threshold is deviation (20) or 5 points. 100 points should fail.
+            res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.15)
     
     log_test("Close triggered on price slippage mismatch", res is False)
     return res is False
