@@ -938,6 +938,70 @@ def test_35_verify_slippage_mismatch():
     return res is False
 
 
+def test_36_jpy_position_consistency():
+    """Test 36: JPY position consistency with symbol digits fetched from symbol info."""
+    print("\n" + "=" * 60)
+    print("TEST 36: JPY Position Consistency (Symbol Digits from Symbol Info)")
+    print("=" * 60)
+    
+    JPY_SYMBOL = "USDJPY"  # JPY pairs typically have 3 digits
+    
+    # Get symbol info to fetch digits (like in live trading)
+    sym_info = mt5.symbol_info(JPY_SYMBOL)
+    if sym_info is None:
+        log_test("JPY symbol info available", False, f"Symbol {JPY_SYMBOL} not found")
+        return False
+    
+    symbol_digits = sym_info.digits
+    log_test(f"JPY symbol digits fetched: {symbol_digits}", True)
+    
+    # Calculate SL/TP based on current price
+    price, sl, tp = calculate_sl_tp(JPY_SYMBOL, mt5.ORDER_TYPE_BUY, sl_pips=50, tp_pips=100)
+    if price == 0:
+        log_test("Get price for JPY order", False, "Could not get price")
+        return False
+    
+    # Round to symbol digits (like in order placement)
+    price_rounded = round(price, symbol_digits)
+    sl_rounded = round(sl, symbol_digits) if sl > 0 else 0.0
+    tp_rounded = round(tp, symbol_digits) if tp > 0 else 0.0
+    
+    log_test(f"Prices rounded to {symbol_digits} digits", True, 
+             f"Price: {price_rounded}, SL: {sl_rounded}, TP: {tp_rounded}")
+    
+    # Place order
+    result = place_order(
+        symbol=JPY_SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=LOT_SIZE,
+        price=price_rounded, sl=sl_rounded, tp=tp_rounded, comment="TEST: JPY"
+    )
+    
+    if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        log_test("Place JPY order", False, f"Retcode: {result.retcode if result else 'None'}")
+        return False
+    
+    ticket = result.order
+    log_test("Place JPY order with SL/TP", True)
+    
+    # Wait for position to be available
+    time.sleep(0.5)
+    
+    # Verify position consistency using the rounded values
+    # This simulates what happens in live trading where we pass execution.sl_price/tp_price
+    # which should match what was sent (rounded to symbol digits)
+    verification_result = verify_position_consistency(
+        ticket, sl_rounded, tp_rounded, LOT_SIZE, price_rounded
+    )
+    
+    log_test("JPY position consistency verified", verification_result)
+    
+    # Clean up
+    if ticket:
+        close_position(ticket)
+        time.sleep(0.3)
+    
+    return verification_result
+
+
 
 # =============================================================================
 # RUNNER
@@ -996,6 +1060,7 @@ def run_all_tests():
     test_33_close_frozen_retry()
     test_34_verify_volume_mismatch()
     test_35_verify_slippage_mismatch()
+    test_36_jpy_position_consistency()
 
     # Shutdown (18)
     test_18_shutdown_mt5()

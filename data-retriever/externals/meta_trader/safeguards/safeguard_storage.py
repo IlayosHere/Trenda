@@ -10,7 +10,8 @@ from logger import get_logger
 logger = get_logger(__name__)
 
 # Default lock file location (can be overridden via SAFEGUARD_LOCK_FILE env var)
-DEFAULT_LOCK_FILE = Path(__file__).parent.parent.parent / "logs" / "trading_lock.json"
+# Note: parent.parent.parent.parent because we're now one level deeper (safeguards subdirectory)
+DEFAULT_LOCK_FILE = Path(__file__).parent.parent.parent.parent / "logs" / "trading_lock.json"
 SAFEGUARD_LOCK_FILE: Path = Path(os.getenv("SAFEGUARD_LOCK_FILE", str(DEFAULT_LOCK_FILE)))
 
 

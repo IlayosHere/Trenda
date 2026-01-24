@@ -54,11 +54,17 @@ class PositionVerifier:
             actual_sl, actual_tp = pos.sl, pos.tp
             actual_volume, actual_price = pos.volume, pos.price_open
             
+            # Round expected SL/TP to symbol digits to match what was sent to MT5
+            # This prevents false mismatches due to rounding differences
+            symbol_digits = sym_info.digits if sym_info else 5
+            expected_sl_rounded = round(expected_sl, symbol_digits) if expected_sl > 0 else 0.0
+            expected_tp_rounded = round(expected_tp, symbol_digits) if expected_tp > 0 else 0.0
+            
             # Perform validation while still holding lock to ensure consistency
             # This prevents race conditions where position changes between capture and validation
             needs_close = False
             mismatch_reason = self._validate_sl_tp_consistency(
-                ticket, symbol_name, actual_sl, actual_tp, expected_sl, expected_tp, threshold
+                ticket, symbol_name, actual_sl, actual_tp, expected_sl_rounded, expected_tp_rounded, threshold
             )
             if mismatch_reason:
                 needs_close = True
