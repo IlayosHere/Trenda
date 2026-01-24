@@ -9,8 +9,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from externals.meta_trader.safeguards import TradingLock
-from externals.meta_trader.safeguard_storage import SafeguardStorage
+from externals.meta_trader.safeguards import TradingLock, SafeguardStorage
 
 
 class TestTradingLock(unittest.TestCase):

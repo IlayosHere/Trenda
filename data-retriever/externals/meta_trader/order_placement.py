@@ -61,6 +61,11 @@ class OrderPlacer:
             if not self._validate_price(symbol, price):
                 return None
 
+            # Normalize volume to symbol's volume_step (like we do for prices)
+            volume = self._normalize_volume(symbol, symbol_info, volume)
+            if volume is None:
+                return None
+
             price, sl, tp = self._normalize_prices(symbol, symbol_info, price, sl, tp)
             if price is None:
                 return None
@@ -123,6 +128,37 @@ class OrderPlacer:
             logger.error(f"Order failed for {symbol}: price is 0.0. A valid price must be provided.")
             return False
         return True
+
+    def _normalize_volume(self, symbol: str, symbol_info: Any, volume: float) -> Optional[float]:
+        """Normalize volume by rounding to symbol's volume_step and clamping to min/max.
+        
+        MT5 requires volume to be a multiple of volume_step and within [volume_min, volume_max].
+        This ensures the volume we send matches what MT5 will actually accept.
+        
+        Returns:
+            Normalized volume or None if invalid.
+        """
+        volume_step = symbol_info.volume_step
+        volume_min = symbol_info.volume_min
+        volume_max = symbol_info.volume_max
+        
+        if volume_step <= 0:
+            logger.error(f"Order failed for {symbol}: Invalid volume_step ({volume_step}).")
+            return None
+        
+        # Round to nearest volume_step
+        normalized_volume = round(volume / volume_step) * volume_step
+        
+        # Clamp to min/max
+        if normalized_volume < volume_min:
+            logger.error(f"Order failed for {symbol}: Volume {normalized_volume} is below minimum {volume_min}.")
+            return None
+        
+        if normalized_volume > volume_max:
+            logger.error(f"Order failed for {symbol}: Volume {normalized_volume} exceeds maximum {volume_max}.")
+            return None
+        
+        return normalized_volume
 
     def _normalize_prices(self, symbol: str, symbol_info: Any, price: float, 
                          sl: float, tp: float) -> Tuple[Optional[float], float, float]:

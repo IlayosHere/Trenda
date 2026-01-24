@@ -19,6 +19,7 @@ shutdown_mt5 = _connection.shutdown
 place_order = _trader.place_order
 close_position = _trader.close_position
 verify_position_consistency = _trader.verify_position_consistency
+recover_positions = _trader.recover_positions
 can_execute_trade = _constraints.can_execute_trade
 
 # Trading lock API
@@ -34,6 +35,7 @@ __all__ = [
     "place_order",
     "close_position",
     "verify_position_consistency",
+    "recover_positions",
     "can_execute_trade",
     "is_trading_allowed",
     "create_trading_lock",

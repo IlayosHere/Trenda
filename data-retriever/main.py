@@ -24,6 +24,10 @@ logger = get_logger(__name__)
 # Run mode: "replay" or "live" (default: replay)
 RUN_MODE = os.getenv("RUN_MODE", "replay").lower()
 
+# Track lock status for automatic pause/resume
+_last_lock_check_time = 0
+_last_lock_status = None
+
 
 def main():
     logger.info("--- 🚀 Starting Trend Analyzer Bot ---")
@@ -31,6 +35,16 @@ def main():
     if not meta_trader.initialize_mt5():
         logger.error("Failed to initialize MT5. Exiting.")
         return
+
+    # Recover positions on startup (only in live mode)
+    if RUN_MODE == "live":
+        logger.info("--- 🔄 Running position recovery ---")
+        recovery_stats = meta_trader.recover_positions()
+        if recovery_stats['recovered'] > 0:
+            logger.warning(
+                f"⚠️ Recovered {recovery_stats['recovered']} position(s) that were missing from database"
+            )
+        logger.info("--- ✅ Position recovery complete ---\n")
 
     try:
         if RUN_MODE == "replay":
@@ -52,6 +66,30 @@ def main():
                     else:
                         logger.critical("🛑 System shutdown requested (no reason provided)")
                     break  # Exit the loop to proceed to cleanup in finally block
+                
+                # Check trading lock status (every 10 seconds to avoid spam)
+                # This allows automatic pause/resume when lock file is created/deleted
+                global _last_lock_check_time, _last_lock_status
+                current_time = time.time()
+                if (current_time - _last_lock_check_time) >= 10:
+                    _last_lock_check_time = current_time
+                    lock_status = meta_trader.is_trading_allowed()
+                    
+                    # Log status changes
+                    if _last_lock_status is None:
+                        # First check - log initial status
+                        if not lock_status.is_allowed:
+                            logger.warning(f"🔒 Trading is LOCKED: {lock_status.reason}")
+                        else:
+                            logger.info("✅ Trading is allowed")
+                        _last_lock_status = lock_status.is_allowed
+                    elif _last_lock_status != lock_status.is_allowed:
+                        # Status changed - log the change
+                        if lock_status.is_allowed:
+                            logger.info("✅ Trading lock cleared - Trading RESUMED automatically")
+                        else:
+                            logger.warning(f"🔒 Trading LOCKED - Trading PAUSED: {lock_status.reason}")
+                        _last_lock_status = lock_status.is_allowed
                 
                 time.sleep(1)  # Check shutdown flag every second
                 

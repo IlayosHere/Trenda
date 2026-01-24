@@ -54,36 +54,32 @@ class PositionVerifier:
             actual_sl, actual_tp = pos.sl, pos.tp
             actual_volume, actual_price = pos.volume, pos.price_open
             
-            # Round expected SL/TP to symbol digits to match what was sent to MT5
+            # Normalize expected values to match what was sent to MT5
             # This prevents false mismatches due to rounding differences
             symbol_digits = sym_info.digits if sym_info else 5
+            volume_step = sym_info.volume_step if sym_info and sym_info.volume_step > 0 else 0.01
+            
             expected_sl_rounded = round(expected_sl, symbol_digits) if expected_sl > 0 else 0.0
             expected_tp_rounded = round(expected_tp, symbol_digits) if expected_tp > 0 else 0.0
+            expected_volume_rounded = self._round_to_volume_step(expected_volume, volume_step)
             
             # Perform validation while still holding lock to ensure consistency
             # This prevents race conditions where position changes between capture and validation
-            needs_close = False
-            mismatch_reason = self._validate_sl_tp_consistency(
-                ticket, symbol_name, actual_sl, actual_tp, expected_sl_rounded, expected_tp_rounded, threshold
-            )
-            if mismatch_reason:
-                needs_close = True
-            else:
-                mismatch_reason = self._validate_volume_consistency(
-                    ticket, symbol_name, actual_volume, expected_volume
+            mismatch_reason = (
+                self._validate_sl_tp_consistency(
+                    ticket, symbol_name, actual_sl, actual_tp, expected_sl_rounded, expected_tp_rounded, threshold
+                ) or
+                self._validate_volume_consistency(
+                    ticket, symbol_name, actual_volume, expected_volume_rounded, volume_step
+                ) or
+                self._validate_price_consistency(
+                    ticket, symbol_name, actual_price, expected_price, point
                 )
-                if mismatch_reason:
-                    needs_close = True
-                else:
-                    mismatch_reason = self._validate_price_consistency(
-                        ticket, symbol_name, actual_price, expected_price, point
-                    )
-                    if mismatch_reason:
-                        needs_close = True
+            )
         
         # Now outside lock: close position if mismatch was detected
         # This allows close_position to acquire its own lock without deadlock
-        if needs_close:
+        if mismatch_reason:
             self.position_closer.close_position(ticket)
             return False
 
@@ -98,12 +94,7 @@ class PositionVerifier:
         """
         try:
             positions = self.mt5.positions_get(ticket=ticket)
-            if positions is None:
-                logger.warning(f"positions_get returned None for ticket {ticket}")
-                return None
-            if not positions:  # Empty list
-                return None
-            if len(positions) == 0:
+            if not positions:  # None or empty list
                 return None
             return positions[0]
         except (IndexError, TypeError, AttributeError) as e:
@@ -112,6 +103,16 @@ class PositionVerifier:
         except Exception as e:
             logger.error(f"Unexpected error getting position {ticket}: {e}")
             return None
+    
+    @staticmethod
+    def _round_to_volume_step(volume: float, volume_step: float) -> float:
+        """Round volume to the nearest volume_step.
+        
+        This matches the normalization done in order placement.
+        """
+        if volume <= 0 or volume_step <= 0:
+            return volume
+        return round(volume / volume_step) * volume_step
 
     def _validate_sl_tp_consistency(
         self, ticket: int, symbol_name: str, actual_sl: float, actual_tp: float,
@@ -132,16 +133,23 @@ class PositionVerifier:
         return None
 
     def _validate_volume_consistency(
-        self, ticket: int, symbol_name: str, actual_volume: float, expected_volume: float
+        self, ticket: int, symbol_name: str, actual_volume: float, expected_volume: float, volume_step: float
     ) -> Optional[str]:
-        """Validate that volume matches expected value exactly (with small epsilon).
+        """Validate that volume matches expected value.
+        
+        Uses volume_step-based epsilon since both volumes are normalized to volume_step.
         
         Returns:
             "volume" if mismatch found, None otherwise.
         """
-        if expected_volume > 0 and abs(actual_volume - expected_volume) > 0.00001:
+        if expected_volume <= 0:
+            return None  # Skip validation if no expected volume
+        
+        # Use volume_step / 10 as epsilon (more appropriate than fixed 0.00001)
+        epsilon = max(volume_step / 10, 1e-6)
+        if abs(actual_volume - expected_volume) > epsilon:
             logger.warning(f"VOLUME MISMATCH for ticket {ticket} ({symbol_name})! "
-                           f"Requested: {expected_volume}, Actual: {actual_volume}")
+                           f"Requested: {expected_volume}, Actual: {actual_volume}, Step: {volume_step}")
             return "volume"
         return None
 
