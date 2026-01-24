@@ -1002,6 +1002,80 @@ def test_36_jpy_position_consistency():
     return verification_result
 
 
+def test_37_market_moved_retry():
+    """Test 37: MARKET_MOVED error automatic retry with fresh prices."""
+    print("\n" + "=" * 60)
+    print("TEST 37: MARKET_MOVED Error Automatic Retry")
+    print("=" * 60)
+    
+    # This test verifies that MARKET_MOVED errors (10004, 10020, 10021, 10025)
+    # trigger automatic retry with fresh prices
+    # Note: We can't easily simulate MARKET_MOVED errors in live trading,
+    # but we can verify the retry logic works by checking the code path
+    
+    from externals.meta_trader.order_placement import OrderPlacer
+    from externals.meta_trader.connection import MT5Connection
+    from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
+    
+    # Test error categorization
+    market_moved_codes = [10004, 10020, 10021, 10025]
+    all_categorized = True
+    for code in market_moved_codes:
+        category = MT5ErrorCategorizer.categorize(code)
+        if category != ErrorCategory.MARKET_MOVED:
+            log_test(f"Error code {code} categorization", False, f"Expected MARKET_MOVED, got {category}")
+            all_categorized = False
+        else:
+            log_test(f"Error code {code} categorized as MARKET_MOVED", True)
+    
+    # Test SL/TP recalculation logic (unit test)
+    connection = MT5Connection()
+    placer = OrderPlacer(connection)
+    
+    # Test BUY order SL/TP recalculation
+    original_price = 1.1000
+    original_sl = 1.0950  # 50 pips below
+    original_tp = 1.1100  # 100 pips above
+    fresh_price = 1.1005  # Price moved up 5 pips
+    
+    fresh_sl, fresh_tp = placer._recalculate_sl_tp(
+        fresh_price, original_price, original_sl, original_tp, mt5.ORDER_TYPE_BUY
+    )
+    
+    expected_sl = 1.0955  # 50 pips below fresh price
+    expected_tp = 1.1105  # 100 pips above fresh price
+    
+    sl_correct = abs(fresh_sl - expected_sl) < 0.0001
+    tp_correct = abs(fresh_tp - expected_tp) < 0.0001
+    
+    log_test("BUY SL recalculation", sl_correct, 
+             f"Expected: {expected_sl}, Got: {fresh_sl}")
+    log_test("BUY TP recalculation", tp_correct,
+             f"Expected: {expected_tp}, Got: {fresh_tp}")
+    
+    # Test SELL order SL/TP recalculation
+    original_price_sell = 1.1000
+    original_sl_sell = 1.1050  # 50 pips above (for SELL)
+    original_tp_sell = 1.0900  # 100 pips below (for SELL)
+    fresh_price_sell = 1.0995  # Price moved down 5 pips
+    
+    fresh_sl_sell, fresh_tp_sell = placer._recalculate_sl_tp(
+        fresh_price_sell, original_price_sell, original_sl_sell, original_tp_sell, mt5.ORDER_TYPE_SELL
+    )
+    
+    expected_sl_sell = 1.1045  # 50 pips above fresh price
+    expected_tp_sell = 1.0895  # 100 pips below fresh price
+    
+    sl_sell_correct = abs(fresh_sl_sell - expected_sl_sell) < 0.0001
+    tp_sell_correct = abs(fresh_tp_sell - expected_tp_sell) < 0.0001
+    
+    log_test("SELL SL recalculation", sl_sell_correct,
+             f"Expected: {expected_sl_sell}, Got: {fresh_sl_sell}")
+    log_test("SELL TP recalculation", tp_sell_correct,
+             f"Expected: {expected_tp_sell}, Got: {fresh_tp_sell}")
+    
+    return all_categorized and sl_correct and tp_correct and sl_sell_correct and tp_sell_correct
+
 
 # =============================================================================
 # RUNNER
@@ -1061,6 +1135,7 @@ def run_all_tests():
     test_34_verify_volume_mismatch()
     test_35_verify_slippage_mismatch()
     test_36_jpy_position_consistency()
+    test_37_market_moved_retry()
 
     # Shutdown (18)
     test_18_shutdown_mt5()

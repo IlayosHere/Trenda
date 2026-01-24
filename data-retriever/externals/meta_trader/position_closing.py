@@ -1,5 +1,4 @@
 import time
-import sys
 from typing import Optional, Any
 from logger import get_logger
 from configuration.broker_config import (
@@ -7,6 +6,7 @@ from configuration.broker_config import (
 )
 from .safeguards import _trading_lock
 from .types import CloseAttemptStatus
+from .error_categorization import MT5ErrorCategorizer, ErrorCategory
 
 logger = get_logger(__name__)
 
@@ -97,8 +97,22 @@ class PositionCloser:
         error_str = str(mt5_error) if mt5_error is not None else 'N/A'
         err_msg = f"Retcode: {retcode_str}, Error: {error_str}"
         
+        # Special handling for FROZEN (10011) - always retry
         if result and retcode == self.mt5.TRADE_RETCODE_FROZEN:
             logger.warning(f"Close attempt {attempt} for ticket {ticket}: Position is FROZEN. Retrying...")
+        elif retcode is not None:
+            # Use error categorization for appropriate logging
+            category = MT5ErrorCategorizer.categorize(retcode)
+            desc = MT5ErrorCategorizer.get_description(retcode)
+            
+            if category == ErrorCategory.FATAL:
+                logger.error(f"Close attempt {attempt} failed for ticket {ticket}. Retcode: {retcode} ({desc}), MT5 Error: {error_str}")
+            elif category == ErrorCategory.TRANSIENT:
+                logger.warning(f"Close attempt {attempt} failed for ticket {ticket} (transient). Retcode: {retcode} ({desc}), MT5 Error: {error_str}")
+            elif category == ErrorCategory.MARKET_MOVED:
+                logger.info(f"Close attempt {attempt} failed for ticket {ticket} (market moved). Retcode: {retcode} ({desc})")
+            else:
+                logger.error(f"Close attempt {attempt} failed for ticket {ticket}. {err_msg}")
         else:
             logger.error(f"Close attempt {attempt} failed for ticket {ticket}. {err_msg}")
         

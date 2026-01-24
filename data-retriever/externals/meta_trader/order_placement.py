@@ -4,6 +4,7 @@ from configuration.broker_config import (
     MT5_MAGIC_NUMBER, MT5_DEVIATION, MT5_EXPIRATION_SECONDS
 )
 from configuration.trading_config import MT5_ORDER_COMMENT
+from .error_categorization import MT5ErrorCategorizer, ErrorCategory
 
 logger = get_logger(__name__)
 
@@ -84,7 +85,9 @@ class OrderPlacer:
 
             result = self.mt5.order_send(request)
         
-        return self._process_order_result(symbol, order_type, volume, price, result)
+        return self._process_order_result(symbol, order_type, volume, price, sl, tp, 
+                                        symbol_info, deviation, magic, comment, 
+                                        expiration_seconds, result, original_price=price)
 
     def _ensure_symbol_available(self, symbol: str) -> Optional[Any]:
         """Ensure symbol is visible and select it if needed.
@@ -244,8 +247,13 @@ class OrderPlacer:
         }
 
     def _process_order_result(self, symbol: str, order_type: int, volume: float, 
-                              price: float, result: Optional[Any]) -> Optional[Any]:
+                              price: float, sl: float, tp: float, symbol_info: Any,
+                              deviation: int, magic: int, comment: str,
+                              expiration_seconds: int, result: Optional[Any],
+                              is_retry: bool = False, original_price: float = None) -> Optional[Any]:
         """Process the order send result and log appropriately.
+        
+        If MARKET_MOVED error occurs, automatically retry once with fresh prices.
         
         Returns:
             Order result if successful, None or result object if failed.
@@ -260,6 +268,18 @@ class OrderPlacer:
             return None
 
         if result.retcode != self.mt5.TRADE_RETCODE_DONE:
+            category = MT5ErrorCategorizer.categorize(result.retcode)
+            
+            # Auto-retry for MARKET_MOVED errors (once)
+            if category == ErrorCategory.MARKET_MOVED and not is_retry:
+                logger.info(f"Market moved for {symbol}, retrying with fresh prices...")
+                orig_price = original_price if original_price is not None else price
+                return self._retry_with_fresh_prices(
+                    symbol, order_type, volume, sl, tp, symbol_info,
+                    deviation, magic, comment, expiration_seconds, orig_price
+                )
+            
+            # Log error (for non-retryable or already retried)
             self._log_order_error(symbol, result)
             return result
 
@@ -272,35 +292,134 @@ class OrderPlacer:
         
         logger.info(f"Success: Order placed - sym:{symbol}, vol:{volume}, type:{order_type}, price:{price}, ticket:{ticket}")
         return result
+    
+    def _retry_with_fresh_prices(self, symbol: str, order_type: int, volume: float,
+                                 sl: float, tp: float, symbol_info: Any,
+                                 deviation: int, magic: int, comment: str,
+                                 expiration_seconds: int, original_price: float) -> Optional[Any]:
+        """Retry order placement with fresh market prices after MARKET_MOVED error.
+        
+        Recalculates SL/TP to maintain relative distances from the original entry price.
+        
+        Returns:
+            Order result from retry attempt.
+        """
+        with self.connection.lock:
+            # Get fresh market price
+            fresh_price = self._get_fresh_price(symbol, order_type)
+            if fresh_price is None:
+                return None
+            
+            # Recalculate SL/TP with same distances from new entry price
+            fresh_sl, fresh_tp = self._recalculate_sl_tp(
+                fresh_price, original_price, sl, tp, order_type
+            )
+            
+            # Validate and normalize
+            fresh_price, fresh_sl, fresh_tp = self._normalize_prices(symbol, symbol_info, fresh_price, fresh_sl, fresh_tp)
+            if fresh_price is None:
+                logger.error(f"Retry failed for {symbol}: Price normalization failed")
+                return None
+            
+            if not self._validate_sl_tp_distances(symbol, symbol_info, fresh_price, fresh_sl, fresh_tp):
+                logger.error(f"Retry failed for {symbol}: SL/TP validation failed")
+                return None
+            
+            # Send order with fresh prices
+            expiration_time = self._calculate_expiration_time(symbol, expiration_seconds)
+            if expiration_time is None:
+                logger.error(f"Retry failed for {symbol}: Cannot calculate expiration")
+                return None
+            
+            request = self._build_order_request(
+                symbol, order_type, volume, fresh_price, fresh_sl, fresh_tp,
+                deviation, magic, comment, expiration_time
+            )
+            
+            result = self.mt5.order_send(request)
+        
+        # Process result (mark as retry to prevent infinite loops)
+        return self._process_order_result(symbol, order_type, volume, fresh_price, fresh_sl, fresh_tp,
+                                         symbol_info, deviation, magic, comment,
+                                         expiration_seconds, result, is_retry=True, original_price=original_price)
+    
+    def _get_fresh_price(self, symbol: str, order_type: int) -> Optional[float]:
+        """Get fresh market price for retry.
+        
+        Returns:
+            Current ask (BUY) or bid (SELL) price, or None if unavailable.
+        """
+        tick = self.mt5.symbol_info_tick(symbol)
+        if not tick:
+            logger.error(f"Retry failed for {symbol}: Cannot get fresh tick price")
+            return None
+        
+        fresh_price = tick.ask if order_type == self.mt5.ORDER_TYPE_BUY else tick.bid
+        if fresh_price <= 0:
+            logger.error(f"Retry failed for {symbol}: Invalid fresh price {fresh_price}")
+            return None
+        
+        return fresh_price
+    
+    def _recalculate_sl_tp(self, fresh_price: float, original_price: float,
+                          original_sl: float, original_tp: float, order_type: int) -> Tuple[float, float]:
+        """Recalculate SL/TP to maintain same distances from new entry price.
+        
+        Args:
+            fresh_price: New entry price
+            original_price: Original entry price
+            original_sl: Original SL price
+            original_tp: Original TP price
+            order_type: ORDER_TYPE_BUY or ORDER_TYPE_SELL
+            
+        Returns:
+            Tuple of (new_sl, new_tp)
+        """
+        fresh_sl = 0.0
+        fresh_tp = 0.0
+        
+        if original_sl > 0:
+            sl_distance = abs(original_price - original_sl)
+            if order_type == self.mt5.ORDER_TYPE_BUY:
+                fresh_sl = fresh_price - sl_distance
+            else:  # SELL
+                fresh_sl = fresh_price + sl_distance
+        
+        if original_tp > 0:
+            tp_distance = abs(original_tp - original_price)
+            if order_type == self.mt5.ORDER_TYPE_BUY:
+                fresh_tp = fresh_price + tp_distance
+            else:  # SELL
+                fresh_tp = fresh_price - tp_distance
+        
+        return fresh_sl, fresh_tp
 
     def _log_order_error(self, symbol: str, result: Any):
-        """Helper to log detailed MT5 order errors."""
-        error_messages = {
-            10004: "Requote - price changed",
-            10006: "Request rejected",
-            10007: "Request canceled by trader",
-            10010: "Only part of request completed",
-            10013: "Invalid request",
-            10014: "Invalid volume",
-            10015: "Invalid price",
-            10016: "Invalid stops (SL/TP)",
-            10017: "Trade disabled",
-            10018: "Market closed",
-            10019: "Insufficient funds",
-            10020: "Prices changed",
-            10021: "No quotes",
-            10022: "Invalid order expiration",
-            10024: "Too frequent requests",
-            10026: "AutoTrading disabled by server",
-            10027: "AutoTrading disabled in terminal (enable Algo Trading button)",
-            10030: "Invalid SL/TP for this symbol",
-        }
+        """Log MT5 order errors with appropriate log level based on error category.
+        
+        Categories:
+        - FATAL: Logged as error (abort, don't retry)
+        - TRANSIENT: Logged as warning (consider retry)
+        - MARKET_MOVED: Logged as info (normal market behavior)
+        """
         # Safe access to retcode
         retcode = getattr(result, 'retcode', None)
         if retcode is None:
             logger.error(f"Order failed for {symbol}. Result missing 'retcode' attribute. Result: {result}")
             return
         
-        desc = error_messages.get(retcode, "Unknown error")
+        # Categorize the error
+        category = MT5ErrorCategorizer.categorize(retcode)
+        desc = MT5ErrorCategorizer.get_description(retcode)
         mt5_error = self.mt5.last_error() if hasattr(self.mt5, 'last_error') else "N/A"
-        logger.error(f"Order failed for {symbol}. Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}")
+        
+        # Log with appropriate level based on category
+        if category == ErrorCategory.FATAL:
+            logger.error(f"Order failed for {symbol}. Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}")
+        elif category == ErrorCategory.TRANSIENT:
+            logger.warning(f"Order failed for {symbol} (transient). Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}. Consider retry mechanism.")
+        elif category == ErrorCategory.MARKET_MOVED:
+            logger.info(f"Order failed for {symbol} (market moved). Retcode: {retcode} ({desc})")
+        else:
+            # Fallback for unknown categories
+            logger.error(f"Order failed for {symbol}. Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}")
