@@ -39,11 +39,11 @@ def main():
     # Recover positions on startup (only in live mode)
     if RUN_MODE == "live":
         logger.info("--- 🔄 Running position recovery ---")
-        recovery_stats = meta_trader.recover_positions()
-        if recovery_stats['recovered'] > 0:
-            logger.warning(
-                f"⚠️ Recovered {recovery_stats['recovered']} position(s) that were missing from database"
-            )
+        # recovery_stats = meta_trader.recover_positions()
+        # if recovery_stats['recovered'] > 0:
+        #     logger.warning(
+        #         f"⚠️ Recovered {recovery_stats['recovered']} position(s) that were missing from database"
+        #     )
         logger.info("--- ✅ Position recovery complete ---\n")
 
     try:

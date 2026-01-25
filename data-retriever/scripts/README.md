@@ -43,6 +43,22 @@ python scripts/create_trading_lock.py
 
 ---
 
+### 3. `cleanup_temp_lock_files.py` - Cleanup Temporary Files
+
+Removes temporary lock files (`.tmp` files) that may remain after crashes or interrupted writes.
+
+**Usage:**
+```bash
+python scripts/cleanup_temp_lock_files.py
+```
+
+**What it does:**
+- Finds all temporary lock files (`.tmp` files)
+- Deletes them using the built-in cleanup method
+- Keeps only `trading_lock.json` (the actual lock file)
+
+---
+
 ## How It Works
 
 ### Automatic Check in Main Loop

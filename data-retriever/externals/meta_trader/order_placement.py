@@ -270,6 +270,12 @@ class OrderPlacer:
         if result.retcode != self.mt5.TRADE_RETCODE_DONE:
             category = MT5ErrorCategorizer.categorize(result.retcode)
             
+            # PARTIAL_SUCCESS (10010) is actually a success - partial execution
+            if category == ErrorCategory.PARTIAL_SUCCESS:
+                self._log_order_error(symbol, result)  # Logs as info with partial execution details
+                # Return result as success (partial execution is still a success)
+                return result
+            
             # Auto-retry for MARKET_MOVED errors (once)
             if category == ErrorCategory.MARKET_MOVED and not is_retry:
                 logger.info(f"Market moved for {symbol}, retrying with fresh prices...")
@@ -401,6 +407,8 @@ class OrderPlacer:
         - FATAL: Logged as error (abort, don't retry)
         - TRANSIENT: Logged as warning (consider retry)
         - MARKET_MOVED: Logged as info (normal market behavior)
+        - MARKET_CLOSED: Logged as info (market is closed, not a system problem)
+        - PARTIAL_SUCCESS: Logged as info (partial execution, success but not full volume)
         """
         # Safe access to retcode
         retcode = getattr(result, 'retcode', None)
@@ -420,6 +428,12 @@ class OrderPlacer:
             logger.warning(f"Order failed for {symbol} (transient). Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}. Consider retry mechanism.")
         elif category == ErrorCategory.MARKET_MOVED:
             logger.info(f"Order failed for {symbol} (market moved). Retcode: {retcode} ({desc})")
+        elif category == ErrorCategory.MARKET_CLOSED:
+            logger.info(f"Order not executed for {symbol} (market closed). Retcode: {retcode} ({desc})")
+        elif category == ErrorCategory.PARTIAL_SUCCESS:
+            ticket = getattr(result, 'order', None)
+            volume_deal = getattr(result, 'volume', None)
+            logger.info(f"Order partially executed for {symbol}. Retcode: {retcode} ({desc}), Ticket: {ticket}, Volume: {volume_deal}")
         else:
             # Fallback for unknown categories
             logger.error(f"Order failed for {symbol}. Retcode: {retcode} ({desc}), MT5 Error: {mt5_error}")

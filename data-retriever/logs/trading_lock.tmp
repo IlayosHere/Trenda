@@ -1,5 +1,0 @@
-{
-  "reason": "Failed to close position 12345 after 2 attempts",
-  "timestamp": "2026-01-23T19:05:12.160500+00:00",
-  "locked_by": "TradingSafeguards"
-}

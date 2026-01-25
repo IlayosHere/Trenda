@@ -4,6 +4,8 @@ Categorizes MT5 trade return codes into:
 - FATAL: Abort immediately, log as error, don't retry
 - TRANSIENT: Log as warning, consider retry mechanism
 - MARKET_MOVED: Log as info, normal market behavior
+- MARKET_CLOSED: Log as info, market is closed (not a system problem)
+- PARTIAL_SUCCESS: Log as info, partial execution (success but not full volume)
 """
 from enum import Enum
 from typing import Dict, Set
@@ -13,13 +15,15 @@ class ErrorCategory(Enum):
     FATAL = "fatal"          # Abort, log as error, don't retry
     TRANSIENT = "transient"  # Log as warning, consider retry
     MARKET_MOVED = "market_moved"  # Log as info, normal market behavior
+    MARKET_CLOSED = "market_closed"  # Log as info, market is closed (not a system problem)
+    PARTIAL_SUCCESS = "partial_success"  # Log as info, partial execution (success but not full volume)
 
 
 class MT5ErrorCategorizer:
     """Categorizes MT5 error codes for appropriate handling."""
     
     # FATAL errors - abort immediately, log as error, don't retry
-    # These indicate fundamental problems: invalid parameters, insufficient funds, trading disabled
+    # These indicate fundamental problems: invalid parameters, insufficient funds, trading disabled, configuration issues
     FATAL_ERRORS: Set[int] = {
         10006,  # Request rejected - server rejected our request (likely invalid parameters)
         10013,  # Invalid request - our request structure is wrong
@@ -27,9 +31,9 @@ class MT5ErrorCategorizer:
         10015,  # Invalid price - our price is wrong
         10016,  # Invalid stops (SL/TP) - our SL/TP calculation is wrong
         10017,  # Trade disabled - trading is disabled for this symbol
-        10018,  # Market closed - market is closed, won't work until market opens
         10019,  # Insufficient funds - no money, won't work until funded
         10022,  # Invalid order expiration - our expiration is wrong
+        10026,  # AutoTrading disabled by server - configuration issue, not a connection problem
         10027,  # AutoTrading disabled in terminal - user needs to enable algo trading
         10030,  # Invalid SL/TP for this symbol - our SL/TP doesn't meet symbol requirements
         10048,  # Invalid order comment
@@ -52,7 +56,6 @@ class MT5ErrorCategorizer:
         10009,  # Context busy - server is busy, try again later
         10011,  # Position is frozen - position temporarily frozen, try again later
         10024,  # Too frequent requests - rate limited, wait and retry
-        10026,  # AutoTrading disabled by server - temporary server-side restriction
     }
     
     # MARKET_MOVED errors - log as info, normal market behavior
@@ -62,6 +65,18 @@ class MT5ErrorCategorizer:
         10020,  # Prices changed - price changed during execution, retry with new price
         10021,  # No quotes - broker can't provide quotes (temporary), retry when quotes available
         10025,  # Requote - same as 10004, price changed, retry with new price
+    }
+    
+    # MARKET_CLOSED errors - log as info, market is closed (not a system problem)
+    # This is normal market behavior, not an error in our system
+    MARKET_CLOSED_ERRORS: Set[int] = {
+        10018,  # Market closed - market is closed, will work when market opens
+    }
+    
+    # PARTIAL_SUCCESS - log as info, partial execution (success but not full volume)
+    # This is actually a success code, not an error - trade was partially executed
+    PARTIAL_SUCCESS_CODES: Set[int] = {
+        10010,  # Only part of request completed - partial execution (success, but not full volume)
     }
     
     # Error descriptions
@@ -117,6 +132,10 @@ class MT5ErrorCategorizer:
             return ErrorCategory.TRANSIENT
         elif retcode in cls.MARKET_MOVED_ERRORS:
             return ErrorCategory.MARKET_MOVED
+        elif retcode in cls.MARKET_CLOSED_ERRORS:
+            return ErrorCategory.MARKET_CLOSED
+        elif retcode in cls.PARTIAL_SUCCESS_CODES:
+            return ErrorCategory.PARTIAL_SUCCESS
         else:
             # Unknown errors default to FATAL for safety
             return ErrorCategory.FATAL

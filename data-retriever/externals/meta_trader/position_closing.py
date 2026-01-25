@@ -111,6 +111,11 @@ class PositionCloser:
                 logger.warning(f"Close attempt {attempt} failed for ticket {ticket} (transient). Retcode: {retcode} ({desc}), MT5 Error: {error_str}")
             elif category == ErrorCategory.MARKET_MOVED:
                 logger.info(f"Close attempt {attempt} failed for ticket {ticket} (market moved). Retcode: {retcode} ({desc})")
+            elif category == ErrorCategory.MARKET_CLOSED:
+                logger.info(f"Close attempt {attempt} not executed for ticket {ticket} (market closed). Retcode: {retcode} ({desc})")
+            elif category == ErrorCategory.PARTIAL_SUCCESS:
+                # Partial success shouldn't occur when closing, but handle it gracefully
+                logger.warning(f"Close attempt {attempt} partially executed for ticket {ticket}. Retcode: {retcode} ({desc})")
             else:
                 logger.error(f"Close attempt {attempt} failed for ticket {ticket}. {err_msg}")
         else:
