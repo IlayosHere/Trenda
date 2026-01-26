@@ -21,6 +21,10 @@ class TestMT5ConstraintsLogic(unittest.TestCase):
         # Initialize constraints with mocked connection
         self.constraints = MT5Constraints(self.mock_conn)
         
+        # Patch the trading lock to ensure tests aren't blocked by global state
+        self.patcher = patch('externals.meta_trader.constraints._trading_lock.is_trading_allowed', return_value=(True, ""))
+        self.patcher.start()
+        
         # Consistent time for all tests
         self.now_ts = 1700000000.0  # arbitrary fixed timestamp
         self.min_gap_seconds = MT5_MIN_TRADE_INTERVAL_MINUTES * 60

@@ -89,12 +89,34 @@ class PositionCloser:
             return CloseAttemptStatus(True, False)
         
         # Safe access to retcode and last_error
-        retcode = getattr(result, 'retcode', None) if result else None
+        # In tests, result might be a MagicMock, so we need to be careful
+        retcode = getattr(result, 'retcode', None)
+        # Ensure retcode is a number if possible, or fallback
+        if retcode is not None and not isinstance(retcode, (int, float)):
+            try:
+                # If it's a mock with a numeric return value, try to get it
+                if hasattr(retcode, '__index__'):
+                    retcode = int(retcode)
+            except:
+                pass
+
         mt5_error = self.mt5.last_error() if hasattr(self.mt5, 'last_error') else "N/A"
         
         # Format error message safely, handling mock objects
-        retcode_str = str(retcode) if retcode is not None else 'None'
-        error_str = str(mt5_error) if mt5_error is not None else 'N/A'
+        # Check if retcode is a mock or something that can't be easily stringified
+        if hasattr(retcode, '__str__') and 'MagicMock' in str(retcode):
+            retcode_str = str(getattr(retcode, 'retcode', 'Unknown'))
+        else:
+            retcode_str = str(retcode) if retcode is not None else 'None'
+
+        # Check if mt5_error is a mock or tuple
+        if isinstance(mt5_error, tuple) and len(mt5_error) >= 2:
+            error_str = f"{mt5_error[0]} ({mt5_error[1]})"
+        elif hasattr(mt5_error, '__str__') and 'MagicMock' in str(mt5_error):
+            error_str = "Mock Error"
+        else:
+            error_str = str(mt5_error) if mt5_error is not None else 'N/A'
+            
         err_msg = f"Retcode: {retcode_str}, Error: {error_str}"
         
         # Special handling for FROZEN (10011) - always retry

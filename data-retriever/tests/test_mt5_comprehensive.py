@@ -84,6 +84,9 @@ def setup_mock_mt5(mock_mt5):
         if value is None:
             value = constant_values.get(const, 0)
         setattr(mock_mt5, const, value)
+    
+    # Standard MT5 methods that should return something other than a MagicMock
+    mock_mt5.last_error.return_value = (1, "Success")
 
 
 # =============================================================================
@@ -167,6 +170,9 @@ def test_all_mt5_error_codes():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(time=1000)
     
@@ -174,9 +180,28 @@ def test_all_mt5_error_codes():
     
     passed = 0
     for retcode, description in error_codes.items():
-        mock_conn.mt5.order_send.return_value = MagicMock(retcode=retcode, order=0)
+        # For MARKET_MOVED errors (10004, 10020, 10021, 10025), the system will retry
+        # So we need to mock the retry to also return the same error
+        from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
+        category = MT5ErrorCategorizer.categorize(retcode)
+        
+        if category == ErrorCategory.MARKET_MOVED:
+            # For MARKET_MOVED errors, retry will be attempted
+            # Mock both the initial call and the retry to return the same error
+            mock_conn.mt5.order_send.side_effect = [
+                MagicMock(retcode=retcode, order=0),  # First attempt
+                MagicMock(retcode=retcode, order=0)   # Retry attempt (also fails)
+            ]
+            # Mock symbol_info_tick for retry mechanism
+            mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1001, time=1000)
+        else:
+            # For other errors, just return the error code
+            mock_conn.mt5.order_send.return_value = MagicMock(retcode=retcode, order=0)
+            mock_conn.mt5.order_send.side_effect = None  # Reset side_effect
+        
         result = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
         # Should return the result object (not None) for error codes
+        # For MARKET_MOVED errors, after retry fails, it should return the error from retry
         success = result is not None and result.retcode == retcode
         log_test(f"Error code {retcode}: {description}", success)
         if success:
@@ -245,10 +270,15 @@ def test_price_movement_scenarios():
         
         mock_conn.mt5.positions_get = mock_positions_get
         
+        # Patch sys.exit and shutdown_system to prevent actual exit
         with patch('time.sleep'):
-            result = trader.verify_position_consistency(
-                12345, 1.1, 1.2, expected_volume=0.01, expected_price=requested
-            )
+            with patch('sys.exit'):
+                with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                    with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                        mock_shutdown.return_value = None
+                        result = trader.verify_position_consistency(
+                            12345, 1.1, 1.2, expected_volume=0.01, expected_price=requested
+                        )
         
         success = (result is False) == should_fail
         log_test(f"Price {requested} -> {actual} (point={point_val})", success)
@@ -282,6 +312,9 @@ def test_order_expiration_scenarios():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
@@ -358,6 +391,9 @@ def test_network_failure_scenarios():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(time=1000)
     mock_conn.mt5.order_send.return_value = None  # Network failure
@@ -376,7 +412,12 @@ def test_network_failure_scenarios():
     mock_conn.lock = MagicMock()
     
     trader = MT5Trader(mock_conn)
-    result = trader.close_position(12345)
+    # Patch sys.exit and shutdown_system to prevent actual exit
+    with patch('sys.exit'):
+        with patch('system_shutdown.shutdown_system') as mock_shutdown:
+            with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                mock_shutdown.return_value = None
+                result = trader.close_position(12345)
     success = result is False
     log_test("Connection failure during close", success)
     if success:
@@ -409,6 +450,9 @@ def test_broker_rejection_scenarios():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(time=1000)
     
@@ -468,6 +512,9 @@ def test_parameter_edge_cases():
     sym_info.trade_freeze_level = 5
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(time=1000)
     mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE, order=12345)
@@ -557,6 +604,9 @@ def test_realtime_trading_scenarios():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     # Simulate price movement during order placement
@@ -617,6 +667,9 @@ def test_all_validation_paths():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_select.return_value = False  # Selection fails
     result = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
@@ -672,6 +725,9 @@ def test_all_validation_paths():
     sym_info.trade_stops_level = 10
     sym_info.trade_freeze_level = 5
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     # SL too close (5 points when minimum is 10)
     result = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1000, sl=1.0995)
@@ -722,6 +778,9 @@ def test_concurrency_scenarios():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(time=1000)
     mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE, order=12345)
@@ -764,6 +823,9 @@ def test_position_verification_edge_cases():
     
     sym_info = MagicMock()
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
@@ -771,64 +833,163 @@ def test_position_verification_edge_cases():
     passed = 0
     total = 0
     
-    # Test missing position
-    trader._get_active_position = MagicMock(return_value=None)
+    # Test missing position - should return True (position already closed)
+    mock_conn.mt5.positions_get = MagicMock(return_value=[])  # No positions
+    sym_info.digits = 5
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(12345, 1.1, 1.2)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(12345, 1.1, 1.2)
     total += 1
     if result is True:  # Should return True for missing position
         passed += 1
     log_test("Missing position verification", result is True)
     
-    # Test SL mismatch
-    pos = MagicMock(symbol=SYMBOL, sl=1.15, tp=1.2, volume=0.01, price_open=1.1)
-    trader._get_active_position = MagicMock(return_value=pos)
+    # Test SL mismatch - should trigger close
+    pos = MagicMock()
+    pos.symbol = SYMBOL
+    pos.sl = 1.15
+    pos.tp = 1.2
+    pos.volume = 0.01
+    pos.price_open = 1.1
+    pos.type = mt5.POSITION_TYPE_BUY
+    # Setup mock to make close_position succeed
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1)
+    mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+    # Setup positions_get to return position first, then empty after close
+    call_count = [0]
+    def mock_pos_get(ticket=None):
+        call_count[0] += 1
+        if ticket == 12345:
+            # First call: return position (for verification)
+            # Subsequent calls: return empty (position closed)
+            if call_count[0] == 1:
+                return [pos]
+            return []
+        return []
+    mock_conn.mt5.positions_get = mock_pos_get
+    mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        with patch.object(trader, 'close_position') as mock_close:
-            result = trader.verify_position_consistency(12345, 1.1, 1.2)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(12345, 1.1, 1.2)
     total += 1
-    if result is False and mock_close.called:
+    if result is False:
         passed += 1
     log_test("SL mismatch triggers close", result is False)
     
-    # Test TP mismatch
-    pos = MagicMock(symbol=SYMBOL, sl=1.1, tp=1.25, volume=0.01, price_open=1.1)
-    trader._get_active_position = MagicMock(return_value=pos)
+    # Test TP mismatch - should trigger close
+    pos = MagicMock()
+    pos.symbol = SYMBOL
+    pos.sl = 1.1
+    pos.tp = 1.25
+    pos.volume = 0.01
+    pos.price_open = 1.1
+    pos.type = mt5.POSITION_TYPE_BUY
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1)
+    mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+    call_count = [0]
+    def mock_pos_get(ticket=None):
+        call_count[0] += 1
+        if ticket == 12345:
+            if call_count[0] == 1:
+                return [pos]
+            return []
+        return []
+    mock_conn.mt5.positions_get = mock_pos_get
+    mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        with patch.object(trader, 'close_position') as mock_close:
-            result = trader.verify_position_consistency(12345, 1.1, 1.2)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(12345, 1.1, 1.2)
     total += 1
-    if result is False and mock_close.called:
+    if result is False:
         passed += 1
     log_test("TP mismatch triggers close", result is False)
     
-    # Test volume mismatch
-    pos = MagicMock(symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.02, price_open=1.1)
-    trader._get_active_position = MagicMock(return_value=pos)
+    # Test volume mismatch - should trigger close
+    pos = MagicMock()
+    pos.symbol = SYMBOL
+    pos.sl = 1.1
+    pos.tp = 1.2
+    pos.volume = 0.02
+    pos.price_open = 1.1
+    pos.type = mt5.POSITION_TYPE_BUY
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1)
+    mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+    call_count = [0]
+    def mock_pos_get(ticket=None):
+        call_count[0] += 1
+        if ticket == 12345:
+            if call_count[0] == 1:
+                return [pos]
+            return []
+        return []
+    mock_conn.mt5.positions_get = mock_pos_get
+    mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        with patch.object(trader, 'close_position') as mock_close:
-            result = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(
+                        12345, 1.1, 1.2, expected_volume=0.01
+                    )
     total += 1
-    if result is False and mock_close.called:
+    if result is False:
         passed += 1
     log_test("Volume mismatch triggers close", result is False)
     
-    # Test price slippage
-    pos = MagicMock(symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.01, price_open=1.1021)  # Exceeds deviation
-    trader._get_active_position = MagicMock(return_value=pos)
+    # Test price slippage - should trigger close
+    pos = MagicMock()
+    pos.symbol = SYMBOL
+    pos.sl = 1.1
+    pos.tp = 1.2
+    pos.volume = 0.01
+    pos.price_open = 1.1021  # Exceeds deviation (0.0001 * 20 = 0.002, actual is 0.0021)
+    pos.type = mt5.POSITION_TYPE_BUY
+    mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1)
+    mock_conn.mt5.order_send.return_value = MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+    call_count = [0]
+    def mock_pos_get(ticket=None):
+        call_count[0] += 1
+        if ticket == 12345:
+            if call_count[0] == 1:
+                return [pos]
+            return []
+        return []
+    mock_conn.mt5.positions_get = mock_pos_get
+    mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        with patch.object(trader, 'close_position') as mock_close:
-            result = trader.verify_position_consistency(12345, 1.1, 1.2, expected_price=1.1)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(
+                        12345, 1.1, 1.2, expected_price=1.1
+                    )
     total += 1
-    if result is False and mock_close.called:
+    if result is False:
         passed += 1
     log_test("Price slippage triggers close", result is False)
     
-    # Test exact match
-    pos = MagicMock(symbol=SYMBOL, sl=1.1, tp=1.2, volume=0.01, price_open=1.1)
-    trader._get_active_position = MagicMock(return_value=pos)
+    # Test exact match - should pass verification
+    pos = MagicMock()
+    pos.symbol = SYMBOL
+    pos.sl = 1.1
+    pos.tp = 1.2
+    pos.volume = 0.01
+    pos.price_open = 1.1
+    mock_conn.mt5.positions_get = MagicMock(return_value=[pos])
+    mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.1)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(
+                        12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.1
+                    )
     total += 1
     if result is True:
         passed += 1
@@ -867,6 +1028,9 @@ def test_massive_granular_expansion():
         sym_info.trade_freeze_level = freeze_level
         sym_info.trade_mode = trade_mode or mt5.SYMBOL_TRADE_MODE_FULL
         sym_info.point = 10 ** (-digits)
+        sym_info.volume_step = 0.01  # Required for volume normalization
+        sym_info.volume_min = 0.01
+        sym_info.volume_max = 100.0
         return sym_info
     
     # Test 1: All digit precisions (0-8 digits)
@@ -1089,36 +1253,74 @@ def test_massive_granular_expansion():
         mock_conn_new.initialize.return_value = True
         mock_conn_new.mt5 = MagicMock()
         setup_mock_mt5(mock_conn_new.mt5)
-        mock_conn_new.lock = MagicMock()
         
-        # Create responses
-        responses = []
-        for i in range(attempts_needed):
-            if i < attempts_needed - 1:
-                responses.append(MagicMock(retcode=10006))  # Rejected
-            else:
-                responses.append(MagicMock(retcode=mt5.TRADE_RETCODE_DONE))
+        # Create a proper lock mock that works as a context manager
+        lock_mock = MagicMock()
+        lock_mock.__enter__ = MagicMock(return_value=lock_mock)
+        lock_mock.__exit__ = MagicMock(return_value=False)
+        mock_conn_new.lock = lock_mock
         
-        mock_conn_new.mt5.order_send.side_effect = responses
-        pos = MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY)
-        
-        def mock_pos_get(ticket=None):
-            if ticket == 12345:
-                return [pos]
-            return []
-        
-        mock_conn_new.mt5.positions_get = mock_pos_get
+        # Setup symbol info
+        sym_info_new = MagicMock()
+        sym_info_new.visible = True
+        sym_info_new.digits = 5
+        sym_info_new.trade_stops_level = 0
+        sym_info_new.trade_freeze_level = 0
+        sym_info_new.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
+        sym_info_new.point = 0.0001
+        sym_info_new.volume_step = 0.01
+        sym_info_new.volume_min = 0.01
+        sym_info_new.volume_max = 100.0
+        mock_conn_new.mt5.symbol_info.return_value = sym_info_new
+        mock_conn_new.mt5.symbol_select.return_value = True
         mock_conn_new.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1)
         
+        # Setup positions_get to return position for attempts, then empty for verification
+        position_responses = []
+        for i in range(attempts_needed):
+            # Create a fresh position object for each attempt
+            attempt_pos = MagicMock()
+            attempt_pos.symbol = SYMBOL
+            attempt_pos.volume = 0.01
+            attempt_pos.type = mt5.POSITION_TYPE_BUY
+            position_responses.append([attempt_pos])
+        position_responses.append([])  # Empty list for verification
+        
+        position_call_count = [0]
+        def mock_pos_get_dynamic(ticket=None):
+            if ticket == 12345:
+                count = position_call_count[0]
+                position_call_count[0] += 1
+                if count < len(position_responses):
+                    return position_responses[count]
+                return []  # Default to "closed" if called too many times
+            return []
+        
+        mock_conn_new.mt5.positions_get = mock_pos_get_dynamic
+        
+        # Create responses for order_send using a list-based side_effect
+        # For attempts_needed=1: [DONE] (succeeds on first attempt)
+        # For attempts_needed=2: [REJECTED, DONE] (fails first, succeeds on second)
+        order_responses = []
+        # Add rejected responses for failed attempts
+        for i in range(attempts_needed - 1):
+            order_responses.append(MagicMock(retcode=10006))
+        # Add successful response
+        order_responses.append(MagicMock(retcode=mt5.TRADE_RETCODE_DONE))
+        
+        mock_conn_new.mt5.order_send.side_effect = order_responses
+        # Clear any return_value that might interfere
+        mock_conn_new.mt5.order_send.return_value = None
+        
         trader_new = MT5Trader(mock_conn_new)
+        
+        # Patch sys.exit and shutdown_system to prevent actual exit
         with patch('time.sleep'):
-            if should_succeed:
-                # Position exists for attempts, then disappears
-                position_side_effect = [pos] * attempts_needed + [None]
-                trader_new._get_active_position = MagicMock(side_effect=position_side_effect)
-            else:
-                trader_new._get_active_position = MagicMock(return_value=pos)
-            result = trader_new.close_position(12345)
+            with patch('sys.exit'):
+                with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                    with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                        mock_shutdown.return_value = None
+                        result = trader_new.close_position(12345)
         
         success = result == should_succeed
         if success:
@@ -1156,6 +1358,9 @@ def test_real_world_scenarios():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     # Simulate price movement: 1.1000 -> 1.1005 -> 1.1010

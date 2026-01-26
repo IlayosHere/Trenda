@@ -56,8 +56,13 @@ class PositionVerifier:
             
             # Normalize expected values to match what was sent to MT5
             # This prevents false mismatches due to rounding differences
-            symbol_digits = sym_info.digits if sym_info else 5
-            volume_step = sym_info.volume_step if sym_info and sym_info.volume_step > 0 else 0.01
+            symbol_digits = getattr(sym_info, 'digits', 5) if sym_info else 5
+            volume_step_val = getattr(sym_info, 'volume_step', None) if sym_info else None
+            # Handle MagicMock or None by ensuring we have a numeric value
+            if volume_step_val is None or not isinstance(volume_step_val, (int, float)):
+                volume_step = 0.01
+            else:
+                volume_step = volume_step_val if volume_step_val > 0 else 0.01
             
             expected_sl_rounded = round(expected_sl, symbol_digits) if expected_sl > 0 else 0.0
             expected_tp_rounded = round(expected_tp, symbol_digits) if expected_tp > 0 else 0.0

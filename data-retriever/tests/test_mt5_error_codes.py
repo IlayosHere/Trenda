@@ -110,10 +110,29 @@ def test_all_mt5_error_codes():
     passed = 0
     for retcode, description in error_codes.items():
         # Configure mock to return specific error code
-        mock_conn.mt5.order_send.return_value = MagicMock(retcode=retcode, order=0)
+        # For MARKET_MOVED errors (10004, 10020, 10021, 10025), the system will retry
+        # So we need to mock the retry to also return the same error
+        from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
+        category = MT5ErrorCategorizer.categorize(retcode)
+        
+        if category == ErrorCategory.MARKET_MOVED:
+            # For MARKET_MOVED errors, retry will be attempted
+            # Mock both the initial call and the retry to return the same error
+            mock_conn.mt5.order_send.side_effect = [
+                MagicMock(retcode=retcode, order=0),  # First attempt
+                MagicMock(retcode=retcode, order=0)   # Retry attempt (also fails)
+            ]
+            # Mock symbol_info_tick for retry mechanism
+            mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1001, time=1000)
+        else:
+            # For other errors, just return the error code
+            mock_conn.mt5.order_send.return_value = MagicMock(retcode=retcode, order=0)
+            mock_conn.mt5.order_send.side_effect = None  # Reset side_effect
+        
         result = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
         
         # Verify that error result is returned (not None) and has correct retcode
+        # For MARKET_MOVED errors, after retry fails, it should return the error from retry
         success = result is not None and result.retcode == retcode
         log_test(f"Error code {retcode}: {description}", success)
         if success:

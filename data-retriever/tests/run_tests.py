@@ -70,16 +70,10 @@ def main():
     print("\n" + "=" * 70)
     print("MT5 TRADING TEST SUITE")
     print("=" * 70)
-    print("\nOptions:")
-    print("  python tests/run_tests.py              # Run all tests")
-    print("  python tests/run_tests.py 38 39 40     # Run specific tests")
-    print("  python tests/run_tests.py --new        # Run only new tests (38-46)")
-    print("  python tests/run_tests.py --edge       # Run edge case tests (47-56)")
-    print("  python tests/run_tests.py --all-new    # Run all new tests (38-56)")
-    print("  python tests/run_tests.py --list       # List all available tests")
-    print("\n" + "=" * 70)
+    print("\nThis will run all 56 tests.")
+    print("See tests/README.md for more options.\n")
     
-    response = input("\nRun all tests? (y/n): ").lower().strip()
+    response = input("Run all tests? (y/n): ").lower().strip()
     if response.startswith('y'):
         run_all_tests()
     else:

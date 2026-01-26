@@ -25,6 +25,7 @@ class MT5ErrorCategorizer:
     # FATAL errors - abort immediately, log as error, don't retry
     # These indicate fundamental problems: invalid parameters, insufficient funds, trading disabled, configuration issues
     FATAL_ERRORS: Set[int] = {
+        10007,  # Request canceled by trader
         10006,  # Request rejected - server rejected our request (likely invalid parameters)
         10013,  # Invalid request - our request structure is wrong
         10014,  # Invalid volume - our volume calculation is wrong

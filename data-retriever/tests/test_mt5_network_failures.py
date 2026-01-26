@@ -14,7 +14,7 @@ This test suite covers:
 
 import sys
 import os
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -76,7 +76,12 @@ def test_network_failure_scenarios():
     # Test 3: Connection drops during close
     mock_conn = create_mock_connection(initialize_success=False)
     trader = MT5Trader(mock_conn)
-    result = trader.close_position(12345)
+    # Patch sys.exit and shutdown_system to prevent actual exit
+    with patch('sys.exit'):
+        with patch('system_shutdown.shutdown_system') as mock_shutdown:
+            with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                mock_shutdown.return_value = None
+                result = trader.close_position(12345)
     success = result is False
     log_test("Connection failure during close", success)
     if success:

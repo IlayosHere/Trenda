@@ -54,7 +54,10 @@ def test_position_verification_edge_cases():
     # Test missing position - should return True (position already closed)
     mock_conn.mt5.positions_get = MagicMock(return_value=[])  # No positions
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(12345, 1.1, 1.2)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(12345, 1.1, 1.2)
     total += 1
     if result is True:  # Should return True for missing position
         passed += 1
@@ -79,7 +82,10 @@ def test_position_verification_edge_cases():
     mock_conn.mt5.positions_get = mock_pos_get
     mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(12345, 1.1, 1.2)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(12345, 1.1, 1.2)
     total += 1
     if result is False:
         passed += 1
@@ -100,7 +106,10 @@ def test_position_verification_edge_cases():
     mock_conn.mt5.positions_get = mock_pos_get
     mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(12345, 1.1, 1.2)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(12345, 1.1, 1.2)
     total += 1
     if result is False:
         passed += 1
@@ -121,9 +130,12 @@ def test_position_verification_edge_cases():
     mock_conn.mt5.positions_get = mock_pos_get
     mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(
-            12345, 1.1, 1.2, expected_volume=0.01
-        )
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(
+                        12345, 1.1, 1.2, expected_volume=0.01
+                    )
     total += 1
     if result is False:
         passed += 1
@@ -151,9 +163,12 @@ def test_position_verification_edge_cases():
     mock_conn.mt5.positions_get = mock_pos_get
     mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(
-            12345, 1.1, 1.2, expected_price=1.1
-        )
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(
+                        12345, 1.1, 1.2, expected_price=1.1
+                    )
     total += 1
     if result is False:
         passed += 1
@@ -164,9 +179,12 @@ def test_position_verification_edge_cases():
     mock_conn.mt5.positions_get = MagicMock(return_value=[pos])
     mock_conn.mt5.symbol_info.return_value = sym_info
     with patch('time.sleep'):
-        result = trader.verify_position_consistency(
-            12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.1
-        )
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    result = trader.verify_position_consistency(
+                        12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.1
+                    )
     total += 1
     if result is True:
         passed += 1

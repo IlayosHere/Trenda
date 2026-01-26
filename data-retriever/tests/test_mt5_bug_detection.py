@@ -66,7 +66,11 @@ def test_bug_detection_scenarios():
             return trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
         
         def close_position():
-            return trader.close_position(12345)
+            with patch('sys.exit'):
+                with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                    with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                        mock_shutdown.return_value = None
+                        return trader.close_position(12345)
         
         t1 = threading.Thread(target=place_order)
         t2 = threading.Thread(target=close_position)
@@ -177,7 +181,12 @@ def test_bug_detection_scenarios():
         mock_conn = create_mock_connection()
         mock_conn.mt5.positions_get.return_value = []  # No position
         trader = MT5Trader(mock_conn)
-        result = trader.close_position(-1)  # Invalid ticket
+        # Patch sys.exit and shutdown_system to prevent actual exit
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    mock_shutdown.return_value = None
+                    result = trader.close_position(-1)  # Invalid ticket
         # Should handle gracefully
         success = result is False or result is True  # Both acceptable
         log_test("Invalid ticket closing", success)
@@ -191,12 +200,17 @@ def test_bug_detection_scenarios():
     try:
         mock_conn = create_mock_connection()
         trader = MT5Trader(mock_conn)
-        # This should raise TypeError, which is acceptable
-        try:
-            result = trader.close_position(None)
-            success = True  # Handled gracefully
-        except TypeError:
-            success = True  # Also acceptable - proper error
+        # Patch sys.exit and shutdown_system to prevent actual exit
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    mock_shutdown.return_value = None
+                    # This should raise TypeError, which is acceptable
+                    try:
+                        result = trader.close_position(None)
+                        success = True  # Handled gracefully
+                    except TypeError:
+                        success = True  # Also acceptable - proper error
         log_test("None ticket closing", success)
         if success:
             passed += 1
@@ -208,12 +222,16 @@ def test_bug_detection_scenarios():
     try:
         mock_conn = create_mock_connection()
         trader = MT5Trader(mock_conn)
-        # Try with string instead of int for ticket
-        try:
-            result = trader.verify_position_consistency("12345", 1.1, 1.2)
-            success = True
-        except (TypeError, AttributeError):
-            success = True  # Proper error handling
+        # Patch sys.exit and shutdown_system to prevent actual exit
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system'):
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    # Try with string instead of int for ticket
+                    try:
+                        result = trader.verify_position_consistency("12345", 1.1, 1.2)
+                        success = True
+                    except (TypeError, AttributeError):
+                        success = True  # Proper error handling
         log_test("Type mismatch in verify_position", success)
         if success:
             passed += 1
@@ -232,7 +250,10 @@ def test_bug_detection_scenarios():
         results = []
         def verify():
             with patch('time.sleep'):
-                results.append(trader.verify_position_consistency(12345, 1.1, 1.2))
+                with patch('sys.exit'):
+                    with patch('system_shutdown.shutdown_system'):
+                        with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                            results.append(trader.verify_position_consistency(12345, 1.1, 1.2))
         
         threads = [threading.Thread(target=verify) for _ in range(5)]
         for t in threads:
@@ -404,7 +425,10 @@ def test_bug_detection_scenarios():
         mock_conn.mt5.positions_get = lambda ticket=None: [pos] if ticket == 12345 else []
         trader = MT5Trader(mock_conn)
         with patch('time.sleep'):
-            result = trader.verify_position_consistency(12345, 0.0, 0.0, expected_volume=0.0, expected_price=0.0)
+            with patch('sys.exit'):
+                with patch('system_shutdown.shutdown_system'):
+                    with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                        result = trader.verify_position_consistency(12345, 0.0, 0.0, expected_volume=0.0, expected_price=0.0)
         # Should handle zero values
         success = result is True or result is False
         log_test("Position verification with zero values", success)

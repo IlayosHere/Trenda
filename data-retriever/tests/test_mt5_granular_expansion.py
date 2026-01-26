@@ -332,43 +332,77 @@ def test_massive_granular_expansion():
         mock_conn_new.initialize.return_value = True
         mock_conn_new.mt5 = MagicMock()
         setup_mock_mt5(mock_conn_new.mt5)
-        mock_conn_new.lock = MagicMock()
         
-        # Create responses
-        responses = []
-        for i in range(attempts_needed):
-            if i < attempts_needed - 1:
-                responses.append(MagicMock(retcode=10006))  # Rejected
-            else:
-                responses.append(MagicMock(retcode=mt5.TRADE_RETCODE_DONE))
+        # Create a proper lock mock that works as a context manager
+        lock_mock = MagicMock()
+        lock_mock.__enter__ = MagicMock(return_value=lock_mock)
+        lock_mock.__exit__ = MagicMock(return_value=False)
+        mock_conn_new.lock = lock_mock
         
-        mock_conn_new.mt5.order_send.side_effect = responses
-        pos = MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY)
-        
-        def mock_pos_get(ticket=None):
-            if ticket == 12345:
-                return [pos]
-            return []
-        
-        mock_conn_new.mt5.positions_get = mock_pos_get
+        # Setup symbol info
+        sym_info_new = create_symbol_info()
+        mock_conn_new.mt5.symbol_info.return_value = sym_info_new
         mock_conn_new.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1, ask=1.1)
         
-        trader_new = MT5Trader(mock_conn_new)
+        # Setup positions_get to return position for attempts, then empty for verification
+        # Flow:
+        # - _attempt_close calls _get_active_position (which calls positions_get) once per attempt
+        # - _verify_closure calls _get_active_position (which calls positions_get) once after success
+        # So we need: [pos] for each attempt up to attempts_needed, then [] for verification
+        position_responses = []
+        # Add position for each attempt (including failed ones)
+        for i in range(attempts_needed):
+            # Create a fresh position object for each attempt to avoid reference issues
+            attempt_pos = MagicMock()
+            attempt_pos.symbol = SYMBOL
+            attempt_pos.volume = 0.01
+            attempt_pos.type = mt5.POSITION_TYPE_BUY
+            position_responses.append([attempt_pos])
+        # After successful close, return empty list for verification
+        position_responses.append([])  # Empty list for verification
         
-        # Setup positions_get to return position for attempts, then empty
-        position_responses = [[pos]] * attempts_needed + [[]]
+        # Create responses for order_send using a function-based side_effect for better control
+        # For attempts_needed=1: DONE on first call (succeeds on first attempt)
+        # For attempts_needed=2: REJECTED on first call, DONE on second call (fails first, succeeds on second)
+        order_send_call_count = [0]
+        def mock_order_send_side_effect(request):
+            order_send_call_count[0] += 1
+            call_num = order_send_call_count[0]
+            if call_num < attempts_needed:
+                # Failed attempts return rejection
+                return MagicMock(retcode=10006)
+            elif call_num == attempts_needed:
+                # Successful attempt returns DONE
+                return MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+            else:
+                # Any additional calls (shouldn't happen) return DONE
+                return MagicMock(retcode=mt5.TRADE_RETCODE_DONE)
+        
+        # Setup positions_get mock with side_effect to return the correct sequence
         position_call_count = [0]
         def mock_pos_get_dynamic(ticket=None):
             if ticket == 12345:
-                idx = min(position_call_count[0], len(position_responses) - 1)
+                count = position_call_count[0]
                 position_call_count[0] += 1
-                return position_responses[idx]
+                if count < len(position_responses):
+                    return position_responses[count]
+                return []  # Default to "closed" if called too many times
             return []
         
         mock_conn_new.mt5.positions_get = mock_pos_get_dynamic
+        mock_conn_new.mt5.order_send.side_effect = mock_order_send_side_effect
+        # Clear any return_value that might interfere
+        mock_conn_new.mt5.order_send.return_value = None
         
+        trader_new = MT5Trader(mock_conn_new)
+        
+        # Patch sys.exit and shutdown_system to prevent actual exit
         with patch('time.sleep'):
-            result = trader_new.close_position(12345)
+            with patch('sys.exit'):
+                with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                    with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                        mock_shutdown.return_value = None
+                        result = trader_new.close_position(12345)
         
         success = result == should_succeed
         if success:

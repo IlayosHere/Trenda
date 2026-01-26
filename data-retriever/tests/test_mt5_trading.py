@@ -67,13 +67,14 @@ def calculate_sl_tp(symbol: str, order_type: int, sl_pips: float = 50, tp_pips: 
     if price == 0:
         return 0, 0, 0
     
-    pip = PIP_VALUE
+    pip = 0.01 if "JPY" in symbol else PIP_VALUE
+    digits = 3 if "JPY" in symbol else 5
     if order_type == mt5.ORDER_TYPE_BUY:
-        sl = round(price - (sl_pips * pip), 5)
-        tp = round(price + (tp_pips * pip), 5)
+        sl = round(price - (sl_pips * pip), digits)
+        tp = round(price + (tp_pips * pip), digits)
     else:  # SELL
-        sl = round(price + (sl_pips * pip), 5)
-        tp = round(price - (tp_pips * pip), 5)
+        sl = round(price + (sl_pips * pip), digits)
+        tp = round(price - (tp_pips * pip), digits)
     
     return price, sl, tp
 
@@ -459,6 +460,9 @@ def test_22_symbol_visibility():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_select.return_value = True
     mock_conn.mt5.symbol_info_tick.return_value.time = 1000
@@ -492,6 +496,9 @@ def test_23_price_normalization():
     sym_info.trade_freeze_level = 0
     sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = 0.0001
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     mock_conn.mt5.symbol_info_tick.return_value.time = 1000
     
@@ -528,6 +535,10 @@ def test_24_tick_failure():
     sym_info.trade_stops_level = 0
     sym_info.trade_freeze_level = 0
     sym_info.point = 0.0001
+    sym_info.digits = 5
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info_tick.return_value = None # Tick fail
     
     trader = MT5Trader(mock_conn)
@@ -575,9 +586,15 @@ def test_25_retry_logic_success():
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
     
     trader = MT5Trader(mock_conn)
+    # Patch sys.exit to prevent actual process exit
+    # Patch shutdown_system to prevent it from calling sys.exit
+    # Patch _trading_lock.create_lock to prevent file operations
     with patch('time.sleep'): # Don't actually wait
-        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
-            res = trader.close_position(12345)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    mock_shutdown.return_value = None
+                    res = trader.close_position(12345)
             
     log_test("Retry success after transient failure", res)
     return res
@@ -602,15 +619,21 @@ def test_26_retry_exhaustion():
     mock_conn.mt5.positions_get.return_value = [MagicMock(symbol=SYMBOL, volume=0.01, type=mt5.POSITION_TYPE_BUY)]
     
     trader = MT5Trader(mock_conn)
+    # Patch sys.exit to prevent actual process exit
+    # Patch shutdown_system to prevent it from calling sys.exit
+    # Patch _trading_lock.create_lock to prevent file operations
     with patch('time.sleep'):
-        with patch('system_shutdown.shutdown_system') as mock_shutdown:
-            # Mock shutdown to raise SystemExit so we can catch it
-            mock_shutdown.side_effect = SystemExit("Test shutdown")
-            try:
-                res = trader.close_position(12345)
-            except SystemExit:
-                res = False
-                mock_shutdown.assert_called_once()
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    # Make shutdown_system a no-op (doesn't call sys.exit)
+                    mock_shutdown.return_value = None
+                    # Call close_position - it should call shutdown_system after retries fail
+                    res = trader.close_position(12345)
+                    # Verify shutdown was called
+                    mock_shutdown.assert_called_once()
+                    # close_position returns False when shutdown is called
+                    # (shutdown_system is mocked so it won't actually exit)
         
     log_test("Detect retry exhaustion", res is False)
     return res is False
@@ -636,15 +659,21 @@ def test_27_verification_leak():
     mock_conn.mt5.positions_get.return_value = [MagicMock(ticket=12345)]
     
     trader = MT5Trader(mock_conn)
+    # Patch sys.exit to prevent actual process exit
+    # Patch shutdown_system to prevent it from calling sys.exit
+    # Patch _trading_lock.create_lock to prevent file operations
     with patch('time.sleep'):
-        with patch('system_shutdown.shutdown_system') as mock_shutdown:
-            # Mock shutdown to raise SystemExit so we can catch it
-            mock_shutdown.side_effect = SystemExit("Test shutdown")
-            try:
-                res = trader.close_position(12345)
-            except SystemExit:
-                res = False
-                mock_shutdown.assert_called_once()
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    # Make shutdown_system a no-op (doesn't call sys.exit)
+                    mock_shutdown.return_value = None
+                    # Call close_position - it should call shutdown_system after verification fails
+                    res = trader.close_position(12345)
+                    # Verify shutdown was called
+                    mock_shutdown.assert_called_once()
+                    # close_position returns False when shutdown is called
+                    # (shutdown_system is mocked so it won't actually exit)
         
     log_test("Detect failed verification (Ghost)", res is False)
     return res is False
@@ -672,6 +701,10 @@ def test_28_mismatch_triggers_close():
     # sym_info
     sym_info = MagicMock()
     sym_info.point = 0.0001
+    sym_info.digits = 5
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
@@ -702,6 +735,10 @@ def test_29_verification_missing_pos():
     mock_conn.mt5.positions_get.return_value = []
     sym_info = MagicMock()
     sym_info.point = 0.0001
+    sym_info.digits = 5
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
@@ -763,6 +800,13 @@ def test_31_trade_mode_validation():
     
     # 1. Test Disabled
     sym_info_disabled = MagicMock(visible=True, trade_mode=mt5.SYMBOL_TRADE_MODE_DISABLED)
+    sym_info_disabled.volume_step = 0.01
+    sym_info_disabled.volume_min = 0.01
+    sym_info_disabled.volume_max = 100.0
+    sym_info_disabled.digits = 5
+    sym_info_disabled.trade_stops_level = 0
+    sym_info_disabled.trade_freeze_level = 0
+    sym_info_disabled.point = 0.0001
     mock_conn.mt5.symbol_info.return_value = sym_info_disabled
     
     trader = MT5Trader(mock_conn)
@@ -770,6 +814,13 @@ def test_31_trade_mode_validation():
     
     # 2. Test Close-Only
     sym_info_close_only = MagicMock(visible=True, trade_mode=mt5.SYMBOL_TRADE_MODE_CLOSEONLY)
+    sym_info_close_only.volume_step = 0.01
+    sym_info_close_only.volume_min = 0.01
+    sym_info_close_only.volume_max = 100.0
+    sym_info_close_only.digits = 5
+    sym_info_close_only.trade_stops_level = 0
+    sym_info_close_only.trade_freeze_level = 0
+    sym_info_close_only.point = 0.0001
     mock_conn.mt5.symbol_info.return_value = sym_info_close_only
     res_close_only = trader.place_order(SYMBOL, mt5.ORDER_TYPE_BUY, 0.01, 1.1)
     
@@ -796,6 +847,9 @@ def test_32_sl_tp_distance_validation():
     sym_info = MagicMock(visible=True, trade_mode=mt5.SYMBOL_TRADE_MODE_FULL, 
                          digits=5, point=0.0001, 
                          trade_stops_level=10, trade_freeze_level=0)
+    sym_info.volume_step = 0.01
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     trader = MT5Trader(mock_conn)
@@ -845,9 +899,15 @@ def test_33_close_frozen_retry():
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
     
     trader = MT5Trader(mock_conn)
+    # Patch sys.exit to prevent actual process exit
+    # Patch shutdown_system to prevent it from calling sys.exit
+    # Patch _trading_lock.create_lock to prevent file operations
     with patch('time.sleep'):
-        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
-            res = trader.close_position(12345)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    mock_shutdown.return_value = None
+                    res = trader.close_position(12345)
             
     log_test("Retry triggered on FROZEN retcode", res)
     return res
@@ -884,6 +944,10 @@ def test_34_verify_volume_mismatch():
     mock_conn.mt5.positions_get.side_effect = mock_pos_get
     sym_info = MagicMock()
     sym_info.point = 0.0001
+    sym_info.digits = 5
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     # Setup successful close
@@ -891,9 +955,15 @@ def test_34_verify_volume_mismatch():
     mock_conn.mt5.symbol_info_tick.return_value = MagicMock(bid=1.1000, ask=1.1001)
     
     trader = MT5Trader(mock_conn)
+    # Patch sys.exit to prevent actual process exit
+    # Patch shutdown_system to prevent it from calling sys.exit
+    # Patch _trading_lock.create_lock to prevent file operations
     with patch('time.sleep'):
-        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
-            res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    mock_shutdown.return_value = None
+                    res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01)
     
     log_test("Close triggered on volume mismatch", res is False)
     return res is False
@@ -919,6 +989,10 @@ def test_35_verify_slippage_mismatch():
     
     sym_info = MagicMock()
     sym_info.point = 0.0001
+    sym_info.digits = 5
+    sym_info.volume_step = 0.01  # Required for volume normalization
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
     mock_conn.mt5.symbol_info.return_value = sym_info
     
     # Configure mocks for close attempt (will be triggered by verify_position_consistency)
@@ -929,10 +1003,17 @@ def test_35_verify_slippage_mismatch():
     
     trader = MT5Trader(mock_conn)
     
+    # Patch sys.exit to prevent actual process exit
+    # Patch shutdown_system to prevent it from calling sys.exit
+    # Patch _trading_lock.create_lock to prevent file operations
     with patch('time.sleep'):
-        with patch('system_shutdown.shutdown_system'):  # Mock shutdown to prevent exit
-            # Threshold is deviation (20) or 5 points. 100 points should fail.
-            res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.15)
+        with patch('sys.exit'):
+            with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                    # Make shutdown_system a no-op (doesn't call sys.exit)
+                    mock_shutdown.return_value = None
+                    # Threshold is deviation (20) or 5 points. 100 points should fail.
+                    res = trader.verify_position_consistency(12345, 1.1, 1.2, expected_volume=0.01, expected_price=1.15)
     
     log_test("Close triggered on price slippage mismatch", res is False)
     return res is False
@@ -1302,18 +1383,14 @@ def test_43_main_stops_on_fatal_error():
     
     # Test: shutdown_system sets shutdown flag
     passed = False
-    try:
-        with patch('sys.exit'):  # Don't actually exit during test
+    # Patch sys.exit and _trading_lock to prevent actual exit and file operations
+    with patch('sys.exit'):
+        with patch('externals.meta_trader.safeguards._trading_lock.create_lock'):
             system_shutdown.shutdown_system("Test fatal error")
             passed = system_shutdown.is_shutdown_requested()
             reason = system_shutdown.get_shutdown_reason()
             log_test("shutdown_system sets shutdown flag", passed,
                      f"Shutdown requested: {passed}, Reason: {reason}")
-    except SystemExit:
-        # sys.exit was called (expected behavior)
-        passed = True
-        log_test("shutdown_system calls sys.exit", True,
-                 "System exits on fatal error (expected)")
     
     # Test: Main loop checks shutdown flag
     # This is verified by checking main.py line 61
@@ -1540,7 +1617,8 @@ def test_48_price_normalization_edge_cases():
     # Test 5: JPY pair (3 digits)
     mock_info.digits = 3
     price, sl, tp = placer._normalize_prices("USDJPY", mock_info, 150.1234, 149.5678, 151.2345)
-    passed = price == 150.123 and sl == 149.568 and tp == 151.235
+    # Python 3 round(151.2345, 3) is 151.234 (round to nearest even)
+    passed = price == 150.123 and sl == 149.568 and tp == 151.234
     log_test("JPY pair rounding (3 digits)", passed, f"Price: {price}, SL: {sl}, TP: {tp}")
     all_passed = all_passed and passed
     

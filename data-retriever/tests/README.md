@@ -2,38 +2,38 @@
 
 Comprehensive test suite for MT5 trading functionality with 56 tests covering all aspects of trading operations.
 
+## 📝 Note: Two Test Runners
+
+There are **two different test runners** in this directory:
+
+1. **`run_tests.py`** - Runs only the 56 tests from `test_mt5_trading.py` (this file)
+2. **`run_all_tests.py`** - Runs ALL test files (1000+ test cases across multiple files)
+
 ## 🚀 Quick Start: Run ALL Tests
 
+### Run the 56 tests from test_mt5_trading.py:
 ```bash
 python tests/run_tests.py
 ```
 
-This runs all 56 tests automatically. You can also run directly:
+### Run ALL test files (comprehensive suite):
 ```bash
-python tests/test_mt5_trading.py
+python tests/run_all_tests.py
 ```
+
+This runs all 56 tests automatically.
 
 ## 📋 Running Tests
 
 ### Run All Tests (56 tests)
 ```bash
 python tests/run_tests.py
-# or
-python tests/test_mt5_trading.py
 ```
 
 ### Run Specific Tests
 ```bash
 python tests/run_tests.py 38 39 40
 # Runs only tests 38, 39, and 40
-```
-
-### Run Test Groups
-```bash
-python tests/run_tests.py --new        # Tests 38-46
-python tests/run_tests.py --edge       # Tests 47-56
-python tests/run_tests.py --all-new   # Tests 38-56
-python tests/run_tests.py --list       # List all tests
 ```
 
 ## 📊 Test Categories & Details
@@ -218,9 +218,9 @@ If you get permission errors:
 - Ensure MT5 allows automated trading
 - Check that Algo Trading is enabled in MT5
 
-## 💡 Tips
+## 💡 Additional Options
 
-- **First time?** Run `python tests/run_tests.py --list` to see all tests
-- **Found a bug?** Run specific test: `python tests/run_tests.py 47`
-- **Quick check?** Run `python tests/run_tests.py --edge` for edge cases only
-- **All new tests?** Run `python tests/run_tests.py --all-new` for tests 38-56
+- `python tests/run_tests.py --list` - List all available tests
+- `python tests/run_tests.py --new` - Run only new tests (38-46)
+- `python tests/run_tests.py --edge` - Run edge case tests (47-56)
+- `python tests/run_tests.py --all-new` - Run all new tests (38-56)

@@ -97,10 +97,15 @@ def test_price_movement_scenarios():
         mock_conn.mt5.positions_get = mock_positions_get
         
         # Test position verification with price slippage
+        # Patch sys.exit and shutdown_system to prevent actual exit
         with patch('time.sleep'):
-            result = trader.verify_position_consistency(
-                12345, 1.1, 1.2, expected_volume=0.01, expected_price=requested
-            )
+            with patch('sys.exit'):
+                with patch('system_shutdown.shutdown_system') as mock_shutdown:
+                    with patch('externals.meta_trader.position_closing._trading_lock.create_lock'):
+                        mock_shutdown.return_value = None
+                        result = trader.verify_position_consistency(
+                            12345, 1.1, 1.2, expected_volume=0.01, expected_price=requested
+                        )
         
         # Verify that verification fails when slippage exceeds limits
         success = (result is False) == should_fail

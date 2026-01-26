@@ -53,6 +53,9 @@ def setup_mock_mt5(mock_mt5):
         if value is None:
             value = constant_values.get(const, 0)
         setattr(mock_mt5, const, value)
+    
+    # Standard MT5 methods that should return something other than a MagicMock
+    mock_mt5.last_error.return_value = (1, "Success")
 
 
 def create_mock_connection(initialize_success=True, symbol_info=None, tick_info=None):
@@ -75,13 +78,7 @@ def create_mock_connection(initialize_success=True, symbol_info=None, tick_info=
     
     # Setup default symbol info if not provided
     if symbol_info is None:
-        sym_info = MagicMock()
-        sym_info.visible = True
-        sym_info.digits = 5
-        sym_info.trade_stops_level = 0
-        sym_info.trade_freeze_level = 0
-        sym_info.trade_mode = mt5.SYMBOL_TRADE_MODE_FULL
-        sym_info.point = 0.0001
+        sym_info = create_symbol_info()
         mock_conn.mt5.symbol_info.return_value = sym_info
     else:
         mock_conn.mt5.symbol_info.return_value = symbol_info
@@ -96,7 +93,8 @@ def create_mock_connection(initialize_success=True, symbol_info=None, tick_info=
 
 
 def create_symbol_info(digits=5, stops_level=0, freeze_level=0, 
-                      trade_mode=None, visible=True, point=None):
+                      trade_mode=None, visible=True, point=None,
+                      volume_step=0.01, volume_min=0.01, volume_max=100.0):
     """
     Create a mock symbol info object with specified parameters.
     
@@ -107,6 +105,9 @@ def create_symbol_info(digits=5, stops_level=0, freeze_level=0,
         trade_mode: Trade mode constant (defaults to SYMBOL_TRADE_MODE_FULL).
         visible: Whether symbol is visible in market watch.
         point: Point value (defaults to 10^(-digits)).
+        volume_step: Minimum volume increment.
+        volume_min: Minimum allowed volume.
+        volume_max: Maximum allowed volume.
     
     Returns:
         A configured MagicMock object representing symbol information.
@@ -118,6 +119,9 @@ def create_symbol_info(digits=5, stops_level=0, freeze_level=0,
     sym_info.trade_freeze_level = freeze_level
     sym_info.trade_mode = trade_mode or mt5.SYMBOL_TRADE_MODE_FULL
     sym_info.point = point if point is not None else (10 ** (-digits))
+    sym_info.volume_step = volume_step
+    sym_info.volume_min = volume_min
+    sym_info.volume_max = volume_max
     return sym_info
 
 

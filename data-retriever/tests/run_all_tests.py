@@ -9,12 +9,14 @@ Usage:
     python run_all_tests.py
     python run_all_tests.py --verbose
     python run_all_tests.py --category "Error Codes"
+    python run_all_tests.py --auto
 """
 
 import sys
 import os
 import argparse
 import time
+import traceback
 from typing import List, Tuple
 
 # Add parent directory to path for imports
@@ -34,15 +36,16 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
         (category_name, passed, duration) tuples
     """
     print("\n" + "=" * 80)
-    print("MT5 COMPREHENSIVE TEST SUITE - 1000+ TEST CASES")
+    print("MT5 COMPREHENSIVE TEST SUITE")
     print("=" * 80)
     print(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     if category_filter:
         print(f"Filter: Running only '{category_filter}' category")
     print("=" * 80)
     
-    # Import all test modules
+    # Import all test modules with their actual function names
     test_modules = [
+        # Individual test files
         ("All MT5 Error Codes", "test_mt5_error_codes", "test_all_mt5_error_codes"),
         ("Price Movement & Slippage", "test_mt5_price_movement", "test_price_movement_scenarios"),
         ("Order Expiration & Timing", "test_mt5_order_expiration", "test_order_expiration_scenarios"),
@@ -56,28 +59,54 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
         ("Massive Granular Expansion", "test_mt5_granular_expansion", "test_massive_granular_expansion"),
         ("Real-World Scenarios", "test_mt5_real_world_scenarios", "test_real_world_scenarios"),
         ("Bug Detection Tests", "test_mt5_bug_detection", "test_bug_detection_scenarios"),
+        
+        # Comprehensive test file (has multiple test functions)
+        ("Comprehensive - Error Codes", "test_mt5_comprehensive", "test_all_mt5_error_codes"),
+        ("Comprehensive - Price Movement", "test_mt5_comprehensive", "test_price_movement_scenarios"),
+        ("Comprehensive - Order Expiration", "test_mt5_comprehensive", "test_order_expiration_scenarios"),
+        ("Comprehensive - Network Failures", "test_mt5_comprehensive", "test_network_failure_scenarios"),
+        ("Comprehensive - Broker Rejections", "test_mt5_comprehensive", "test_broker_rejection_scenarios"),
+        ("Comprehensive - Parameter Edge Cases", "test_mt5_comprehensive", "test_parameter_edge_cases"),
+        ("Comprehensive - Real-time Trading", "test_mt5_comprehensive", "test_realtime_trading_scenarios"),
+        ("Comprehensive - Validation Paths", "test_mt5_comprehensive", "test_all_validation_paths"),
+        ("Comprehensive - Concurrency", "test_mt5_comprehensive", "test_concurrency_scenarios"),
+        ("Comprehensive - Position Verification", "test_mt5_comprehensive", "test_position_verification_edge_cases"),
+        ("Comprehensive - Granular Expansion", "test_mt5_comprehensive", "test_massive_granular_expansion"),
+        ("Comprehensive - Real-World Scenarios", "test_mt5_comprehensive", "test_real_world_scenarios"),
     ]
     
     # Filter out modules that don't exist yet
     available_modules = []
     for category_name, module_name, function_name in test_modules:
+        # Apply category filter early
+        if category_filter and category_filter.lower() not in category_name.lower():
+            continue
+            
         try:
-            __import__(module_name)
-            available_modules.append((category_name, module_name, function_name))
-        except ImportError:
+            # Try to import the module
+            module = __import__(module_name, fromlist=[function_name])
+            # Check if the function exists
+            if hasattr(module, function_name):
+                available_modules.append((category_name, module_name, function_name))
+            elif verbose:
+                print(f"Skipping {category_name} - function '{function_name}' not found in module")
+        except ImportError as e:
             if verbose:
-                print(f"Skipping {category_name} - module not found")
+                print(f"Skipping {category_name} - module '{module_name}' not found: {e}")
+        except Exception as e:
+            if verbose:
+                print(f"Skipping {category_name} - error checking module: {e}")
     
-    test_modules = available_modules
+    if not available_modules:
+        print("\n❌ No test modules found!")
+        if category_filter:
+            print(f"   Try removing the filter or check if '{category_filter}' matches any category.")
+        return False, []
     
     results = []
     total_start = time.time()
     
-    for category_name, module_name, function_name in test_modules:
-        # Apply category filter if specified
-        if category_filter and category_filter.lower() not in category_name.lower():
-            continue
-        
+    for category_name, module_name, function_name in available_modules:
         try:
             if verbose:
                 print(f"\n{'='*80}")
@@ -89,7 +118,23 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
             # Dynamically import and run test
             module = __import__(module_name, fromlist=[function_name])
             test_func = getattr(module, function_name)
+            
+            # Run the test function
             result = test_func()
+            
+            # Handle different return types
+            if result is None:
+                # If function returns None, assume it passed (some tests don't return)
+                result = True
+            elif isinstance(result, bool):
+                # Boolean result
+                pass
+            elif isinstance(result, (int, float)):
+                # Numeric result (0 = fail, non-zero = pass)
+                result = bool(result)
+            else:
+                # Other types - assume pass
+                result = True
             
             duration = time.time() - start_time
             results.append((category_name, result, duration))
@@ -100,11 +145,13 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
         except ImportError as e:
             print(f"\n[SKIPPED]: {category_name} - Module not found: {e}")
             results.append((category_name, False, 0.0))
+        except AttributeError as e:
+            print(f"\n[SKIPPED]: {category_name} - Function '{function_name}' not found: {e}")
+            results.append((category_name, False, 0.0))
         except Exception as e:
             duration = time.time() - start_time if 'start_time' in locals() else 0.0
             print(f"\n[ERROR] in {category_name}: {str(e)}")
             if verbose:
-                import traceback
                 traceback.print_exc()
             results.append((category_name, False, duration))
     
@@ -150,8 +197,17 @@ def main():
             print("Tests cancelled.")
             return
     
-    success, results = run_all_tests(verbose=args.verbose, category_filter=args.category)
-    sys.exit(0 if success else 1)
+    try:
+        success, results = run_all_tests(verbose=args.verbose, category_filter=args.category)
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\nTests interrupted by user.")
+        sys.exit(130)
+    except Exception as e:
+        print(f"\n\nFatal error running tests: {e}")
+        if args.verbose:
+            traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

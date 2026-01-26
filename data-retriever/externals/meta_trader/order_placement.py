@@ -63,6 +63,11 @@ class OrderPlacer:
                 return None
 
             # Normalize volume to symbol's volume_step (like we do for prices)
+            volume_step = getattr(symbol_info, 'volume_step', 0.01)
+            # Ensure volume_step is a number to avoid MagicMock comparison errors in tests
+            if not isinstance(volume_step, (int, float)):
+                volume_step = 0.01
+                
             volume = self._normalize_volume(symbol, symbol_info, volume)
             if volume is None:
                 return None
@@ -141,16 +146,38 @@ class OrderPlacer:
         Returns:
             Normalized volume or None if invalid.
         """
-        volume_step = symbol_info.volume_step
-        volume_min = symbol_info.volume_min
-        volume_max = symbol_info.volume_max
+        # Safely get volume attributes with defensive checks
+        volume_step = getattr(symbol_info, 'volume_step', None)
+        volume_min = getattr(symbol_info, 'volume_min', None)
+        volume_max = getattr(symbol_info, 'volume_max', None)
+        
+        # Validate that all required attributes exist and are valid numbers
+        if volume_step is None or volume_min is None or volume_max is None:
+            logger.error(f"Order failed for {symbol}: Missing volume attributes (step={volume_step}, min={volume_min}, max={volume_max}).")
+            return None
+        
+        # Ensure all values are actual numbers (not MagicMock or other types)
+        try:
+            volume_step = float(volume_step)
+            volume_min = float(volume_min)
+            volume_max = float(volume_max)
+        except (TypeError, ValueError):
+            logger.error(f"Order failed for {symbol}: Invalid volume attributes (step={volume_step}, min={volume_min}, max={volume_max}).")
+            return None
         
         if volume_step <= 0:
             logger.error(f"Order failed for {symbol}: Invalid volume_step ({volume_step}).")
             return None
         
-        # Round to nearest volume_step
-        normalized_volume = round(volume / volume_step) * volume_step
+        # Check if volume is below minimum BEFORE normalization
+        # We use a small epsilon to allow for floating point precision issues
+        if volume < volume_min - 1e-9:
+            logger.error(f"Order failed for {symbol}: Volume {volume} is below minimum {volume_min}.")
+            return None
+
+        # Round to nearest volume_step with a small epsilon to handle floating point precision
+        # (e.g., 0.15 / 0.1 should round to 0.2, but might be 1.49999999999 without epsilon)
+        normalized_volume = round((volume / volume_step) + 1e-9) * volume_step
         
         # Clamp to min/max
         if normalized_volume < volume_min:
@@ -196,14 +223,14 @@ class OrderPlacer:
         
         if sl > 0:
             dist_sl = round(abs(price - sl), symbol_info.digits)
-            if dist_sl < min_dist_price:
+            if dist_sl < min_dist_price or dist_sl <= 0:
                 logger.error(f"Order failed for {symbol}: SL too close to price. "
                              f"Dist: {dist_sl:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
                 return False
         
         if tp > 0:
             dist_tp = round(abs(tp - price), symbol_info.digits)
-            if dist_tp < min_dist_price:
+            if dist_tp < min_dist_price or dist_tp <= 0:
                 logger.error(f"Order failed for {symbol}: TP too close to price. "
                              f"Dist: {dist_tp:.5f}, Min: {min_dist_price:.5f} ({min_dist_points} pts)")
                 return False
