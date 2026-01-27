@@ -34,7 +34,7 @@ def _generate_date_chunks(
     end_date: datetime, 
     chunk_days: int = MAX_CHUNK_DAYS
 ) -> List[Tuple[datetime, datetime]]:
-    """Split a date range into chunks to avoid TwelveData's 5000 candle limit.
+    """Split a date range into chunks to avoid terminal candle limits.
     
     Args:
         start_date: Overall start date
@@ -82,7 +82,7 @@ def run_replay(
     """Run the offline replay simulation.
     
     For long date ranges (>MAX_CHUNK_DAYS), the range is automatically split 
-    into chunks to avoid TwelveData's 5000 candle limit.
+    into chunks to avoid terminal candle limits.
     
     Args:
         symbols: List of forex symbols to replay (default: REPLAY_SYMBOLS)

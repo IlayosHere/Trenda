@@ -6,9 +6,8 @@ Minimum threshold: MIN_TOTAL_SCORE from config
 
 from models import TrendDirection
 
-from entry.gates.config import MIN_TOTAL_SCORE
+from entry.gates.config import MIN_TOTAL_SCORE, FIXED_OBSTACLE_SCORE
 from .htf_range_score import compute_htf_range_score
-from .obstacle_score import compute_obstacle_score
 from .models import ScoreResult
 
 
@@ -35,8 +34,8 @@ def calculate_score(
         htf_range_position_weekly,
     )
     
-    # Calculate obstacle score (fixed)
-    obstacle_score = compute_obstacle_score()
+    # Use fixed obstacle score directly
+    obstacle_score = FIXED_OBSTACLE_SCORE
     
     # Total score
     total_score = htf_score + obstacle_score

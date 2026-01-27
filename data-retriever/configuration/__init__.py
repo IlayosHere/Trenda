@@ -7,9 +7,24 @@ from .forex_config import (
     require_aoi_lookback,
 )
 from .broker_config import (
+    MT5_MAGIC_NUMBER,
+    MT5_EMERGENCY_MAGIC_NUMBER,
+    MT5_DEVIATION,
+    MT5_EXPIRATION_SECONDS,
+    MT5_MAX_ACTIVE_TRADES,
+    MT5_MIN_TRADE_INTERVAL_MINUTES,
+    MT5_CLOSE_RETRY_ATTEMPTS,
+    MT5_HISTORY_LOOKBACK_DAYS,
+    MT5_SL_TP_THRESHOLD_MULTIPLIER,
+    MT5_PRICE_THRESHOLD_FALLBACK,
+    MT5_VERIFICATION_SLEEP,
     MT5_BROKER_TIMEZONE,
     MT5_BROKER_UTC_OFFSET,
     get_broker_utc_offset,
+)
+from .trading_config import (
+    MT5_ORDER_COMMENT,
+    SIGNAL_SCORE_THRESHOLD,
 )
 from .scheduler_config import SCHEDULE_CONFIG
 
@@ -21,6 +36,19 @@ __all__ = [
     "require_analysis_params",
     "require_aoi_lookback",
     "SCHEDULE_CONFIG",
+    "MT5_MAGIC_NUMBER",
+    "MT5_EMERGENCY_MAGIC_NUMBER",
+    "MT5_DEVIATION",
+    "MT5_EXPIRATION_SECONDS",
+    "MT5_MAX_ACTIVE_TRADES",
+    "MT5_MIN_TRADE_INTERVAL_MINUTES",
+    "MT5_CLOSE_RETRY_ATTEMPTS",
+    "MT5_HISTORY_LOOKBACK_DAYS",
+    "MT5_SL_TP_THRESHOLD_MULTIPLIER",
+    "MT5_PRICE_THRESHOLD_FALLBACK",
+    "MT5_VERIFICATION_SLEEP",
+    "MT5_ORDER_COMMENT",
+    "SIGNAL_SCORE_THRESHOLD",
     "MT5_BROKER_TIMEZONE",
     "MT5_BROKER_UTC_OFFSET",
     "get_broker_utc_offset",

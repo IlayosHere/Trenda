@@ -54,7 +54,7 @@ def _parse_range_list(raw_value: str, max_value: int) -> Set[int]:
 
 def _load_trading_window() -> tuple[Set[int], Set[int]]:
     raw_days = os.getenv("TRADING_DAYS", DEFAULT_TRADING_DAYS)
-    raw_hours = os.getenv("TRADING_HOURS_UTC", DEFAULT_TRADING_HOURS)
+    raw_hours = os.getenv("TRADING_HOURS", DEFAULT_TRADING_HOURS)
 
     days = _parse_range_list(raw_days, max_value=6)
     hours = _parse_range_list(raw_hours, max_value=23)

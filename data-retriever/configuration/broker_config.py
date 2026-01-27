@@ -2,9 +2,25 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
+
+
+# MT5 Config
+MT5_MAGIC_NUMBER: int = int(os.getenv("MT5_MAGIC_NUMBER", "123456"))
+MT5_EMERGENCY_MAGIC_NUMBER: int = int(os.getenv("MT5_EMERGENCY_MAGIC_NUMBER", "654321"))
+MT5_DEVIATION: int = int(os.getenv("MT5_DEVIATION", "20"))
+MT5_EXPIRATION_SECONDS: int = int(os.getenv("MT5_EXPIRATION_SECONDS", "90"))
+MT5_MAX_ACTIVE_TRADES: int = int(os.getenv("MT5_MAX_ACTIVE_TRADES", "4"))
+MT5_MIN_TRADE_INTERVAL_MINUTES: int = int(os.getenv("MT5_MIN_TRADE_INTERVAL_MINUTES", "210"))
+MT5_CLOSE_RETRY_ATTEMPTS: int = int(os.getenv("MT5_CLOSE_RETRY_ATTEMPTS", "2"))
+MT5_HISTORY_LOOKBACK_DAYS: int = int(os.getenv("MT5_HISTORY_LOOKBACK_DAYS", "1"))
+
+# SL/TP Verification & Thresholds
+MT5_SL_TP_THRESHOLD_MULTIPLIER: float = float(os.getenv("MT5_SL_TP_THRESHOLD_MULTIPLIER", "1.5"))
+MT5_PRICE_THRESHOLD_FALLBACK: float = float(os.getenv("MT5_PRICE_THRESHOLD_FALLBACK", "0.00001"))
+MT5_VERIFICATION_SLEEP: float = float(os.getenv("MT5_VERIFICATION_SLEEP", "0.1"))
 
 
 # MT5 broker timezone (for DST-aware offset calculation)

@@ -1,0 +1,61 @@
+"""
+Test Validation Script
+======================
+
+Quick script to validate all test files can be imported and basic structure is correct.
+"""
+
+import sys
+import os
+import importlib.util
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+test_files = [
+    "test_mt5_utils",
+    "test_mt5_error_codes",
+    "test_mt5_price_movement",
+    "test_mt5_order_expiration",
+    "test_mt5_network_failures",
+    "test_mt5_broker_rejections",
+    "test_mt5_parameter_edge_cases",
+    "test_mt5_realtime_trading",
+    "test_mt5_validation_paths",
+    "test_mt5_concurrency",
+    "test_mt5_position_verification",
+    "test_mt5_granular_expansion",
+    "test_mt5_real_world_scenarios",
+    "test_mt5_bug_detection",
+]
+
+print("Validating test files...")
+print("=" * 70)
+
+errors = []
+for test_file in test_files:
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), f"{test_file}.py")
+        if not os.path.exists(file_path):
+            print(f"✗ {test_file}: File not found")
+            errors.append(f"{test_file}: File not found")
+            continue
+        
+        spec = importlib.util.spec_from_file_location(test_file, file_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        print(f"✓ {test_file}: Import successful")
+    except Exception as e:
+        print(f"✗ {test_file}: {str(e)}")
+        errors.append(f"{test_file}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+print("=" * 70)
+if errors:
+    print(f"\nFound {len(errors)} errors:")
+    for error in errors:
+        print(f"  - {error}")
+    sys.exit(1)
+else:
+    print("\nAll test files validated successfully!")
+    sys.exit(0)
