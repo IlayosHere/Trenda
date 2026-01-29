@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import tempfile
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 from configuration.forex_config import TIMEFRAMES
@@ -7,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from externals.data_fetcher import fetch_data
 from logger import get_logger
 from configuration import SCHEDULE_CONFIG
+from configuration.scheduler_config import get_job
 from utils.trading_hours import describe_trading_window, is_market_open, is_within_trading_hours
 
 # Create a single, global scheduler instance
@@ -15,9 +18,6 @@ scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
 logger = get_logger(__name__)
 
 STUB_FOREX_SYMBOL = "EURUSD"
-
-import tempfile
-import os
 HEARTBEAT_FILE = os.path.join(tempfile.gettempdir(), "trenda_healthy")
 
 def _heartbeat():
@@ -34,22 +34,22 @@ def run_startup_data_refresh() -> None:
 
     for config in SCHEDULE_CONFIG:
         timeframe = config.get("timeframe")
-        if not timeframe or "job" not in config:
+        if not timeframe or "job_name" not in config:
             continue
         # Skip non-timeframe jobs (entry signal, outcome jobs use 1H)
         if timeframe == "1H":
             continue
 
-        job_name = config.get("name", config["id"])
-        job = config["job"]
+        display_name = config.get("name", config["id"])
+        job = get_job(config["job_name"])
         args = list(config.get("args", []))
         kwargs = config.get("kwargs", {})
 
-        logger.info(f"  -> Running startup job: {job_name}")
+        logger.info(f"  -> Running startup job: {display_name}")
         try:
             job(*args, **kwargs)
         except Exception as e:
-            logger.error(f"Startup job '{job_name}' failed: {e}")
+            logger.error(f"Startup job '{display_name}' failed: {e}")
 
     logger.info("--- ✅ Startup data refresh complete ---\n")
 
@@ -97,7 +97,7 @@ def _add_job(scheduler: BackgroundScheduler, config: Dict[str, Any], job: Any, n
 
 
 def _prepare_job(config: Dict[str, Any]):
-    job = config["job"]
+    job = get_job(config["job_name"])
     interval_minutes = config["interval_minutes"]
     offset_seconds = config.get("offset_seconds", 0)
     job_name = config.get("name", config["id"])

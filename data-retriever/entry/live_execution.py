@@ -147,14 +147,29 @@ def calculate_lot_size(
     # Convert SL distance to pips
     point = info["point"]
     digits = info["digits"]
+    
+    # Validate point is non-zero to prevent division by zero
+    if point <= 0:
+        return None
+    
     pip_size = point * 10 if digits in (3, 5) else point
+    
+    # Validate pip_size is non-zero
+    if pip_size <= 0:
+        return None
+    
     sl_distance_pips = sl_distance_price / pip_size
     
     if sl_distance_pips <= 0:
         return None
     
+    # Validate denominator to prevent division by zero
+    denominator = sl_distance_pips * pip_value_per_lot
+    if denominator <= 0:
+        return None
+    
     # Lot size = risk_amount / (sl_pips * pip_value_per_lot)
-    lot_size = risk_amount / (sl_distance_pips * pip_value_per_lot)
+    lot_size = risk_amount / denominator
     
     # Round to volume step
     volume_step = info["volume_step"]
