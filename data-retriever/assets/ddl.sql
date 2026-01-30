@@ -57,9 +57,11 @@ CREATE TABLE IF NOT EXISTS trenda.entry_signal (
     total_score REAL,
     -- SL/TP configuration (calculated with live execution price)
     sl_model TEXT,
-    sl_distance_atr REAL,  -- Calculated with live price
-    tp_distance_atr REAL,  -- Calculated with live price
+    sl_distance_atr REAL,  -- Calculated based on signal candle close
+    tp_distance_atr REAL,  -- Calculated based on signal candle close
     rr_multiple REAL,
+    actual_rr REAL,  -- Actual R:R from execution price (differs from rr_multiple due to price drift)
+    price_drift REAL,  -- Price movement from signal candle close to execution (positive = in trade direction)
     -- HTF context
     htf_range_position_daily REAL,
     htf_range_position_weekly REAL,
@@ -106,3 +108,47 @@ CREATE TABLE IF NOT EXISTS trenda.signal_outcome (
 
 CREATE INDEX IF NOT EXISTS idx_signal_outcome_extremes
     ON trenda.signal_outcome(mfe_atr, mae_atr);
+
+-- Failed Signals Table (tracks why signals weren't generated)
+CREATE TABLE IF NOT EXISTS trenda.failed_signals (
+    id SERIAL PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    failed_signal_time TIMESTAMPTZ NOT NULL,
+    direction TEXT,  -- NULL if direction wasn't determined
+    
+    -- Tradable AOIs snapshot (JSON array of {aoi_high, aoi_low, timeframe})
+    tradable_aois JSONB,
+    aoi_count INTEGER,  -- Quick count, NULL if AOIs weren't fetched
+    
+    -- Market context at failure time
+    reference_price REAL,  -- Signal candle close (not "entry" since we didn't enter)
+    atr_1h REAL,
+    
+    -- Scoring (NULL if not calculated)
+    htf_score REAL,
+    obstacle_score REAL,
+    total_score REAL,
+    
+    -- SL/TP config
+    sl_model TEXT,
+    
+    -- HTF context (NULL if not calculated)
+    htf_range_position_daily REAL,
+    htf_range_position_weekly REAL,
+    distance_to_next_htf_obstacle_atr REAL,
+    conflicted_tf TEXT,
+    
+    -- Pattern meta (only if pattern was found but failed later)
+    is_break_candle_last BOOLEAN,
+    
+    -- Failure tracking
+    failed_gate TEXT NOT NULL,  -- Structured: TRADE_BLOCKED, NO_CANDLES, INSUFFICIENT_DATA, NO_DIRECTION, NO_AOIS, ZERO_ATR, gate names, etc.
+    fail_reason TEXT NOT NULL,  -- Human-readable description
+    
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_failed_signals_symbol_time 
+    ON trenda.failed_signals(symbol, failed_signal_time);
+CREATE INDEX IF NOT EXISTS idx_failed_signals_gate 
+    ON trenda.failed_signals(failed_gate);

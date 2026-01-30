@@ -67,11 +67,12 @@ INSERT_ENTRY_SIGNAL = """
         entry_price, atr_1h,
         htf_score, obstacle_score, total_score,
         sl_model, sl_distance_atr, tp_distance_atr, rr_multiple,
+        actual_rr, price_drift,
         is_break_candle_last,
         htf_range_position_daily, htf_range_position_weekly,
         distance_to_next_htf_obstacle_atr, conflicted_tf
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -102,4 +103,20 @@ MARK_OUTCOME_COMPUTED = """
     UPDATE trenda.entry_signal
     SET outcome_computed = TRUE
     WHERE id = %s
+"""
+
+# Failed signals insert (tracks why signals weren't generated)
+INSERT_FAILED_SIGNAL = """
+    INSERT INTO trenda.failed_signals (
+        symbol, failed_signal_time, direction,
+        tradable_aois, aoi_count,
+        reference_price, atr_1h,
+        htf_score, obstacle_score, total_score,
+        sl_model,
+        htf_range_position_daily, htf_range_position_weekly,
+        distance_to_next_htf_obstacle_atr, conflicted_tf,
+        is_break_candle_last,
+        failed_gate, fail_reason
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 """

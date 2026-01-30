@@ -22,7 +22,7 @@ from system_shutdown import request_shutdown, is_shutdown_requested, get_shutdow
 logger = get_logger(__name__)
 
 # Run mode: "replay" or "live" (default: replay)
-RUN_MODE = os.getenv("RUN_MODE", "replay").lower()
+RUN_MODE = os.getenv("RUN_MODE", "live").lower()
 
 # Track lock status for automatic pause/resume
 _last_lock_check_time = 0

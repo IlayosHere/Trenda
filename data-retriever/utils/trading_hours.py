@@ -8,9 +8,9 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-DEFAULT_TRADING_DAYS = "0-4"  # Monday=0, Sunday=6
+DEFAULT_TRADING_DAYS = "0-5"  # Monday=0, Sunday=6
 # Trading window: 22:00-23:00 UTC and 00:00-12:00 UTC (wraps around midnight)
-DEFAULT_TRADING_HOURS = "22-23,0-12"
+DEFAULT_TRADING_HOURS = "21-23,0-11"
 
 
 

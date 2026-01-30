@@ -120,8 +120,8 @@ class Candle:
 class SignalData:
     """Complete signal data for database insertion.
     
-    Note: entry_price, sl_distance_atr, tp_distance_atr are populated
-    after live execution with real-time prices.
+    Note: entry_price, sl_distance_atr, tp_distance_atr, actual_rr, price_drift
+    are populated after live execution with real-time prices.
     """
     # Candle context
     candles: List[Candle]
@@ -138,13 +138,15 @@ class SignalData:
     htf_score: float
     obstacle_score: float
     total_score: float
-    # SL/TP configuration (calculated with live price)
+    # SL/TP configuration (calculated with signal candle close)
     sl_model: str
-    sl_distance_atr: Optional[float]  # Calculated with live price
-    tp_distance_atr: Optional[float]  # Calculated with live price
+    sl_distance_atr: Optional[float]  # Calculated based on signal candle close
+    tp_distance_atr: Optional[float]  # Calculated based on signal candle close
     rr_multiple: float
+    actual_rr: Optional[float] = None  # Actual R:R from execution price perspective
+    price_drift: Optional[float] = None  # Price movement from signal candle to execution
     # Meta
-    is_break_candle_last: bool
+    is_break_candle_last: bool = False
     # HTF context for reference
     htf_range_position_daily: Optional[float] = None
     htf_range_position_weekly: Optional[float] = None

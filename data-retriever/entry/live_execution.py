@@ -28,13 +28,15 @@ class ExecutionData:
     direction: TrendDirection
     lot_size: float
     entry_price: float  # Live price (ask for buy, bid for sell)
-    sl_price: float     # Stop loss price
-    tp_price: float     # Take profit price
+    sl_price: float     # Stop loss price (based on signal candle close)
+    tp_price: float     # Take profit price (based on signal candle close)
     sl_distance_pips: float
     tp_distance_pips: float
     atr_1h: float
     sl_distance_atr: float
     tp_distance_atr: float
+    actual_rr: float  # Actual R:R from execution price perspective
+    price_drift: float  # Price movement from signal candle to execution (positive = in trade direction)
 
 
 def get_live_price(symbol: str, direction: TrendDirection) -> Optional[float]:
@@ -188,12 +190,13 @@ def compute_execution_data(
     aoi_low: float,
     aoi_high: float,
     atr_1h: float,
+    signal_candle_close: float,
     risk_percent: float = DEFAULT_RISK_PERCENT,
 ) -> Optional[ExecutionData]:
     """Compute live execution data for a signal.
     
-    Uses real-time price for all calculations. Call this as close
-    to actual trade execution as possible.
+    Uses signal candle close price for SL/TP and volume calculations,
+    but live tick price for actual order execution.
     
     Args:
         symbol: Trading symbol
@@ -201,23 +204,25 @@ def compute_execution_data(
         aoi_low: AOI lower bound
         aoi_high: AOI upper bound  
         atr_1h: 1H ATR for SL distance calculation
+        signal_candle_close: Close price of the signal candle (used for SL/TP/volume calculations)
         risk_percent: Risk percentage (default 1%)
         
     Returns:
         ExecutionData with all execution parameters or None if unavailable
     """
-    # Get live price
+    # Get live price for actual order execution
     entry_price = get_live_price(symbol, direction)
     if entry_price is None:
         return None
     
     # Calculate SL distance using SL_AOI_FAR_PLUS_0_25 model
+    # Use signal_candle_close (not live price) for consistent SL/TP calculations
     if direction == TrendDirection.BULLISH:
         # Far edge is aoi_low (below entry)
-        far_edge_distance = entry_price - aoi_low
+        far_edge_distance = signal_candle_close - aoi_low
     else:
         # Far edge is aoi_high (above entry)
-        far_edge_distance = aoi_high - entry_price
+        far_edge_distance = aoi_high - signal_candle_close
     
     # SL in ATR units
     sl_distance_atr = (far_edge_distance / atr_1h) + SL_BUFFER_ATR
@@ -227,13 +232,36 @@ def compute_execution_data(
     sl_distance_price = sl_distance_atr * atr_1h
     tp_distance_price = tp_distance_atr * atr_1h
     
-    # Calculate SL/TP prices
+    # Calculate SL/TP prices based on signal candle close (not live execution price)
     if direction == TrendDirection.BULLISH:
-        sl_price = entry_price - sl_distance_price
-        tp_price = entry_price + tp_distance_price
+        sl_price = signal_candle_close - sl_distance_price
+        tp_price = signal_candle_close + tp_distance_price
     else:
-        sl_price = entry_price + sl_distance_price
-        tp_price = entry_price - tp_distance_price
+        sl_price = signal_candle_close + sl_distance_price
+        tp_price = signal_candle_close - tp_distance_price
+    
+    # Calculate price_drift: positive = price moved in trade direction
+    # BULLISH: entry > signal_close = good (bought higher, but we're going up)
+    # BEARISH: entry < signal_close = good (sold lower, but we're going down)
+    if direction == TrendDirection.BULLISH:
+        price_drift = entry_price - signal_candle_close
+    else:
+        price_drift = signal_candle_close - entry_price
+    
+    # Calculate actual_rr from execution price perspective
+    # This differs from rr_multiple when there's price drift
+    if direction == TrendDirection.BULLISH:
+        actual_tp_distance = tp_price - entry_price
+        actual_sl_distance = entry_price - sl_price
+    else:
+        actual_tp_distance = entry_price - tp_price
+        actual_sl_distance = sl_price - entry_price
+    
+    # Avoid division by zero
+    if actual_sl_distance > 0:
+        actual_rr = actual_tp_distance / actual_sl_distance
+    else:
+        actual_rr = RR_MULTIPLE  # Fallback to planned RR
     
     # Calculate lot size
     lot_size = calculate_lot_size(symbol, sl_distance_price, risk_percent)
@@ -264,4 +292,6 @@ def compute_execution_data(
         atr_1h=atr_1h,
         sl_distance_atr=round(sl_distance_atr, 3),
         tp_distance_atr=round(tp_distance_atr, 3),
+        actual_rr=round(actual_rr, 3),
+        price_drift=round(price_drift, 5),
     )

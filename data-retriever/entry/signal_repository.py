@@ -55,6 +55,8 @@ def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[
                 signal.sl_distance_atr,
                 signal.tp_distance_atr,
                 signal.rr_multiple,
+                signal.actual_rr,
+                signal.price_drift,
                 signal.is_break_candle_last,
                 signal.htf_range_position_daily,
                 signal.htf_range_position_weekly,
