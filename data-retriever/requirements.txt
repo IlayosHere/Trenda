@@ -1,4 +1,4 @@
-MetaTrader5
+mt5linux
 APScheduler
 pandas
 python-dotenv

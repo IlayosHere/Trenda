@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-import MetaTrader5 as mt5
+from mt5_wrapper import mt5
 
 from models import TrendDirection
 from entry.gates.config import HTF_TIMEFRAMES, RANGE_POSITION_TIMEFRAMES, NO_OBSTACLE_DISTANCE_ATR

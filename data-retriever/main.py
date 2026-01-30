@@ -10,6 +10,7 @@ For detailed explanation of the trading lock mechanism, see TRADING_LOCK_MECHANI
 """
 import os
 import time
+import platform
 from scheduler import scheduler
 from externals import meta_trader
 from scheduler import start_scheduler, run_startup_data_refresh
@@ -32,7 +33,17 @@ _last_lock_status = None
 def main():
     logger.info("--- 🚀 Starting Trend Analyzer Bot ---")
 
-    if not meta_trader.initialize_mt5():
+    # Determine MT5 initialization parameters
+    mt5_kwargs = {}
+    if platform.system() != "Windows":
+        # Linux/Docker environment - use mt5linux bridge defaults or env vars
+        mt5_kwargs = {
+            "host": os.getenv("MT5_HOST", "host.docker.internal"),
+            "port": int(os.getenv("MT5_PORT", 18812))
+        }
+        logger.info(f"Configuring MT5 for Linux bridge: {mt5_kwargs}")
+
+    if not meta_trader.initialize_mt5(**mt5_kwargs):
         logger.error("Failed to initialize MT5. Exiting.")
         notify("mt5_init_failed", {
             "error": "Failed to initialize MT5 connection",

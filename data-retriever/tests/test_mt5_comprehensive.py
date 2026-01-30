@@ -26,7 +26,7 @@ from logger import get_logger
 logger = get_logger(__name__)
 
 
-import MetaTrader5 as mt5
+from mt5_wrapper import mt5
 from externals.meta_trader.connection import MT5Connection
 from externals.meta_trader.trading import MT5Trader
 from configuration.broker_config import (

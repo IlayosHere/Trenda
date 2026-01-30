@@ -26,7 +26,7 @@ from unittest.mock import MagicMock, patch
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import MetaTrader5 as mt5
+from mt5_wrapper import mt5
 from externals.meta_trader.trading import MT5Trader
 from externals.meta_trader.connection import MT5Connection
 from configuration.broker_config import MT5_MAGIC_NUMBER

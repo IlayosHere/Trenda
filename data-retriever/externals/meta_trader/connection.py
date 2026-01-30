@@ -2,7 +2,7 @@ import threading
 from logger import get_logger
 
 try:
-    import MetaTrader5 as mt5
+    from mt5_wrapper import mt5
 except ImportError:
     mt5 = None
 
@@ -16,8 +16,12 @@ class MT5Connection:
         self.lock = threading.RLock()
         self.mt5 = mt5
 
-    def initialize(self) -> bool:
-        """Initializes and checks the MT5 connection. Retries if connection is lost."""
+    def initialize(self, **kwargs) -> bool:
+        """Initializes and checks the MT5 connection. Retries if connection is lost.
+        
+        Args:
+            **kwargs: Arguments to pass to mt5.initialize() (e.g., host, port for mt5linux).
+        """
         if self.mt5 is None:
             logger.warning("MetaTrader5 package not found. Skipping initialization.")
             return False
@@ -33,7 +37,7 @@ class MT5Connection:
                         logger.warning("MT5 terminal disconnected. Attempting re-initialization...")
                         self._initialized = False # Force re-init
 
-                if not self.mt5.initialize():
+                if not self.mt5.initialize(**kwargs):
                     logger.error(f"MT5 initialization failed. Error: {self.mt5.last_error()}")
                     return False
                 

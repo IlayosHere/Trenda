@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-import MetaTrader5 as mt5
+from mt5_wrapper import mt5
 
 from models import TrendDirection
 from entry.gates.config import SL_BUFFER_ATR, RR_MULTIPLE

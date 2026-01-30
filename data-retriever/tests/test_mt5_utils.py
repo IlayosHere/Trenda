@@ -8,7 +8,7 @@ used across all MT5 test modules to ensure consistency and reduce code duplicati
 import sys
 import os
 from unittest.mock import MagicMock
-import MetaTrader5 as mt5
+from mt5_wrapper import mt5
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

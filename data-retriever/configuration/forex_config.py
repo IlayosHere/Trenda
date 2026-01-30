@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Mapping
 
-import MetaTrader5 as mt5
+from mt5_wrapper import mt5
 
 
 @dataclass(frozen=True)

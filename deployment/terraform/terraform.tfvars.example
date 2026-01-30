@@ -1,0 +1,37 @@
+# ============================================================================
+# Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your values
+# ============================================================================
+
+# GCP Project Configuration
+project_id = "project-442a2741-f823-4e42-814"
+region     = "me-west1"
+zone       = "me-west1-a"
+environment = "prod"
+
+# Application Configuration
+app_name         = "trenda"
+app_port         = 8001
+docker_image_tag = "latest"
+
+# Database Configuration (SENSITIVE - keep secure!)
+db_name     = "trenda"
+db_user     = "trenda_app"
+db_password = "CHANGE_ME_TO_SECURE_PASSWORD"  # Use a strong password!
+db_tier     = "db-f1-micro"
+db_version  = "POSTGRES_15"
+
+# Compute Configuration
+vm_machine_type = "e2-medium"
+vm_disk_size_gb = 30
+
+# Network Configuration
+subnet_cidr = "10.0.1.0/24"
+
+# MT5 Configuration (SENSITIVE - keep secure!)
+mt5_login    = ""  # Your MT5 account number
+mt5_password = ""  # Your MT5 password
+mt5_server   = ""  # Your broker's server name
+
+# Run Mode: "replay" or "live"
+run_mode = "live"
