@@ -90,11 +90,15 @@ def last_expected_close_time(timeframe: str, *, now: datetime | None = None) -> 
 def trim_to_closed_candles(
     df: "pd.DataFrame", timeframe: str, *, now: datetime | None = None
 ) -> "pd.DataFrame":
-    """Drop candles that extend beyond the last expected close time for ``timeframe``."""
+    """Drop candles that extend beyond the last expected close time for ``timeframe``.
+    
+    Note: Uses <= to include the candle that closed at exactly the cutoff time,
+    since candle timestamps represent the candle START time, not close time.
+    """
 
     if pd is None:
         raise ImportError("pandas is required to trim candles")
 
     cutoff = last_expected_close_time(timeframe, now=now)
     cutoff_value = cutoff if df["time"].dt.tz is not None else cutoff.replace(tzinfo=None)
-    return df[df["time"] < cutoff_value]
+    return df[df["time"] <= cutoff_value]

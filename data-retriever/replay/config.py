@@ -39,15 +39,16 @@ REPLAY_SYMBOLS: Final[list[str]] = [
     "GBPCHF",
     "AUDCHF",
     "NZDCHF",
-    # 'EURPLN', #TODO: check more about this pair
-    # 'USDSGD', #TODO: check more about this pair
+    "EURPLN", 
+    "NZDSGD",
+    "SGDJPY"
     ]
 
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2012, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 9, 18, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 28, 8, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid terminal candle limits (typically 5000)
 # 120 days * 24 hours = 2880 1H candles (safe margin)

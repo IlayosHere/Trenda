@@ -41,7 +41,10 @@ FOREX_PAIRS = [
     "CADCHF",
     "GBPCHF",
     "AUDCHF",
-    "NZDCHF"
+    "NZDCHF",
+    "EURPLN", 
+    "NZDSGD",
+    "SGDJPY"
 ]
 
 # MT5 timeframes

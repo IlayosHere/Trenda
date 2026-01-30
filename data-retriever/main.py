@@ -18,11 +18,13 @@ from scheduler import start_scheduler, run_startup_data_refresh
 from replay_runner import run as run_replay
 from logger import get_logger
 from system_shutdown import request_shutdown, is_shutdown_requested, get_shutdown_reason
+from notifications import notify
+from configuration import FOREX_PAIRS
 
 logger = get_logger(__name__)
 
 # Run mode: "replay" or "live" (default: replay)
-RUN_MODE = os.getenv("RUN_MODE", "live").lower()
+RUN_MODE = os.getenv("RUN_MODE", "replay").lower()
 
 # Track lock status for automatic pause/resume
 _last_lock_check_time = 0
@@ -34,7 +36,17 @@ def main():
 
     if not meta_trader.initialize_mt5():
         logger.error("Failed to initialize MT5. Exiting.")
+        notify("mt5_init_failed", {
+            "error": "Failed to initialize MT5 connection",
+        })
         return
+    
+    # Send system startup notification
+    notify("system_startup", {
+        "mode": RUN_MODE,
+        "symbol_count": str(len(FOREX_PAIRS)),
+        "mt5_status": "Connected",
+    })
 
     # Recover positions on startup (only in live mode)
     if RUN_MODE == "live":
@@ -83,12 +95,19 @@ def main():
                         else:
                             logger.info("✅ Trading is allowed")
                         _last_lock_status = lock_status.is_allowed
-                    elif _last_lock_status != lock_status.is_allowed:
+                    if _last_lock_status != lock_status.is_allowed:
                         # Status changed - log the change
                         if lock_status.is_allowed:
                             logger.info("✅ Trading lock cleared - Trading RESUMED automatically")
+                            notify("trading_unlocked", {
+                                "unlock_time": str(time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())),
+                            })
                         else:
                             logger.warning(f"🔒 Trading LOCKED - Trading PAUSED: {lock_status.reason}")
+                            notify("trading_locked", {
+                                "reason": lock_status.reason,
+                                "lock_time": str(time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())),
+                            })
                         _last_lock_status = lock_status.is_allowed
                 
                 time.sleep(1)  # Check shutdown flag every second
@@ -128,6 +147,9 @@ def main():
             logger.error(f"Error closing MT5 connection: {e}")
         
         logger.info("--- ✅ System shutdown complete ---")
+        notify("system_shutdown", {
+            "reason": get_shutdown_reason() or "Normal shutdown",
+        })
 
 
 # --- Run the bot ---

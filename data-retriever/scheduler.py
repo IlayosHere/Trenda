@@ -11,6 +11,7 @@ from logger import get_logger
 from configuration import SCHEDULE_CONFIG
 from configuration.scheduler_config import get_job
 from utils.trading_hours import describe_trading_window, is_market_open, is_within_trading_hours
+from notifications import notify
 
 # Create a single, global scheduler instance
 scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
@@ -133,6 +134,10 @@ def _wrap_with_trading_hours(job, job_name: str, trading_hours_only: bool, marke
             job(*args, **kwargs)
         except Exception as e:
             logger.error(f"Job '{job_name}' failed: {e}")
+            notify("job_failed", {
+                "job_name": job_name,
+                "error": str(e),
+            })
 
     return _runner
 
