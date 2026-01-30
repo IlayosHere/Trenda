@@ -40,9 +40,9 @@ def test_parameter_edge_cases():
     Returns:
         bool: True if all parameter edge case tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 6: EDGE CASES WITH ALL PARAMETERS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 6: EDGE CASES WITH ALL PARAMETERS")
+    logger.info("=" * 70)
     
     # Create mock connection with stops level configuration
     sym_info = create_symbol_info(stops_level=10, freeze_level=5)
@@ -113,7 +113,7 @@ def test_parameter_edge_cases():
         if success:
             passed += 1
     
-    print(f"\n  Parameter edge case tests: {passed}/{total} passed")
+    logger.info(f"\n  Parameter edge case tests: {passed}/{total} passed")
     return passed == total
 
 

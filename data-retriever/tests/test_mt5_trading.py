@@ -48,9 +48,9 @@ def log_test(name: str, passed: bool, details: str = ""):
     """Log test result."""
     status = "PASS" if passed else "FAIL"
     test_results.append((name, passed, details))
-    print(f"  {status}: {name}")
+    logger.info(f"  {status}: {name}")
     if details and not passed:
-        print(f"         {details}")
+        logger.info(f"         {details}")
 
 
 def get_current_price(symbol: str, order_type: int) -> float:
@@ -85,9 +85,9 @@ def calculate_sl_tp(symbol: str, order_type: int, sl_pips: float = 50, tp_pips: 
 
 def test_01_initialize_mt5():
     """Test 1: MT5 initialization."""
-    print("\n" + "=" * 60)
-    print("TEST 01: Initialize MT5")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 01: Initialize MT5")
+    logger.info("=" * 60)
     
     result = initialize_mt5()
     log_test("MT5 Initialization", result)
@@ -95,18 +95,18 @@ def test_01_initialize_mt5():
     if result:
         account = mt5.account_info()
         if account:
-            print(f"    Account: {account.login} | Server: {account.server}")
+            logger.info(f"    Account: {account.login} | Server: {account.server}")
             is_demo = account.trade_mode == mt5.ACCOUNT_TRADE_MODE_DEMO
-            print(f"    Mode: {'Demo' if is_demo else '⚠️ REAL ACCOUNT!'}")
+            logger.info(f"    Mode: {'Demo' if is_demo else '⚠️ REAL ACCOUNT!'}")
     
     return result
 
 
 def test_02_place_buy_with_sl_tp():
     """Test 2: Placing a BUY order with SL and TP."""
-    print("\n" + "=" * 60)
-    print("TEST 02: Place BUY Order with SL and TP")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 02: Place BUY Order with SL and TP")
+    logger.info("=" * 60)
     
     price, sl, tp = calculate_sl_tp(SYMBOL, mt5.ORDER_TYPE_BUY, sl_pips=50, tp_pips=100)
     if price == 0:
@@ -138,9 +138,9 @@ def test_02_place_buy_with_sl_tp():
 
 def test_03_verify_position_matching(ticket: int, expected_sl: float, expected_tp: float, vol: float, price: float):
     """Test 3: verify_position_consistency (Matching)."""
-    print("\n" + "=" * 60)
-    print("TEST 03: Verify Position Consistency (Matching)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 03: Verify Position Consistency (Matching)")
+    logger.info("=" * 60)
     
     result = verify_position_consistency(ticket, expected_sl, expected_tp, vol, price)
     log_test("Position parameters matching verification", result)
@@ -149,9 +149,9 @@ def test_03_verify_position_matching(ticket: int, expected_sl: float, expected_t
 
 def test_04_verify_position_idempotence(ticket: int, expected_sl: float, expected_tp: float, vol: float, price: float):
     """Test 4: verify_position_consistency (Second Call)."""
-    print("\n" + "=" * 60)
-    print("TEST 04: Verify Position Consistency (Idempotence)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 04: Verify Position Consistency (Idempotence)")
+    logger.info("=" * 60)
     
     result = verify_position_consistency(ticket, expected_sl, expected_tp, vol, price)
     log_test("Position idempotence verification", result)
@@ -160,9 +160,9 @@ def test_04_verify_position_idempotence(ticket: int, expected_sl: float, expecte
 
 def test_05_can_execute_trade_blocked(ticket: int):
     """Test 5: can_execute_trade - Active Position Block."""
-    print("\n" + "=" * 60)
-    print("TEST 05: Constraint - Active Position Block (Same Symbol)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 05: Constraint - Active Position Block (Same Symbol)")
+    logger.info("=" * 60)
     
     is_blocked, reason = can_execute_trade(SYMBOL)
     log_test("Blocked by active position", is_blocked, reason if not is_blocked else "")
@@ -171,9 +171,9 @@ def test_05_can_execute_trade_blocked(ticket: int):
 
 def test_06_can_execute_trade_allowed():
     """Test 6: can_execute_trade - Different Symbol Allowed."""
-    print("\n" + "=" * 60)
-    print("TEST 06: Constraint - Different Symbol Allowed")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 06: Constraint - Different Symbol Allowed")
+    logger.info("=" * 60)
     
     # Clear any trading lock that might have been triggered by previous tests
     from externals.meta_trader.safeguards import _trading_lock
@@ -187,9 +187,9 @@ def test_06_can_execute_trade_allowed():
 
 def test_07_close_position(ticket: int):
     """Test 7: Closing a position."""
-    print("\n" + "=" * 60)
-    print("TEST 07: Close Position")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 07: Close Position")
+    logger.info("=" * 60)
     
     result = close_position(ticket)
     time.sleep(0.3)
@@ -201,9 +201,9 @@ def test_07_close_position(ticket: int):
 
 def test_08_can_execute_trade_cooldown():
     """Test 8: can_execute_trade - Historical Cooldown check."""
-    print("\n" + "=" * 60)
-    print("TEST 08: Constraint - Historical Cooldown Block")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 08: Constraint - Historical Cooldown Block")
+    logger.info("=" * 60)
     
     is_blocked, reason = can_execute_trade(SYMBOL)
     log_test("Blocked by cooldown (History)", is_blocked, reason if not is_blocked else "")
@@ -212,9 +212,9 @@ def test_08_can_execute_trade_cooldown():
 
 def test_09_place_sell_with_sl_tp():
     """Test 9: Placing a SELL order with SL and TP."""
-    print("\n" + "=" * 60)
-    print("TEST 09: Place SELL Order with SL and TP")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 09: Place SELL Order with SL and TP")
+    logger.info("=" * 60)
     
     price, sl, tp = calculate_sl_tp(SYMBOL_TEST9, mt5.ORDER_TYPE_SELL, sl_pips=50, tp_pips=100)
     if price == 0:
@@ -236,9 +236,9 @@ def test_09_place_sell_with_sl_tp():
 
 def test_10_magic_number_filtering():
     """Test 10: Magic number isolation."""
-    print("\n" + "=" * 60)
-    print("TEST 10: Magic Number Filtering")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 10: Magic Number Filtering")
+    logger.info("=" * 60)
     
     all_pos = mt5.positions_get() or []
     bot_pos = [p for p in all_pos if p.magic == MT5_MAGIC_NUMBER]
@@ -252,9 +252,9 @@ def test_10_magic_number_filtering():
 
 def test_11_constraints_logic_precision():
     """Test 11: 3.5-hour Cooldown Logic (Mocked Time)."""
-    print("\n" + "=" * 60)
-    print("TEST 11: Historical Cooldown Precision (Mocked Clock)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 11: Historical Cooldown Precision (Mocked Clock)")
+    logger.info("=" * 60)
     
     try:
         test_path = os.path.join(os.path.dirname(__file__), "test_constraints_logic.py")
@@ -273,9 +273,9 @@ def test_11_constraints_logic_precision():
 
 def test_12_invalid_symbol():
     """Test 12: Invalid Symbol."""
-    print("\n" + "=" * 60)
-    print("TEST 12: Edge Case - Invalid Symbol")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 12: Edge Case - Invalid Symbol")
+    logger.info("=" * 60)
     res = place_order(symbol="FAKE_SYM", order_type=mt5.ORDER_TYPE_BUY, volume=0.01, price=1.0)
     log_test("Handle non-existent symbol", res is None)
     return res is None
@@ -283,9 +283,9 @@ def test_12_invalid_symbol():
 
 def test_13_zero_volume():
     """Test 13: Zero Volume."""
-    print("\n" + "=" * 60)
-    print("TEST 13: Edge Case - Zero Volume")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 13: Edge Case - Zero Volume")
+    logger.info("=" * 60)
     p = get_current_price(SYMBOL, mt5.ORDER_TYPE_BUY)
     res = place_order(symbol=SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=0.0, price=p)
     success = res is None or res.retcode == 10014
@@ -295,9 +295,9 @@ def test_13_zero_volume():
 
 def test_14_invalid_order_type():
     """Test 14: Invalid Order Type."""
-    print("\n" + "=" * 60)
-    print("TEST 14: Edge Case - Invalid Type")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 14: Edge Case - Invalid Type")
+    logger.info("=" * 60)
     res = place_order(symbol=SYMBOL, order_type=999, volume=0.01, price=1.0)
     success = res is None or (hasattr(res, 'retcode') and res.retcode != mt5.TRADE_RETCODE_DONE)
     log_test("Handle invalid trade type", success)
@@ -306,9 +306,9 @@ def test_14_invalid_order_type():
 
 def test_15_negative_sl_tp():
     """Test 15: Negative SL/TP."""
-    print("\n" + "=" * 60)
-    print("TEST 15: Edge Case - Negative Stops")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 15: Edge Case - Negative Stops")
+    logger.info("=" * 60)
     p = get_current_price(SYMBOL, mt5.ORDER_TYPE_BUY)
     res = place_order(symbol=SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=0.01, price=p, sl=-1.0)
     success = res is None or (hasattr(res, 'retcode') and res.retcode != mt5.TRADE_RETCODE_DONE)
@@ -318,9 +318,9 @@ def test_15_negative_sl_tp():
 
 def test_16_close_invisible_ticket():
     """Test 16: Closing ticket that doesn't exist."""
-    print("\n" + "=" * 60)
-    print("TEST 16: Edge Case - Invisible Ticket")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 16: Edge Case - Invisible Ticket")
+    logger.info("=" * 60)
     res = close_position(999999)
     log_test("Close non-existent ticket", res) # Should be True as state is safe
     return res
@@ -332,9 +332,9 @@ def test_16_close_invisible_ticket():
 
 def test_17_burst_stress():
     """Test 17: Burst Stress Test."""
-    print("\n" + "=" * 60)
-    print("TEST 17: Stress - Burst Orders")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 17: Stress - Burst Orders")
+    logger.info("=" * 60)
     tickets = []
     for sym in STRESS_SYMBOLS:
         p = get_current_price(sym, mt5.ORDER_TYPE_BUY)
@@ -343,7 +343,7 @@ def test_17_burst_stress():
             if res and res.retcode == mt5.TRADE_RETCODE_DONE:
                 tickets.append(res.order)
     
-    print(f"    Opened {len(tickets)} stress positions.")
+    logger.info(f"    Opened {len(tickets)} stress positions.")
     for t in tickets: close_position(t)
     log_test("Handled rapid orders (Burst)", len(tickets) > 0)
     return len(tickets) > 0
@@ -355,9 +355,9 @@ def test_17_burst_stress():
 
 def test_18_shutdown_mt5():
     """Test 18: MT5 Shutdown."""
-    print("\n" + "=" * 60)
-    print("TEST 18: Shutdown MT5")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 18: Shutdown MT5")
+    logger.info("=" * 60)
     shutdown_mt5()
     log_test("MT5 Shutdown", True)
     return True
@@ -386,9 +386,9 @@ def setup_mock_mt5(mock_mt5):
 
 def test_19_connection_reinit():
     """Test 19: Connection Re-initialization on Disconnect."""
-    print("\n" + "=" * 60)
-    print("TEST 19: Connection Re-initialization (Mocked Disconnect)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 19: Connection Re-initialization (Mocked Disconnect)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     conn = MT5Connection()
@@ -414,9 +414,9 @@ def test_19_connection_reinit():
 
 def test_20_connection_failure():
     """Test 20: Initialization Failure Handling."""
-    print("\n" + "=" * 60)
-    print("TEST 20: Initialization Failure Handling")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 20: Initialization Failure Handling")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     conn = MT5Connection()
@@ -429,9 +429,9 @@ def test_20_connection_failure():
 
 def test_21_zero_price_failure():
     """Test 21: Reject Order with 0.0 Price."""
-    print("\n" + "=" * 60)
-    print("TEST 21: Reject Order with 0.0 Price")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 21: Reject Order with 0.0 Price")
+    logger.info("=" * 60)
     
     res = place_order(symbol=SYMBOL, order_type=mt5.ORDER_TYPE_BUY, volume=LOT_SIZE, price=0.0)
     log_test("Reject 0.0 price", res is None)
@@ -439,9 +439,9 @@ def test_21_zero_price_failure():
 
 def test_22_symbol_visibility():
     """Test 22: Automatic Symbol Selection (Visibility)."""
-    print("\n" + "=" * 60)
-    print("TEST 22: Symbol Selection / Visibility")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 22: Symbol Selection / Visibility")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -476,9 +476,9 @@ def test_22_symbol_visibility():
 
 def test_23_price_normalization():
     """Test 23: Price Normalization (Rounding)."""
-    print("\n" + "=" * 60)
-    print("TEST 23: Price Normalization (Rounding)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 23: Price Normalization (Rounding)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -516,9 +516,9 @@ def test_23_price_normalization():
 
 def test_24_tick_failure():
     """Test 24: Handle Tick Info Failure."""
-    print("\n" + "=" * 60)
-    print("TEST 24: Handle Tick Info Failure")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 24: Handle Tick Info Failure")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -549,9 +549,9 @@ def test_24_tick_failure():
 
 def test_25_retry_logic_success():
     """Test 25: Recovery after Transient Close Failure."""
-    print("\n" + "=" * 60)
-    print("TEST 25: Recovery after Transient Close Failure")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 25: Recovery after Transient Close Failure")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -601,9 +601,9 @@ def test_25_retry_logic_success():
 
 def test_26_retry_exhaustion():
     """Test 26: Retry Exhaustion and Emergency Logging."""
-    print("\n" + "=" * 60)
-    print("TEST 26: Retry Exhaustion (All Attempts Fail)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 26: Retry Exhaustion (All Attempts Fail)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -640,9 +640,9 @@ def test_26_retry_exhaustion():
 
 def test_27_verification_leak():
     """Test 27: detect 'Ghost' positions (Close signal ok but position still open)."""
-    print("\n" + "=" * 60)
-    print("TEST 27: Detect Ghost Positions (Close Signal OK, Pos Remains)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 27: Detect Ghost Positions (Close Signal OK, Pos Remains)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -680,9 +680,9 @@ def test_27_verification_leak():
 
 def test_28_mismatch_triggers_close():
     """Test 28: SL/TP Mismatch triggers automatic closure."""
-    print("\n" + "=" * 60)
-    print("TEST 28: Mismatch triggers closure")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 28: Mismatch triggers closure")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -718,9 +718,9 @@ def test_28_mismatch_triggers_close():
 
 def test_29_verification_missing_pos():
     """Test 29: Position disappears during verification."""
-    print("\n" + "=" * 60)
-    print("TEST 29: Position goes missing during verification")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 29: Position goes missing during verification")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -750,9 +750,9 @@ def test_29_verification_missing_pos():
 
 def test_30_concurrency_stress():
     """Test 30: Multi-threaded order placement stress."""
-    print("\n" + "=" * 60)
-    print("TEST 30: Concurrency Stress (Shared Lock)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 30: Concurrency Stress (Shared Lock)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -777,7 +777,7 @@ def test_30_concurrency_stress():
     for t in threads: t.start()
     for t in threads: t.join()
     
-    print(f"    Concurrent orders successful: {len(results)}")
+    logger.info(f"    Concurrent orders successful: {len(results)}")
     for ticket in results: trader.close_position(ticket)
     
     log_test("Concurrent lock handling", True)
@@ -785,9 +785,9 @@ def test_30_concurrency_stress():
 
 def test_31_trade_mode_validation():
     """Test 31: Reject trade if mode is DISABLED or CLOSE-ONLY."""
-    print("\n" + "=" * 60)
-    print("TEST 31: Trade Mode Validation (Disabled/Close-Only)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 31: Trade Mode Validation (Disabled/Close-Only)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -830,9 +830,9 @@ def test_31_trade_mode_validation():
 
 def test_32_sl_tp_distance_validation():
     """Test 32: Reject trade if SL/TP is too close (freeze/stops level)."""
-    print("\n" + "=" * 60)
-    print("TEST 32: SL/TP Distance Validation (Stops/Freeze Level)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 32: SL/TP Distance Validation (Stops/Freeze Level)")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -862,9 +862,9 @@ def test_32_sl_tp_distance_validation():
 
 def test_33_close_frozen_retry():
     """Test 33: Retry on frozen positions during close."""
-    print("\n" + "=" * 60)
-    print("TEST 33: Retry on Frozen positions during close")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 33: Retry on Frozen positions during close")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -914,9 +914,9 @@ def test_33_close_frozen_retry():
 
 def test_34_verify_volume_mismatch():
     """Test 34: Volume mismatch triggers closure."""
-    print("\n" + "=" * 60)
-    print("TEST 34: Volume Mismatch triggers closure")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 34: Volume Mismatch triggers closure")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -970,9 +970,9 @@ def test_34_verify_volume_mismatch():
 
 def test_35_verify_slippage_mismatch():
     """Test 35: Extreme slippage triggers closure."""
-    print("\n" + "=" * 60)
-    print("TEST 35: Slippage Mismatch (Price) triggers closure")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 35: Slippage Mismatch (Price) triggers closure")
+    logger.info("=" * 60)
     
     from externals.meta_trader.connection import MT5Connection
     from externals.meta_trader.trading import MT5Trader
@@ -1021,9 +1021,9 @@ def test_35_verify_slippage_mismatch():
 
 def test_36_jpy_position_consistency():
     """Test 36: JPY position consistency with symbol digits fetched from symbol info."""
-    print("\n" + "=" * 60)
-    print("TEST 36: JPY Position Consistency (Symbol Digits from Symbol Info)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 36: JPY Position Consistency (Symbol Digits from Symbol Info)")
+    logger.info("=" * 60)
     
     JPY_SYMBOL = "USDJPY"  # JPY pairs typically have 3 digits
     
@@ -1085,9 +1085,9 @@ def test_36_jpy_position_consistency():
 
 def test_37_market_moved_retry():
     """Test 37: MARKET_MOVED error automatic retry with fresh prices."""
-    print("\n" + "=" * 60)
-    print("TEST 37: MARKET_MOVED Error Automatic Retry")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 37: MARKET_MOVED Error Automatic Retry")
+    logger.info("=" * 60)
     
     # This test verifies that MARKET_MOVED errors (10004, 10020, 10021, 10025)
     # trigger automatic retry with fresh prices
@@ -1160,9 +1160,9 @@ def test_37_market_moved_retry():
 
 def test_38_volume_normalization_with_step():
     """Test 38: Volume normalization with volume_step (0.13 with step 0.1 → 0.1)."""
-    print("\n" + "=" * 60)
-    print("TEST 38: Volume Normalization with volume_step")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 38: Volume Normalization with volume_step")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1210,9 +1210,9 @@ def test_38_volume_normalization_with_step():
 
 def test_39_order_done_but_position_missing():
     """Test 39: Order returns DONE but positions_get() returns empty (no close confirmation)."""
-    print("\n" + "=" * 60)
-    print("TEST 39: Order DONE but Position Missing")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 39: Order DONE but Position Missing")
+    logger.info("=" * 60)
     
     # This is a rare edge case where MT5 returns DONE but position doesn't appear
     # We can't easily simulate this in live trading, but we can test the verification logic
@@ -1248,9 +1248,9 @@ def test_39_order_done_but_position_missing():
 
 def test_40_ticket_reuse_symbol_validation():
     """Test 40: MT5 ticket reuse - verify symbol matches when validating tickets."""
-    print("\n" + "=" * 60)
-    print("TEST 40: Ticket Reuse Symbol Validation")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 40: Ticket Reuse Symbol Validation")
+    logger.info("=" * 60)
     
     # MT5 can reuse tickets over long periods, so we must verify symbol matches
     # This test verifies that position verification checks symbol
@@ -1287,9 +1287,9 @@ def test_40_ticket_reuse_symbol_validation():
 
 def test_41_trade_mode_changes_to_closeonly():
     """Test 41: Trade mode changes between validation and sending (CLOSEONLY)."""
-    print("\n" + "=" * 60)
-    print("TEST 41: Trade Mode Changes to CLOSEONLY")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 41: Trade Mode Changes to CLOSEONLY")
+    logger.info("=" * 60)
     
     # This is difficult to simulate in live trading because:
     # 1. Trade mode is checked atomically with order placement
@@ -1327,9 +1327,9 @@ def test_41_trade_mode_changes_to_closeonly():
 
 def test_42_expiration_timezone_handling():
     """Test 42: Expiration time timezone handling (MT5 timezone vs our timezone)."""
-    print("\n" + "=" * 60)
-    print("TEST 42: Expiration Time Timezone Handling")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 42: Expiration Time Timezone Handling")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1369,9 +1369,9 @@ def test_42_expiration_timezone_handling():
 
 def test_43_main_stops_on_fatal_error():
     """Test 43: Main loop stops on fatal error (system shutdown)."""
-    print("\n" + "=" * 60)
-    print("TEST 43: Main Loop Stops on Fatal Error")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 43: Main Loop Stops on Fatal Error")
+    logger.info("=" * 60)
     
     # Test that shutdown_system() actually stops the main loop
     import system_shutdown
@@ -1411,9 +1411,9 @@ def test_43_main_stops_on_fatal_error():
 
 def test_44_partial_success_handling():
     """Test 44: PARTIAL_SUCCESS (10010) is handled as success."""
-    print("\n" + "=" * 60)
-    print("TEST 44: PARTIAL_SUCCESS Error Handling")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 44: PARTIAL_SUCCESS Error Handling")
+    logger.info("=" * 60)
     
     from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
     from externals.meta_trader.order_placement import OrderPlacer
@@ -1443,9 +1443,9 @@ def test_44_partial_success_handling():
 
 def test_45_market_closed_handling():
     """Test 45: MARKET_CLOSED (10018) is handled appropriately."""
-    print("\n" + "=" * 60)
-    print("TEST 45: MARKET_CLOSED Error Handling")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 45: MARKET_CLOSED Error Handling")
+    logger.info("=" * 60)
     
     from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
     
@@ -1472,9 +1472,9 @@ def test_45_market_closed_handling():
 
 def test_46_autotrading_disabled_fatal():
     """Test 46: AutoTrading disabled (10026) is FATAL."""
-    print("\n" + "=" * 60)
-    print("TEST 46: AutoTrading Disabled is FATAL")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 46: AutoTrading Disabled is FATAL")
+    logger.info("=" * 60)
     
     from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
     
@@ -1495,9 +1495,9 @@ def test_46_autotrading_disabled_fatal():
 
 def test_47_volume_normalization_edge_cases():
     """Test 47: Volume normalization edge cases and boundary conditions."""
-    print("\n" + "=" * 60)
-    print("TEST 47: Volume Normalization Edge Cases")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 47: Volume Normalization Edge Cases")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1575,9 +1575,9 @@ def test_47_volume_normalization_edge_cases():
 
 def test_48_price_normalization_edge_cases():
     """Test 48: Price normalization edge cases."""
-    print("\n" + "=" * 60)
-    print("TEST 48: Price Normalization Edge Cases")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 48: Price Normalization Edge Cases")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1627,9 +1627,9 @@ def test_48_price_normalization_edge_cases():
 
 def test_49_sl_tp_distance_edge_cases():
     """Test 49: SL/TP distance validation edge cases."""
-    print("\n" + "=" * 60)
-    print("TEST 49: SL/TP Distance Validation Edge Cases")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 49: SL/TP Distance Validation Edge Cases")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1683,9 +1683,9 @@ def test_49_sl_tp_distance_edge_cases():
 
 def test_50_expiration_time_edge_cases():
     """Test 50: Expiration time edge cases."""
-    print("\n" + "=" * 60)
-    print("TEST 50: Expiration Time Edge Cases")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 50: Expiration Time Edge Cases")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1734,9 +1734,9 @@ def test_50_expiration_time_edge_cases():
 
 def test_51_all_error_codes_categorized():
     """Test 51: All known error codes are properly categorized."""
-    print("\n" + "=" * 60)
-    print("TEST 51: All Error Codes Categorized")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 51: All Error Codes Categorized")
+    logger.info("=" * 60)
     
     from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
     
@@ -1783,9 +1783,9 @@ def test_51_all_error_codes_categorized():
 
 def test_52_symbol_validation_edge_cases():
     """Test 52: Symbol validation edge cases."""
-    print("\n" + "=" * 60)
-    print("TEST 52: Symbol Validation Edge Cases")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 52: Symbol Validation Edge Cases")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1822,9 +1822,9 @@ def test_52_symbol_validation_edge_cases():
 
 def test_53_volume_zero_and_negative():
     """Test 53: Volume zero and negative edge cases."""
-    print("\n" + "=" * 60)
-    print("TEST 53: Volume Zero and Negative")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 53: Volume Zero and Negative")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1851,9 +1851,9 @@ def test_53_volume_zero_and_negative():
 
 def test_54_price_zero_and_negative():
     """Test 54: Price zero and negative edge cases."""
-    print("\n" + "=" * 60)
-    print("TEST 54: Price Zero and Negative")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 54: Price Zero and Negative")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1882,9 +1882,9 @@ def test_54_price_zero_and_negative():
 
 def test_55_retry_infinite_loop_prevention():
     """Test 55: Retry mechanism prevents infinite loops."""
-    print("\n" + "=" * 60)
-    print("TEST 55: Retry Infinite Loop Prevention")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 55: Retry Infinite Loop Prevention")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1910,9 +1910,9 @@ def test_55_retry_infinite_loop_prevention():
 
 def test_56_fresh_price_validation():
     """Test 56: Fresh price validation in retry mechanism."""
-    print("\n" + "=" * 60)
-    print("TEST 56: Fresh Price Validation")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("TEST 56: Fresh Price Validation")
+    logger.info("=" * 60)
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
@@ -1956,9 +1956,9 @@ def test_56_fresh_price_validation():
 # =============================================================================
 
 def run_all_tests():
-    print("\n" + "=" * 70)
-    print("MT5 HANDLER COMPREHENSIVE TEST SUITE (SEQUENTIAL)")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("MT5 HANDLER COMPREHENSIVE TEST SUITE (SEQUENTIAL)")
+    logger.info("=" * 70)
     
     if not test_01_initialize_mt5(): 
         return False
@@ -2037,17 +2037,17 @@ def run_all_tests():
     # Shutdown (18)
     test_18_shutdown_mt5()
     
-    print("\n" + "=" * 70)
-    print(f"SUMMARY: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} Passed")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info(f"SUMMARY: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} Passed")
+    logger.info("=" * 70)
     return all(p for _, p, _ in test_results)
 
 
 def run_specific_tests(test_numbers: list):
     """Run specific tests by number."""
-    print("\n" + "=" * 70)
-    print(f"RUNNING SPECIFIC TESTS: {test_numbers}")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info(f"RUNNING SPECIFIC TESTS: {test_numbers}")
+    logger.info("=" * 70)
     
     test_map = {
         1: test_01_initialize_mt5,
@@ -2109,7 +2109,7 @@ def run_specific_tests(test_numbers: list):
     }
     
     if not test_01_initialize_mt5():
-        print("❌ MT5 initialization failed. Cannot run tests.")
+        logger.info("❌ MT5 initialization failed. Cannot run tests.")
         return False
     
     for num in sorted(test_numbers):
@@ -2121,11 +2121,11 @@ def run_specific_tests(test_numbers: list):
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"⚠️  Test {num} not found")
+            logger.info(f"⚠️  Test {num} not found")
     
-    print("\n" + "=" * 70)
-    print(f"SUMMARY: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} Passed")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info(f"SUMMARY: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} Passed")
+    logger.info("=" * 70)
     return all(p for _, p, _ in test_results)
 
 
@@ -2138,9 +2138,9 @@ if __name__ == "__main__":
             test_nums = [int(x) for x in sys.argv[1:]]
             run_specific_tests(test_nums)
         except ValueError:
-            print("Usage: python test_mt5_trading.py [test_numbers...]")
-            print("Example: python test_mt5_trading.py 38 39 40")
-            print("Or run all: python test_mt5_trading.py")
+            logger.info("Usage: python test_mt5_trading.py [test_numbers...]")
+            logger.info("Example: python test_mt5_trading.py 38 39 40")
+            logger.info("Or run all: python test_mt5_trading.py")
     else:
             # Run all tests
             if input("Start all tests? (y/n): ").lower().startswith('y'):

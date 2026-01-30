@@ -39,9 +39,9 @@ def test_position_verification_edge_cases():
     Returns:
         bool: True if all position verification tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 10: POSITION VERIFICATION EDGE CASES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 10: POSITION VERIFICATION EDGE CASES")
+    logger.info("=" * 70)
     
     sym_info = create_symbol_info()
     mock_conn = create_mock_connection(symbol_info=sym_info)
@@ -190,7 +190,7 @@ def test_position_verification_edge_cases():
         passed += 1
     log_test("Exact match verification", result is True)
     
-    print(f"\n  Position verification tests: {passed}/{total} passed")
+    logger.info(f"\n  Position verification tests: {passed}/{total} passed")
     return passed == total
 
 

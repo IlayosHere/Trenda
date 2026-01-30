@@ -11,18 +11,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from externals.meta_trader.safeguards import _trading_lock
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 def main():
     """Delete all temporary lock files using the built-in cleanup method."""
-    print("Cleaning up temporary lock files...")
+    logger.info("Cleaning up temporary lock files...")
     
     # Use the built-in cleanup method (deletes files older than 0 hours = all)
     deleted_count = _trading_lock.cleanup_old_temp_files(max_age_hours=0.0)
     
     if deleted_count > 0:
-        print(f"✅ Deleted {deleted_count} temporary lock file(s).")
+        logger.info(f"Deleted {deleted_count} temporary lock file(s).")
     else:
-        print("✅ No temporary lock files found.")
+        logger.info("No temporary lock files found.")
     
     return 0
 

@@ -38,9 +38,9 @@ def test_concurrency_scenarios():
     Returns:
         bool: True if all concurrency tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 9: CONCURRENCY & RACE CONDITIONS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 9: CONCURRENCY & RACE CONDITIONS")
+    logger.info("=" * 70)
     
     # Create mock connection with real lock for testing
     from unittest.mock import MagicMock

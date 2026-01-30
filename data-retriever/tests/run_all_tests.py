@@ -22,6 +22,10 @@ from typing import List, Tuple
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[bool, List[Tuple[str, bool, float]]]:
     """
@@ -35,13 +39,13 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
         Tuple of (all_passed, results_list) where results_list contains
         (category_name, passed, duration) tuples
     """
-    print("\n" + "=" * 80)
-    print("MT5 COMPREHENSIVE TEST SUITE")
-    print("=" * 80)
-    print(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 80)
+    logger.info("MT5 COMPREHENSIVE TEST SUITE")
+    logger.info("=" * 80)
+    logger.info(f"Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     if category_filter:
-        print(f"Filter: Running only '{category_filter}' category")
-    print("=" * 80)
+        logger.info(f"Filter: Running only '{category_filter}' category")
+    logger.info("=" * 80)
     
     # Import all test modules with their actual function names
     test_modules = [
@@ -89,18 +93,18 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
             if hasattr(module, function_name):
                 available_modules.append((category_name, module_name, function_name))
             elif verbose:
-                print(f"Skipping {category_name} - function '{function_name}' not found in module")
+                logger.debug(f"Skipping {category_name} - function '{function_name}' not found in module")
         except ImportError as e:
             if verbose:
-                print(f"Skipping {category_name} - module '{module_name}' not found: {e}")
+                logger.debug(f"Skipping {category_name} - module '{module_name}' not found: {e}")
         except Exception as e:
             if verbose:
-                print(f"Skipping {category_name} - error checking module: {e}")
+                logger.debug(f"Skipping {category_name} - error checking module: {e}")
     
     if not available_modules:
-        print("\n❌ No test modules found!")
+        logger.error("No test modules found!")
         if category_filter:
-            print(f"   Try removing the filter or check if '{category_filter}' matches any category.")
+            logger.info(f"Try removing the filter or check if '{category_filter}' matches any category.")
         return False, []
     
     results = []
@@ -109,9 +113,9 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
     for category_name, module_name, function_name in available_modules:
         try:
             if verbose:
-                print(f"\n{'='*80}")
-                print(f"Running: {category_name}")
-                print(f"{'='*80}")
+                logger.info("=" * 80)
+                logger.info(f"Running: {category_name}")
+                logger.info("=" * 80)
             
             start_time = time.time()
             
@@ -139,18 +143,21 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
             duration = time.time() - start_time
             results.append((category_name, result, duration))
             
-            status = "[PASSED]" if result else "[FAILED]"
-            print(f"\n{status}: {category_name} ({duration:.2f}s)")
+            status = "PASSED" if result else "FAILED"
+            if result:
+                logger.info(f"[{status}]: {category_name} ({duration:.2f}s)")
+            else:
+                logger.error(f"[{status}]: {category_name} ({duration:.2f}s)")
             
         except ImportError as e:
-            print(f"\n[SKIPPED]: {category_name} - Module not found: {e}")
+            logger.warning(f"[SKIPPED]: {category_name} - Module not found: {e}")
             results.append((category_name, False, 0.0))
         except AttributeError as e:
-            print(f"\n[SKIPPED]: {category_name} - Function '{function_name}' not found: {e}")
+            logger.warning(f"[SKIPPED]: {category_name} - Function '{function_name}' not found: {e}")
             results.append((category_name, False, 0.0))
         except Exception as e:
             duration = time.time() - start_time if 'start_time' in locals() else 0.0
-            print(f"\n[ERROR] in {category_name}: {str(e)}")
+            logger.error(f"[ERROR] in {category_name}: {str(e)}")
             if verbose:
                 traceback.print_exc()
             results.append((category_name, False, duration))
@@ -158,22 +165,25 @@ def run_all_tests(verbose: bool = False, category_filter: str = None) -> Tuple[b
     total_duration = time.time() - total_start
     
     # Print summary
-    print("\n" + "=" * 80)
-    print("FINAL SUMMARY")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("FINAL SUMMARY")
+    logger.info("=" * 80)
     
     passed_count = sum(1 for _, result, _ in results if result)
     total_count = len(results)
     
     for category_name, result, duration in results:
-        status = "[PASSED]" if result else "[FAILED]"
-        print(f"  {status}: {category_name:.<50} ({duration:>6.2f}s)")
+        status = "PASSED" if result else "FAILED"
+        if result:
+            logger.info(f"  [{status}]: {category_name:.<50} ({duration:>6.2f}s)")
+        else:
+            logger.error(f"  [{status}]: {category_name:.<50} ({duration:>6.2f}s)")
     
-    print("=" * 80)
-    print(f"Total: {passed_count}/{total_count} categories passed")
-    print(f"Total Duration: {total_duration:.2f}s")
-    print(f"Completed at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info(f"Total: {passed_count}/{total_count} categories passed")
+    logger.info(f"Total Duration: {total_duration:.2f}s")
+    logger.info(f"Completed at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 80)
     
     all_passed = all(result for _, result, _ in results)
     return all_passed, results
@@ -194,17 +204,17 @@ def main():
     if not args.auto:
         response = input("\nRun comprehensive test suite? (y/n): ").lower()
         if not response.startswith('y'):
-            print("Tests cancelled.")
+            logger.info("Tests cancelled.")
             return
     
     try:
         success, results = run_all_tests(verbose=args.verbose, category_filter=args.category)
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n\nTests interrupted by user.")
+        logger.warning("Tests interrupted by user.")
         sys.exit(130)
     except Exception as e:
-        print(f"\n\nFatal error running tests: {e}")
+        logger.error(f"Fatal error running tests: {e}")
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)

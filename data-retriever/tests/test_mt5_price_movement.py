@@ -40,9 +40,9 @@ def test_price_movement_scenarios():
     Returns:
         bool: True if all price movement tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 2: PRICE MOVEMENT & SLIPPAGE SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 2: PRICE MOVEMENT & SLIPPAGE SCENARIOS")
+    logger.info("=" * 70)
     
     # Create mock connection
     sym_info = create_symbol_info()
@@ -116,7 +116,7 @@ def test_price_movement_scenarios():
         if success:
             passed += 1
     
-    print(f"\n  Price movement tests: {passed}/{len(scenarios)} passed")
+    logger.info(f"\n  Price movement tests: {passed}/{len(scenarios)} passed")
     return passed == len(scenarios)
 
 

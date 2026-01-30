@@ -38,9 +38,9 @@ def test_real_world_scenarios():
     Returns:
         bool: True if all real-world scenario tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 12: REAL-WORLD TRADING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 12: REAL-WORLD TRADING SCENARIOS")
+    logger.info("=" * 70)
     
     passed = 0
     total = 0
@@ -118,7 +118,7 @@ def test_real_world_scenarios():
         passed += 1
     log_test("Requote scenario", result is not None)
     
-    print(f"\n  Real-world scenario tests: {passed}/{total} passed")
+    logger.info(f"\n  Real-world scenario tests: {passed}/{total} passed")
     return passed == total
 
 

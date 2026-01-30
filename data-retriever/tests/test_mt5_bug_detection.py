@@ -47,9 +47,9 @@ def test_bug_detection_scenarios():
     Returns:
         bool: True if all bug detection tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY: BUG DETECTION TESTS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY: BUG DETECTION TESTS")
+    logger.info("=" * 70)
     
     passed = 0
     total = 0
@@ -483,7 +483,7 @@ def test_bug_detection_scenarios():
     except Exception as e:
         log_test(f"Thread safety with shared connection: {str(e)}", False)
     
-    print(f"\n  Bug detection tests: {passed}/{total} passed")
+    logger.info(f"\n  Bug detection tests: {passed}/{total} passed")
     return passed == total
 
 

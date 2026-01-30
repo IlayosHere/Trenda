@@ -1,4 +1,3 @@
-import logging
 import os
 import threading
 from contextlib import contextmanager
@@ -13,12 +12,6 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-log = logging.getLogger(__name__)
-if not log.handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] DB: %(message)s",
-    )
 
 CONNECTION_TIMEOUT = int(os.getenv("DB_CONNECTION_TIMEOUT", "30"))
 
@@ -55,12 +48,11 @@ class DBConnectionManager:
                 cls._pool = SimpleConnectionPool(min_conn, max_conn, **db_config)
             except Exception as exc:
                 cls._pool = None
-                logger.error(f"DB_POOL_INIT_FAILED: {exc}")
-                log.error("DB_POOL_INIT_FAILED|error=%s", exc, exc_info=True)
+                logger.error(f"DB_POOL_INIT_FAILED: {exc}", exc_info=True)
                 raise
 
         cls._log_pool_details()
-        log.info("DB_POOL_INITIALIZED|min=%d|max=%d", min_conn, max_conn)
+        logger.info(f"DB_POOL_INITIALIZED: min={min_conn}, max={max_conn}")
         return cls._pool
 
     @classmethod
@@ -82,20 +74,17 @@ class DBConnectionManager:
                 with conn.cursor() as cur:
                     cur.execute("SELECT current_database(), current_schema();")
                     db_name, schema = cur.fetchone()
-                    log.info("DB_POOL_READY|database=%s|schema=%s", db_name, schema)
+                    logger.info(f"DB_POOL_READY: database={db_name}, schema={schema}")
                     cls._pool_details_logged = True
             except (OperationalError, InterfaceError) as exc:
                 close_conn = True
-                logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
-                log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
+                logger.error(f"DB_METADATA_QUERY_FAILED: {exc}", exc_info=True)
             except Exception as exc:
                 close_conn = True
-                logger.error(f"DB_METADATA_QUERY_FAILED: {exc}")
-                log.error("DB_METADATA_QUERY_FAILED|error=%s", exc, exc_info=True)
+                logger.error(f"DB_METADATA_QUERY_FAILED: {exc}", exc_info=True)
         except Exception as exc:
             # If getconn() itself fails, ensure we don't leak
-            logger.error(f"DB_CONNECTION_ACQUIRE_FAILED: {exc}")
-            log.error("DB_CONNECTION_ACQUIRE_FAILED|error=%s", exc, exc_info=True)
+            logger.error(f"DB_CONNECTION_ACQUIRE_FAILED: {exc}", exc_info=True)
             close_conn = True
         finally:
             if conn is not None:
@@ -111,8 +100,7 @@ class DBConnectionManager:
                                 # Pool was closed, connection is lost - log warning
                                 logger.warning("Pool was closed while connection was in use")
                     except Exception as exc:
-                        logger.error(f"DB_CONNECTION_RELEASE_FAILED: {exc}")
-                        log.error("DB_CONNECTION_RELEASE_FAILED|error=%s", exc, exc_info=True)
+                        logger.error(f"DB_CONNECTION_RELEASE_FAILED: {exc}", exc_info=True)
 
     @classmethod
     def _require_pool(cls) -> SimpleConnectionPool:
@@ -123,8 +111,7 @@ class DBConnectionManager:
         try:
             return cls._require_pool().getconn()
         except Exception as exc:
-            logger.error(f"DB_CONNECTION_RETRIEVE_FAILED: {exc}")
-            log.error("DB_CONNECTION_RETRIEVE_FAILED|error=%s", exc, exc_info=True)
+            logger.error(f"DB_CONNECTION_RETRIEVE_FAILED: {exc}", exc_info=True)
             raise DBConnectionError("Failed to acquire database connection") from exc
 
     @classmethod
@@ -138,13 +125,12 @@ class DBConnectionManager:
 
         if error and isinstance(error, (OperationalError, InterfaceError)):
             close_conn = True
-            log.warning("DB_CLOSING_BAD_CONNECTION|error_type=%s", type(error).__name__)
+            logger.warning(f"DB_CLOSING_BAD_CONNECTION: error_type={type(error).__name__}")
 
         try:
             cls._pool.putconn(conn, close=close_conn)
         except Exception as exc:
-            logger.error(f"DB_CONNECTION_RELEASE_FAILED: {exc}")
-            log.error("DB_CONNECTION_RELEASE_FAILED|error=%s", exc, exc_info=True)
+            logger.error(f"DB_CONNECTION_RELEASE_FAILED: {exc}", exc_info=True)
 
     @classmethod
     @contextmanager
@@ -167,10 +153,9 @@ class DBConnectionManager:
             if cls._pool:
                 try:
                     cls._pool.closeall()
-                    log.info("DB_POOL_CLOSED")
+                    logger.info("DB_POOL_CLOSED")
                 except Exception as exc:
-                    logger.error(f"DB_POOL_CLOSE_FAILED: {exc}")
-                    log.error("DB_POOL_CLOSE_FAILED|error=%s", exc, exc_info=True)
+                    logger.error(f"DB_POOL_CLOSE_FAILED: {exc}", exc_info=True)
                 finally:
                     cls._pool = None
                     cls._pool_details_logged = False
@@ -187,5 +172,5 @@ class DBConnectionManager:
                 "maxconn": cls._pool.maxconn,
             }
         except Exception as exc:
-            log.error("DB_POOL_STATS_ERROR|error=%s", exc)
+            logger.error(f"DB_POOL_STATS_ERROR: {exc}")
             return {"status": "error", "error": str(exc)}

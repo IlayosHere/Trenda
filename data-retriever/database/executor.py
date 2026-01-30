@@ -4,14 +4,18 @@ from typing import Any, Callable, Iterable, Optional, Sequence, TypeVar, Union
 
 from psycopg2.extensions import cursor as PgCursor
 
-from .connection import DBConnectionManager, log
+from .connection import DBConnectionManager
 from psycopg2 import InterfaceError, OperationalError
 from psycopg2.extensions import connection as PgConnection
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 _T = TypeVar("_T")
 
 MAX_RETRIES = int(os.getenv("DB_MAX_RETRIES", "3"))
 RETRY_DELAY = float(os.getenv("DB_RETRY_DELAY", "0.5"))
+
 
 
 class DBDoNotRetryError(Exception):
@@ -23,12 +27,8 @@ def _truncate_sql(sql: str, limit: int = 150) -> str:
 
 
 def _log_sql_error(context: str, sql: str, params: Optional[Sequence[Any]], exc: Exception) -> None:
-    log.error(
-        "DB_ERROR|context=%s|sql=%s|params=%s|error=%s",
-        context,
-        _truncate_sql(sql),
-        params,
-        exc,
+    logger.error(
+        f"DB_ERROR: context={context}, sql={_truncate_sql(sql)}, params={params}, error={exc}",
         exc_info=True,
     )
 
@@ -85,13 +85,8 @@ def _execute_with_retry(
                 raise
 
             delay = RETRY_DELAY * (2**attempt)
-            log.warning(
-                "DB_RETRY|context=%s|attempt=%d|max=%d|delay=%.2f|error=%s",
-                context,
-                attempt + 1,
-                max_retries,
-                delay,
-                exc,
+            logger.warning(
+                f"DB_RETRY: context={context}, attempt={attempt + 1}/{max_retries}, delay={delay:.2f}s, error={exc}"
             )
             time.sleep(delay)
 

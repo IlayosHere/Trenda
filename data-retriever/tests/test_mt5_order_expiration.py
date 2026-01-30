@@ -38,9 +38,9 @@ def test_order_expiration_scenarios():
     Returns:
         bool: True if all expiration tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 3: ORDER EXPIRATION & TIMING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 3: ORDER EXPIRATION & TIMING SCENARIOS")
+    logger.info("=" * 70)
     
     # Create mock connection
     sym_info = create_symbol_info()
@@ -93,7 +93,7 @@ def test_order_expiration_scenarios():
                 False
             )
     
-    print(f"\n  Expiration tests: {passed}/{len(scenarios)} passed")
+    logger.info(f"\n  Expiration tests: {passed}/{len(scenarios)} passed")
     return passed == len(scenarios)
 
 

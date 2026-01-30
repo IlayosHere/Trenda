@@ -38,9 +38,9 @@ def test_all_mt5_error_codes():
     Returns:
         bool: True if all error code tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 1: ALL MT5 ERROR CODES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 1: ALL MT5 ERROR CODES")
+    logger.info("=" * 70)
     
     # Define all known MT5 error codes with descriptions
     error_codes = {
@@ -138,7 +138,7 @@ def test_all_mt5_error_codes():
         if success:
             passed += 1
     
-    print(f"\n  Error code tests: {passed}/{len(error_codes)} passed")
+    logger.info(f"\n  Error code tests: {passed}/{len(error_codes)} passed")
     return passed == len(error_codes)
 
 

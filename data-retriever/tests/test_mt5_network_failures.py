@@ -38,9 +38,9 @@ def test_network_failure_scenarios():
     Returns:
         bool: True if all network failure tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 4: NETWORK & CONNECTION FAILURES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 4: NETWORK & CONNECTION FAILURES")
+    logger.info("=" * 70)
     
     passed = 0
     
@@ -87,7 +87,7 @@ def test_network_failure_scenarios():
     if success:
         passed += 1
     
-    print(f"\n  Network failure tests: {passed}/3 passed")
+    logger.info(f"\n  Network failure tests: {passed}/3 passed")
     return passed == 3
 
 

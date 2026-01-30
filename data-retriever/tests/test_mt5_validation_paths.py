@@ -38,9 +38,9 @@ def test_all_validation_paths():
     Returns:
         bool: True if all validation path tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 8: VALIDATION PATH TESTS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 8: VALIDATION PATH TESTS")
+    logger.info("=" * 70)
     
     mock_conn = create_mock_connection()
     trader = MT5Trader(mock_conn)
@@ -155,7 +155,7 @@ def test_all_validation_paths():
         passed += 1
     log_test("Tick info failure", result is None)
     
-    print(f"\n  Validation path tests: {passed}/{total} passed")
+    logger.info(f"\n  Validation path tests: {passed}/{total} passed")
     return passed == total
 
 
