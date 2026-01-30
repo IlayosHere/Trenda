@@ -1,6 +1,6 @@
 """Repository for storing entry signals to the database."""
 
-from typing import Optional
+from typing import Any, Optional
 
 from logger import get_logger
 
@@ -10,6 +10,16 @@ from database.executor import DBExecutor
 from database.queries import INSERT_ENTRY_SIGNAL
 from database.validation import DBValidator
 from models.market import SignalData
+
+
+def _to_python_type(value: Any) -> Any:
+    """Convert numpy types to native Python types for database insertion."""
+    if value is None:
+        return None
+    # Handle numpy types
+    if hasattr(value, 'item'):
+        return value.item()
+    return value
 
 
 def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[int]:
@@ -44,23 +54,23 @@ def store_entry_signal_with_symbol(symbol: str, signal: SignalData) -> Optional[
                 signal.signal_time,
                 signal.direction.value,
                 signal.aoi_timeframe,
-                signal.aoi_low,
-                signal.aoi_high,
-                signal.entry_price,
-                signal.atr_1h,
-                signal.htf_score,
-                signal.obstacle_score,
-                signal.total_score,
+                _to_python_type(signal.aoi_low),
+                _to_python_type(signal.aoi_high),
+                _to_python_type(signal.entry_price),
+                _to_python_type(signal.atr_1h),
+                _to_python_type(signal.htf_score),
+                _to_python_type(signal.obstacle_score),
+                _to_python_type(signal.total_score),
                 signal.sl_model,
-                signal.sl_distance_atr,
-                signal.tp_distance_atr,
-                signal.rr_multiple,
-                signal.actual_rr,
-                signal.price_drift,
+                _to_python_type(signal.sl_distance_atr),
+                _to_python_type(signal.tp_distance_atr),
+                _to_python_type(signal.rr_multiple),
+                _to_python_type(signal.actual_rr),
+                _to_python_type(signal.price_drift),
                 signal.is_break_candle_last,
-                signal.htf_range_position_daily,
-                signal.htf_range_position_weekly,
-                signal.distance_to_next_htf_obstacle_atr,
+                _to_python_type(signal.htf_range_position_daily),
+                _to_python_type(signal.htf_range_position_weekly),
+                _to_python_type(signal.distance_to_next_htf_obstacle_atr),
                 signal.conflicted_tf,
             ),
         )
