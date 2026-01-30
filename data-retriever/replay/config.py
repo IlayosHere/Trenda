@@ -39,8 +39,9 @@ REPLAY_SYMBOLS: Final[list[str]] = [
     "GBPCHF",
     "AUDCHF",
     "NZDCHF",
-    # 'EURPLN', #TODO: check more about this pair
-    # 'USDSGD', #TODO: check more about this pair
+    "EURPLN", 
+    "NZDSGD",
+    "SGDJPY"
     ]
 
 # =============================================================================
