@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, TYPE_CHECKING
 
-import pandas as pd
 
 from models import TrendDirection
 from .config import OUTCOME_WINDOW_BARS

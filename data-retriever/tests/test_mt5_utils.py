@@ -14,7 +14,6 @@ import MetaTrader5 as mt5
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from externals.meta_trader.connection import MT5Connection
-from configuration.broker_config import MT5_MAGIC_NUMBER
 from logger import get_logger
 
 logger = get_logger(__name__)

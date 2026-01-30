@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 
 import pandas as pd
 
 from models import TrendDirection
 from signal_outcome.outcome_calculator import compute_outcome
-from signal_outcome.models import OutcomeData, PendingSignal
+from signal_outcome.models import PendingSignal
 
 from .candle_store import CandleStore
 from .config import OUTCOME_WINDOW_BARS, BATCH_SIZE

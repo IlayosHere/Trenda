@@ -23,9 +23,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import MetaTrader5 as mt5
 from externals.meta_trader.trading import MT5Trader
 from test_mt5_utils import (
-    setup_mock_mt5, create_mock_connection, create_symbol_info,
+    create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_real_world_scenarios():

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Mapping, Optional, Sequence, Tuple
+from typing import Mapping, Optional, Sequence
 
 import pandas as pd
 
 from configuration import FOREX_PAIRS, TIMEFRAMES, require_analysis_params, SIGNAL_SCORE_THRESHOLD, MT5_ORDER_COMMENT
 from entry.pattern_finder import find_entry_pattern
 from entry.gates import check_all_gates
-from entry.gates.config import SL_MODEL_NAME, SL_BUFFER_ATR, RR_MULTIPLE
+from entry.gates.config import SL_MODEL_NAME, RR_MULTIPLE
 from entry.htf_context import compute_htf_context, get_conflicted_timeframe, HTFContext
 from entry.scoring import calculate_score, ScoreResult
-from entry.live_execution import compute_execution_data, ExecutionData
+from entry.live_execution import compute_execution_data
 from entry.signal_repository import store_entry_signal_with_symbol
 from entry.failed_signal_repository import store_failed_signal, FailedSignalData
 from aoi.aoi_repository import fetch_tradable_aois

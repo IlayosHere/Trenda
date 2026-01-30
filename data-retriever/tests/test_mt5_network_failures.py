@@ -25,7 +25,8 @@ from test_mt5_utils import (
     create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
-
+from logger import get_logger
+logger = get_logger(__name__)
 
 def test_network_failure_scenarios():
     """
@@ -58,6 +59,8 @@ def test_network_failure_scenarios():
     mock_conn.initialize.side_effect = [True, False]  # Fails on second call
     mock_conn.mt5 = MagicMock()
     from test_mt5_utils import setup_mock_mt5
+
+
     setup_mock_mt5(mock_conn.mt5)
     mock_conn.lock = MagicMock()
     

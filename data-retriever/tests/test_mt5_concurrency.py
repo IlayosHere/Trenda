@@ -14,7 +14,6 @@ This test suite covers:
 import sys
 import os
 import threading
-from unittest.mock import MagicMock
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -26,6 +25,8 @@ from test_mt5_utils import (
     SYMBOL, log_test
 )
 
+from logger import get_logger
+logger = get_logger(__name__)
 
 def test_concurrency_scenarios():
     """

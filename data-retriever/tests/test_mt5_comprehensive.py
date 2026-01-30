@@ -17,30 +17,20 @@ This test suite covers:
 
 import sys
 import os
-import time
 import threading
-from unittest.mock import MagicMock, patch, Mock
-from typing import List, Tuple, Optional
-import random
+from unittest.mock import MagicMock, patch
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 import MetaTrader5 as mt5
-from externals.meta_trader import (
-    initialize_mt5,
-    shutdown_mt5,
-    place_order,
-    close_position,
-    verify_position_consistency,
-)
 from externals.meta_trader.connection import MT5Connection
 from externals.meta_trader.trading import MT5Trader
 from configuration.broker_config import (
-    MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION,
-    MT5_EXPIRATION_SECONDS, MT5_CLOSE_RETRY_ATTEMPTS,
-    MT5_SL_TP_THRESHOLD_MULTIPLIER, MT5_PRICE_THRESHOLD_FALLBACK,
-    MT5_VERIFICATION_SLEEP
+    MT5_MAGIC_NUMBER
 )
 
 # Test configuration

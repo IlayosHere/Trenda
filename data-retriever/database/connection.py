@@ -7,7 +7,6 @@ from psycopg2 import InterfaceError, OperationalError
 from psycopg2.extensions import connection as PgConnection
 from psycopg2.pool import SimpleConnectionPool
 
-from configuration import POSTGRES_DB
 from logger import get_logger
 
 logger = get_logger(__name__)

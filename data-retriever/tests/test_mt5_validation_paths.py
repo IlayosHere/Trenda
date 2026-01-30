@@ -26,6 +26,9 @@ from test_mt5_utils import (
     create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_all_validation_paths():

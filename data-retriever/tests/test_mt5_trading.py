@@ -16,10 +16,13 @@ import os
 import time
 import subprocess
 import threading
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, patch
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 import MetaTrader5 as mt5
 from externals.meta_trader import (
@@ -1298,7 +1301,7 @@ def test_41_trade_mode_changes_to_closeonly():
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock
     
     connection = MT5Connection()
     placer = OrderPlacer(connection)
@@ -1334,7 +1337,6 @@ def test_42_expiration_timezone_handling():
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
     from unittest.mock import MagicMock, patch
-    import time as time_module
     
     connection = MT5Connection()
     placer = OrderPlacer(connection)
@@ -1416,9 +1418,6 @@ def test_44_partial_success_handling():
     logger.info("=" * 60)
     
     from externals.meta_trader.error_categorization import MT5ErrorCategorizer, ErrorCategory
-    from externals.meta_trader.order_placement import OrderPlacer
-    from externals.meta_trader.connection import MT5Connection
-    from unittest.mock import MagicMock
     
     # Test: 10010 is categorized as PARTIAL_SUCCESS
     category = MT5ErrorCategorizer.categorize(10010)
@@ -1888,7 +1887,7 @@ def test_55_retry_infinite_loop_prevention():
     
     from externals.meta_trader.order_placement import OrderPlacer
     from externals.meta_trader.connection import MT5Connection
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock
     
     connection = MT5Connection()
     placer = OrderPlacer(connection)

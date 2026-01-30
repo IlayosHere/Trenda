@@ -1,5 +1,5 @@
 import os
-from typing import Final, FrozenSet, Tuple
+from typing import Final, Tuple
 from configuration.trading_config import SIGNAL_SCORE_THRESHOLD
 
 # =============================================================================

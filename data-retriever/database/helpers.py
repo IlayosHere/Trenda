@@ -1,6 +1,5 @@
-from typing import Any, Mapping, Optional
+from typing import Any
 
-from models import TrendDirection
 
 
 def value_from_candle(candle: Any, key: str):
