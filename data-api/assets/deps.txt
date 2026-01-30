@@ -1,3 +1,0 @@
-fastapi
-dotenv
-psycopg2
