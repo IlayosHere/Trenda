@@ -22,19 +22,19 @@ This test suite covers:
 import sys
 import os
 import threading
-import time
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, patch
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import MetaTrader5 as mt5
 from externals.meta_trader.trading import MT5Trader
-from externals.meta_trader.connection import MT5Connection
 from test_mt5_utils import (
-    setup_mock_mt5, create_mock_connection, create_symbol_info,
-    SYMBOL, log_test
+    create_mock_connection, SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_bug_detection_scenarios():
@@ -47,9 +47,9 @@ def test_bug_detection_scenarios():
     Returns:
         bool: True if all bug detection tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY: BUG DETECTION TESTS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY: BUG DETECTION TESTS")
+    logger.info("=" * 70)
     
     passed = 0
     total = 0
@@ -341,7 +341,6 @@ def test_bug_detection_scenarios():
     # Test 14: NaN and Infinity values
     total += 1
     try:
-        import math
         mock_conn = create_mock_connection()
         trader = MT5Trader(mock_conn)
         # Test with NaN and Infinity
@@ -483,7 +482,7 @@ def test_bug_detection_scenarios():
     except Exception as e:
         log_test(f"Thread safety with shared connection: {str(e)}", False)
     
-    print(f"\n  Bug detection tests: {passed}/{total} passed")
+    logger.info(f"\n  Bug detection tests: {passed}/{total} passed")
     return passed == total
 
 

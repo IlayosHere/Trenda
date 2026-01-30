@@ -9,7 +9,7 @@ Fetches real-time price from MT5 and calculates execution parameters:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import MetaTrader5 as mt5
 

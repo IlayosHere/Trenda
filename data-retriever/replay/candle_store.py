@@ -14,7 +14,6 @@ from typing import Optional
 import pandas as pd
 
 from .config import (
-    LOOKBACK_1H,
     LOOKBACK_4H,
     LOOKBACK_1D,
     LOOKBACK_1W,

@@ -25,6 +25,9 @@ from test_mt5_utils import (
     create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_broker_rejection_scenarios():
@@ -38,9 +41,9 @@ def test_broker_rejection_scenarios():
     Returns:
         bool: True if all broker rejection tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 5: BROKER REJECTIONS & MARKET CONDITIONS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 5: BROKER REJECTIONS & MARKET CONDITIONS")
+    logger.info("=" * 70)
     
     # Create mock connection
     sym_info = create_symbol_info()
@@ -75,7 +78,7 @@ def test_broker_rejection_scenarios():
     if success:
         passed += 1
     
-    print(f"\n  Broker rejection tests: {passed}/{total} passed")
+    logger.info(f"\n  Broker rejection tests: {passed}/{total} passed")
     return passed == total
 
 

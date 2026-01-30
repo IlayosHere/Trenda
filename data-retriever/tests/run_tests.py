@@ -15,6 +15,9 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from test_mt5_trading import run_all_tests, run_specific_tests
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 def print_test_list():
     """Print all available tests."""
@@ -29,14 +32,14 @@ def print_test_list():
         "Shutdown": [18],
     }
     
-    print("\n" + "=" * 70)
-    print("AVAILABLE TESTS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("AVAILABLE TESTS")
+    logger.info("=" * 70)
     for category, test_nums in tests.items():
-        print(f"\n{category}:")
+        logger.info(f"{category}:")
         for num in test_nums:
-            print(f"  {num:2d} - Test {num}")
-    print("\n" + "=" * 70)
+            logger.info(f"  {num:2d} - Test {num}")
+    logger.info("=" * 70)
 
 
 def main():
@@ -63,21 +66,21 @@ def main():
                 run_specific_tests(test_nums)
                 return
             except ValueError:
-                print("❌ Invalid test numbers. Use --list to see available tests.")
+                logger.error("Invalid test numbers. Use --list to see available tests.")
                 return
     
     # Run all tests
-    print("\n" + "=" * 70)
-    print("MT5 TRADING TEST SUITE")
-    print("=" * 70)
-    print("\nThis will run all 56 tests.")
-    print("See tests/README.md for more options.\n")
+    logger.info("=" * 70)
+    logger.info("MT5 TRADING TEST SUITE")
+    logger.info("=" * 70)
+    logger.info("This will run all 56 tests.")
+    logger.info("See tests/README.md for more options.")
     
     response = input("Run all tests? (y/n): ").lower().strip()
     if response.startswith('y'):
         run_all_tests()
     else:
-        print("Cancelled.")
+        logger.info("Cancelled.")
 
 
 if __name__ == "__main__":

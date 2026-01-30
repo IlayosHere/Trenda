@@ -34,6 +34,9 @@ from test_mt5_utils import (
     setup_mock_mt5, create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_massive_granular_expansion():
@@ -46,9 +49,9 @@ def test_massive_granular_expansion():
     Returns:
         bool: True if all granular expansion tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 11: MASSIVE GRANULAR TEST EXPANSION")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 11: MASSIVE GRANULAR TEST EXPANSION")
+    logger.info("=" * 70)
     
     mock_conn = create_mock_connection()
     trader = MT5Trader(mock_conn)
@@ -409,7 +412,7 @@ def test_massive_granular_expansion():
             passed += 1
         log_test(f"Close retry: {attempts_needed} attempts", success)
     
-    print(f"\n  Granular expansion tests: {passed}/{total} passed")
+    logger.info(f"\n  Granular expansion tests: {passed}/{total} passed")
     return passed == total
 
 

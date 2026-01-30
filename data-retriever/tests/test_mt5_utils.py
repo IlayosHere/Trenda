@@ -14,7 +14,9 @@ import MetaTrader5 as mt5
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from externals.meta_trader.connection import MT5Connection
-from configuration.broker_config import MT5_MAGIC_NUMBER
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 # Test configuration constants
 SYMBOL = "EURUSD"
@@ -134,8 +136,10 @@ def log_test(name: str, passed: bool, details: str = ""):
         passed: Whether the test passed.
         details: Optional additional details to log (typically for failures).
     """
-    # Use ASCII-safe characters for Windows compatibility
     status = "[PASS]" if passed else "[FAIL]"
-    print(f"  {status}: {name}")
-    if details and not passed:
-        print(f"         {details}")
+    if passed:
+        logger.info(f"  {status}: {name}")
+    else:
+        logger.error(f"  {status}: {name}")
+        if details:
+            logger.error(f"         {details}")

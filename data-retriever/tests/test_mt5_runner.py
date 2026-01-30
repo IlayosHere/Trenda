@@ -18,6 +18,10 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def run_comprehensive_tests():
     """
@@ -30,9 +34,9 @@ def run_comprehensive_tests():
     Returns:
         bool: True if all test categories passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("MT5 COMPREHENSIVE TEST SUITE - 1000+ TEST CASES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("MT5 COMPREHENSIVE TEST SUITE - 1000+ TEST CASES")
+    logger.info("=" * 70)
     
     # Import all test modules
     from test_mt5_error_codes import test_all_mt5_error_codes
@@ -69,21 +73,24 @@ def run_comprehensive_tests():
             result = test_func()
             results.append((name, result))
         except Exception as e:
-            print(f"\n  ERROR in {name}: {str(e)}")
+            logger.error(f"ERROR in {name}: {str(e)}")
             import traceback
             traceback.print_exc()
             results.append((name, False))
     
-    print("\n" + "=" * 70)
-    print("FINAL SUMMARY")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("FINAL SUMMARY")
+    logger.info("=" * 70)
     for name, result in results:
-        status = "✓ PASSED" if result else "✗ FAILED"
-        print(f"  {status}: {name}")
+        status = "PASSED" if result else "FAILED"
+        if result:
+            logger.info(f"  [{status}]: {name}")
+        else:
+            logger.error(f"  [{status}]: {name}")
     
     total_passed = sum(1 for _, result in results if result)
-    print(f"\n  Total: {total_passed}/{len(results)} categories passed")
-    print("=" * 70)
+    logger.info(f"Total: {total_passed}/{len(results)} categories passed")
+    logger.info("=" * 70)
     
     return all(result for _, result in results)
 

@@ -22,9 +22,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import MetaTrader5 as mt5
 from externals.meta_trader.trading import MT5Trader
 from test_mt5_utils import (
-    setup_mock_mt5, create_mock_connection, create_symbol_info,
+    create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_all_mt5_error_codes():
@@ -38,9 +41,9 @@ def test_all_mt5_error_codes():
     Returns:
         bool: True if all error code tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 1: ALL MT5 ERROR CODES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 1: ALL MT5 ERROR CODES")
+    logger.info("=" * 70)
     
     # Define all known MT5 error codes with descriptions
     error_codes = {
@@ -138,7 +141,7 @@ def test_all_mt5_error_codes():
         if success:
             passed += 1
     
-    print(f"\n  Error code tests: {passed}/{len(error_codes)} passed")
+    logger.info(f"\n  Error code tests: {passed}/{len(error_codes)} passed")
     return passed == len(error_codes)
 
 

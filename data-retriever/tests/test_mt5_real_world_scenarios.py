@@ -23,9 +23,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import MetaTrader5 as mt5
 from externals.meta_trader.trading import MT5Trader
 from test_mt5_utils import (
-    setup_mock_mt5, create_mock_connection, create_symbol_info,
+    create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_real_world_scenarios():
@@ -38,9 +41,9 @@ def test_real_world_scenarios():
     Returns:
         bool: True if all real-world scenario tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 12: REAL-WORLD TRADING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 12: REAL-WORLD TRADING SCENARIOS")
+    logger.info("=" * 70)
     
     passed = 0
     total = 0
@@ -118,7 +121,7 @@ def test_real_world_scenarios():
         passed += 1
     log_test("Requote scenario", result is not None)
     
-    print(f"\n  Real-world scenario tests: {passed}/{total} passed")
+    logger.info(f"\n  Real-world scenario tests: {passed}/{total} passed")
     return passed == total
 
 

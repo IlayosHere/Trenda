@@ -17,30 +17,20 @@ This test suite covers:
 
 import sys
 import os
-import time
 import threading
-from unittest.mock import MagicMock, patch, Mock
-from typing import List, Tuple, Optional
-import random
+from unittest.mock import MagicMock, patch
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 import MetaTrader5 as mt5
-from externals.meta_trader import (
-    initialize_mt5,
-    shutdown_mt5,
-    place_order,
-    close_position,
-    verify_position_consistency,
-)
 from externals.meta_trader.connection import MT5Connection
 from externals.meta_trader.trading import MT5Trader
 from configuration.broker_config import (
-    MT5_MAGIC_NUMBER, MT5_EMERGENCY_MAGIC_NUMBER, MT5_DEVIATION,
-    MT5_EXPIRATION_SECONDS, MT5_CLOSE_RETRY_ATTEMPTS,
-    MT5_SL_TP_THRESHOLD_MULTIPLIER, MT5_PRICE_THRESHOLD_FALLBACK,
-    MT5_VERIFICATION_SLEEP
+    MT5_MAGIC_NUMBER
 )
 
 # Test configuration
@@ -56,9 +46,9 @@ def log_test(name: str, passed: bool, details: str = ""):
     """Log test result."""
     status = "✓ PASS" if passed else "✗ FAIL"
     test_results.append((name, passed, details))
-    print(f"  {status}: {name}")
+    logger.info(f"  {status}: {name}")
     if details and not passed:
-        print(f"         {details}")
+        logger.info(f"         {details}")
 
 
 def setup_mock_mt5(mock_mt5):
@@ -95,9 +85,9 @@ def setup_mock_mt5(mock_mt5):
 
 def test_all_mt5_error_codes():
     """Test handling of all MT5 error codes."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 1: ALL MT5 ERROR CODES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 1: ALL MT5 ERROR CODES")
+    logger.info("=" * 70)
     
     error_codes = {
         10004: "Requote - price changed",
@@ -207,7 +197,7 @@ def test_all_mt5_error_codes():
         if success:
             passed += 1
     
-    print(f"\n  Error code tests: {passed}/{len(error_codes)} passed")
+    logger.info(f"\n  Error code tests: {passed}/{len(error_codes)} passed")
     return passed == len(error_codes)
 
 
@@ -217,9 +207,9 @@ def test_all_mt5_error_codes():
 
 def test_price_movement_scenarios():
     """Test various price movement scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 2: PRICE MOVEMENT & SLIPPAGE SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 2: PRICE MOVEMENT & SLIPPAGE SCENARIOS")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -285,7 +275,7 @@ def test_price_movement_scenarios():
         if success:
             passed += 1
     
-    print(f"\n  Price movement tests: {passed}/{len(scenarios)} passed")
+    logger.info(f"\n  Price movement tests: {passed}/{len(scenarios)} passed")
     return passed == len(scenarios)
 
 
@@ -295,9 +285,9 @@ def test_price_movement_scenarios():
 
 def test_order_expiration_scenarios():
     """Test order expiration scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 3: ORDER EXPIRATION & TIMING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 3: ORDER EXPIRATION & TIMING SCENARIOS")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -348,7 +338,7 @@ def test_order_expiration_scenarios():
         else:
             log_test(f"Expiration: time={current_time}, seconds={exp_seconds}", False)
     
-    print(f"\n  Expiration tests: {passed}/{len(scenarios)} passed")
+    logger.info(f"\n  Expiration tests: {passed}/{len(scenarios)} passed")
     return passed == len(scenarios)
 
 
@@ -358,9 +348,9 @@ def test_order_expiration_scenarios():
 
 def test_network_failure_scenarios():
     """Test network and connection failure scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 4: NETWORK & CONNECTION FAILURES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 4: NETWORK & CONNECTION FAILURES")
+    logger.info("=" * 70)
     
     passed = 0
     
@@ -423,7 +413,7 @@ def test_network_failure_scenarios():
     if success:
         passed += 1
     
-    print(f"\n  Network failure tests: {passed}/3 passed")
+    logger.info(f"\n  Network failure tests: {passed}/3 passed")
     return passed == 3
 
 
@@ -433,9 +423,9 @@ def test_network_failure_scenarios():
 
 def test_broker_rejection_scenarios():
     """Test broker rejection scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 5: BROKER REJECTIONS & MARKET CONDITIONS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 5: BROKER REJECTIONS & MARKET CONDITIONS")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -485,7 +475,7 @@ def test_broker_rejection_scenarios():
     if success:
         passed += 1
     
-    print(f"\n  Broker rejection tests: {passed}/{total} passed")
+    logger.info(f"\n  Broker rejection tests: {passed}/{total} passed")
     return passed == total
 
 
@@ -495,9 +485,9 @@ def test_broker_rejection_scenarios():
 
 def test_parameter_edge_cases():
     """Test edge cases with all parameters."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 6: EDGE CASES WITH ALL PARAMETERS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 6: EDGE CASES WITH ALL PARAMETERS")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -574,7 +564,7 @@ def test_parameter_edge_cases():
         if success:
             passed += 1
     
-    print(f"\n  Parameter edge case tests: {passed}/{total} passed")
+    logger.info(f"\n  Parameter edge case tests: {passed}/{total} passed")
     return passed == total
 
 
@@ -584,9 +574,9 @@ def test_parameter_edge_cases():
 
 def test_realtime_trading_scenarios():
     """Test real-time trading scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 7: REAL-TIME TRADING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 7: REAL-TIME TRADING SCENARIOS")
+    logger.info("=" * 70)
     
     # This would require actual MT5 connection
     # For now, we'll test the logic with mocks
@@ -636,9 +626,9 @@ def test_realtime_trading_scenarios():
 
 def test_all_validation_paths():
     """Test all validation paths."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 8: VALIDATION PATH TESTS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 8: VALIDATION PATH TESTS")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -751,7 +741,7 @@ def test_all_validation_paths():
         passed += 1
     log_test("Tick info failure", result is None)
     
-    print(f"\n  Validation path tests: {passed}/{total} passed")
+    logger.info(f"\n  Validation path tests: {passed}/{total} passed")
     return passed == total
 
 
@@ -761,9 +751,9 @@ def test_all_validation_paths():
 
 def test_concurrency_scenarios():
     """Test concurrency and race condition scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 9: CONCURRENCY & RACE CONDITIONS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 9: CONCURRENCY & RACE CONDITIONS")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -811,9 +801,9 @@ def test_concurrency_scenarios():
 
 def test_position_verification_edge_cases():
     """Test position verification edge cases."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 10: POSITION VERIFICATION EDGE CASES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 10: POSITION VERIFICATION EDGE CASES")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -995,7 +985,7 @@ def test_position_verification_edge_cases():
         passed += 1
     log_test("Exact match verification", result is True)
     
-    print(f"\n  Position verification tests: {passed}/{total} passed")
+    logger.info(f"\n  Position verification tests: {passed}/{total} passed")
     return passed == total
 
 
@@ -1005,9 +995,9 @@ def test_position_verification_edge_cases():
 
 def test_massive_granular_expansion():
     """Massive expansion with hundreds of granular test cases."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 11: MASSIVE GRANULAR TEST EXPANSION")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 11: MASSIVE GRANULAR TEST EXPANSION")
+    logger.info("=" * 70)
     
     mock_conn = MagicMock(spec=MT5Connection)
     mock_conn.initialize.return_value = True
@@ -1327,7 +1317,7 @@ def test_massive_granular_expansion():
             passed += 1
         log_test(f"Close retry: {attempts_needed} attempts", success)
     
-    print(f"\n  Granular expansion tests: {passed}/{total} passed")
+    logger.info(f"\n  Granular expansion tests: {passed}/{total} passed")
     return passed == total
 
 
@@ -1337,9 +1327,9 @@ def test_massive_granular_expansion():
 
 def test_real_world_scenarios():
     """Test real-world trading scenarios."""
-    print("\n" + "=" * 70)
-    print("CATEGORY 12: REAL-WORLD TRADING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 12: REAL-WORLD TRADING SCENARIOS")
+    logger.info("=" * 70)
     
     passed = 0
     total = 0
@@ -1421,7 +1411,7 @@ def test_real_world_scenarios():
         passed += 1
     log_test("Requote scenario", result is not None)
     
-    print(f"\n  Real-world scenario tests: {passed}/{total} passed")
+    logger.info(f"\n  Real-world scenario tests: {passed}/{total} passed")
     return passed == total
 
 
@@ -1431,9 +1421,9 @@ def test_real_world_scenarios():
 
 def run_comprehensive_tests():
     """Run all comprehensive tests."""
-    print("\n" + "=" * 70)
-    print("MT5 COMPREHENSIVE TEST SUITE - 1000+ TEST CASES")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("MT5 COMPREHENSIVE TEST SUITE - 1000+ TEST CASES")
+    logger.info("=" * 70)
     
     categories = [
         ("All MT5 Error Codes", test_all_mt5_error_codes),
@@ -1456,20 +1446,20 @@ def run_comprehensive_tests():
             result = test_func()
             results.append((name, result))
         except Exception as e:
-            print(f"\n  ERROR in {name}: {str(e)}")
+            logger.info(f"\n  ERROR in {name}: {str(e)}")
             results.append((name, False))
     
-    print("\n" + "=" * 70)
-    print("FINAL SUMMARY")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("FINAL SUMMARY")
+    logger.info("=" * 70)
     for name, result in results:
         status = "✓ PASSED" if result else "✗ FAILED"
-        print(f"  {status}: {name}")
+        logger.info(f"  {status}: {name}")
     
     total_passed = sum(1 for _, result in results if result)
-    print(f"\n  Total: {total_passed}/{len(results)} categories passed")
-    print(f"  Individual tests: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} passed")
-    print("=" * 70)
+    logger.info(f"\n  Total: {total_passed}/{len(results)} categories passed")
+    logger.info(f"  Individual tests: {sum(1 for _, p, _ in test_results if p)}/{len(test_results)} passed")
+    logger.info("=" * 70)
     
     return all(result for _, result in results)
 

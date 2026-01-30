@@ -14,7 +14,6 @@ This test suite covers:
 import sys
 import os
 import threading
-from unittest.mock import MagicMock
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -26,6 +25,8 @@ from test_mt5_utils import (
     SYMBOL, log_test
 )
 
+from logger import get_logger
+logger = get_logger(__name__)
 
 def test_concurrency_scenarios():
     """
@@ -38,9 +39,9 @@ def test_concurrency_scenarios():
     Returns:
         bool: True if all concurrency tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 9: CONCURRENCY & RACE CONDITIONS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 9: CONCURRENCY & RACE CONDITIONS")
+    logger.info("=" * 70)
     
     # Create mock connection with real lock for testing
     from unittest.mock import MagicMock

@@ -24,6 +24,9 @@ from test_mt5_utils import (
     create_mock_connection, create_symbol_info,
     SYMBOL, log_test
 )
+from logger import get_logger
+logger = get_logger(__name__)
+
 
 
 def test_realtime_trading_scenarios():
@@ -37,9 +40,9 @@ def test_realtime_trading_scenarios():
     Returns:
         bool: True if all real-time trading tests passed, False otherwise.
     """
-    print("\n" + "=" * 70)
-    print("CATEGORY 7: REAL-TIME TRADING SCENARIOS")
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("CATEGORY 7: REAL-TIME TRADING SCENARIOS")
+    logger.info("=" * 70)
     
     # Create mock connection
     sym_info = create_symbol_info()

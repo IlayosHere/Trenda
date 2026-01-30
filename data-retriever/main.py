@@ -9,8 +9,6 @@ This module handles:
 For detailed explanation of the trading lock mechanism, see TRADING_LOCK_MECHANISM.md
 """
 import os
-import sys
-import core.env
 import time
 from scheduler import scheduler
 from externals import meta_trader

@@ -7,28 +7,26 @@ then persists to the replay schema with idempotency checks.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 
 import pandas as pd
 
 from models import AOIZone, TrendDirection
-from models.market import Candle, SignalData
 from entry.pattern_finder import find_entry_pattern
 from entry.gates import check_all_gates
-from entry.gates.config import SL_MODEL_NAME, SL_BUFFER_ATR, RR_MULTIPLE
 from entry.scoring import calculate_score, ScoreResult
 from utils.indicators import calculate_atr
 
 from .market_state import SymbolState
 from .candle_store import CandleStore
-from .config import LOOKBACK_1H, TIMEFRAME_1H, SL_MODEL_VERSION, TP_MODEL_VERSION
+from .config import LOOKBACK_1H, SL_MODEL_VERSION, TP_MODEL_VERSION
 from .replay_queries import (
     CHECK_SIGNAL_EXISTS,
     GET_SIGNAL_ID,
     GET_RELATED_SIGNAL_TRADE_ID,
     INSERT_REPLAY_ENTRY_SIGNAL,
 )
-from .lightweight_htf_context import compute_lightweight_htf_context, LightweightHTFContext
+from .lightweight_htf_context import compute_lightweight_htf_context
 
 
 class ReplaySignalDetector:
