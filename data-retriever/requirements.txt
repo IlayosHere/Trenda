@@ -7,3 +7,5 @@ requests
 numpy
 pandas_ta
 scipy
+pytest
+pytest-mock
