@@ -38,7 +38,7 @@ def main():
     if platform.system() != "Windows":
         # Linux/Docker environment - use mt5linux bridge defaults or env vars
         mt5_kwargs = {
-            "host": os.getenv("MT5_HOST", "host.docker.internal"),
+            "host": os.getenv("MT5_HOST", "localhost"),
             "port": int(os.getenv("MT5_PORT", 18812))
         }
         logger.info(f"Configuring MT5 for Linux bridge: {mt5_kwargs}")

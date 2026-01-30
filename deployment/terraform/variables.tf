@@ -66,7 +66,7 @@ variable "db_name" {
 variable "db_user" {
   description = "PostgreSQL database user"
   type        = string
-  default     = "trenda_app"
+  default     = "postgres"
 }
 
 variable "db_password" {

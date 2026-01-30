@@ -1,13 +1,4 @@
-# ============================================================================
-# Compute Engine Instance Configuration
-# Docker host running the MT5 trading application
-# ============================================================================
-
-# -----------------------------------------------------------------------------
-# Compute Engine Instance
-# -----------------------------------------------------------------------------
-
-resource "google_compute_instance" "main" {
+resource "google_compute_instance" "app_server" {
   name         = "${var.app_name}-vm-${var.environment}"
   machine_type = var.vm_machine_type
   zone         = var.zone
@@ -23,67 +14,37 @@ resource "google_compute_instance" "main" {
   }
 
   network_interface {
-    subnetwork = google_compute_subnetwork.private.id
-
-    # No external IP - uses Cloud NAT for outbound access
-    # Uncomment below to enable external IP for debugging
-    # access_config {}
+    subnetwork = google_compute_subnetwork.private_subnet.id
   }
 
   service_account {
-    email  = google_service_account.vm.email
+    email  = google_service_account.app_sa.email
     scopes = ["cloud-platform"]
   }
 
-  # Startup script to install Docker and run container
   metadata_startup_script = <<-SCRIPT
     #!/bin/bash
     set -e
-
-    echo "=== Starting VM Startup Script ==="
-
-    # Update system
     apt-get update -y
-    apt-get upgrade -y
-
-    # Install Docker
     if ! command -v docker &> /dev/null; then
-      echo "Installing Docker..."
       apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
-      
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-      
       echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      
       apt-get update -y
       apt-get install -y docker-ce docker-ce-cli containerd.io
-      
       systemctl enable docker
       systemctl start docker
-      
-      echo "Docker installed successfully"
     fi
-
-    # Configure Docker authentication for Artifact Registry
-    echo "Configuring Docker authentication..."
     gcloud auth configure-docker ${var.region}-docker.pkg.dev --quiet
-
-    # Pull the latest image
     DOCKER_IMAGE="${var.region}-docker.pkg.dev/${var.project_id}/${var.app_name}-docker/${var.app_name}:${var.docker_image_tag}"
-    echo "Pulling Docker image: $DOCKER_IMAGE"
     docker pull $DOCKER_IMAGE
-
-    # Stop and remove existing container if running
     docker stop ${var.app_name} 2>/dev/null || true
     docker rm ${var.app_name} 2>/dev/null || true
-
-    # Run the container
-    echo "Starting container..."
     docker run -d \
       --name ${var.app_name} \
       --restart unless-stopped \
       -p ${var.app_port}:${var.app_port} \
-      -e DB_HOST="${google_sql_database_instance.main.private_ip_address}" \
+      -e DB_HOST="${google_sql_database_instance.postgres_instance.private_ip_address}" \
       -e DB_PORT="5432" \
       -e DB_NAME="${var.db_name}" \
       -e DB_USER="${var.db_user}" \
@@ -93,50 +54,34 @@ resource "google_compute_instance" "main" {
       -e MT5_PASSWORD="${var.mt5_password}" \
       -e MT5_SERVER="${var.mt5_server}" \
       $DOCKER_IMAGE
-
-    echo "=== VM Startup Script Complete ==="
   SCRIPT
 
-  # Ensure the VM is recreated when startup script changes
   metadata = {
-    startup-script-hash = md5(<<-SCRIPT
-      docker-image=${var.region}-docker.pkg.dev/${var.project_id}/${var.app_name}-docker/${var.app_name}:${var.docker_image_tag}
-    SCRIPT
-    )
+    startup-script-hash = md5("${var.docker_image_tag}-${var.run_mode}")
   }
 
-  # Shielded VM configuration
   shielded_instance_config {
     enable_secure_boot          = true
-    enable_vtpm                 = true
+    enable_vtpm                  = true
     enable_integrity_monitoring = true
   }
 
-  # Allow stopping for updates
   allow_stopping_for_update = true
 
-  # Depends on database and registry being ready
   depends_on = [
-    google_sql_database_instance.main,
+    google_sql_database_instance.postgres_instance,
     google_artifact_registry_repository.main
   ]
 }
 
-# -----------------------------------------------------------------------------
-# Outputs
-# -----------------------------------------------------------------------------
-
 output "vm_internal_ip" {
-  value       = google_compute_instance.main.network_interface[0].network_ip
-  description = "Internal IP address of the VM"
+  value = google_compute_instance.app_server.network_interface[0].network_ip
 }
 
 output "vm_name" {
-  value       = google_compute_instance.main.name
-  description = "Name of the VM instance"
+  value = google_compute_instance.app_server.name
 }
 
 output "ssh_command" {
-  value       = "gcloud compute ssh ${google_compute_instance.main.name} --zone=${var.zone} --tunnel-through-iap"
-  description = "Command to SSH into the VM through IAP"
+  value = "gcloud compute ssh ${google_compute_instance.app_server.name} --zone=${var.zone} --tunnel-through-iap"
 }
