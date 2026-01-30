@@ -10,6 +10,7 @@ The shutdown process:
 """
 import sys
 from logger import get_logger
+from notifications import notify
 
 logger = get_logger(__name__)
 
@@ -73,6 +74,12 @@ def shutdown_system(reason: str):
         reason: Clear explanation of why the system is shutting down
     """
     logger.critical(f"🛑 SYSTEM SHUTDOWN: {reason}")
+    
+    # Send critical shutdown notification
+    notify("critical_shutdown", {
+        "reason": reason,
+        "component": "TradingSystem",
+    })
     
     # Create lock file to prevent trading on restart
     try:

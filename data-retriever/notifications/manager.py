@@ -2,6 +2,7 @@
 NotificationManager - Main entry point for the notification system.
 
 Orchestrates template lookup, rendering, and Discord delivery.
+Routes notifications to the appropriate Discord channel.
 """
 
 import logging
@@ -24,6 +25,9 @@ class NotificationManager:
     All notifications are best-effort: failures are logged but never
     raised to callers.
     
+    Notifications are routed to the appropriate Discord channel based
+    on the event type's template configuration.
+    
     Usage:
         config = load_config_from_env()
         manager = NotificationManager(config)
@@ -44,10 +48,11 @@ class NotificationManager:
         """Log startup configuration status."""
         if not self._config.enabled:
             logger.info("NotificationManager initialized (notifications disabled)")
-        elif not self._config.webhook_url:
-            logger.warning("NotificationManager: webhook URL not configured")
+        elif not self._config.webhook_urls:
+            logger.warning("NotificationManager: no webhook URLs configured")
         else:
-            logger.info("NotificationManager initialized successfully")
+            channels = list(self._config.webhook_urls.keys())
+            logger.info(f"NotificationManager initialized with channels: {channels}")
     
     def notify(self, event_type: str, payload: Dict) -> None:
         """
@@ -56,13 +61,15 @@ class NotificationManager:
         This is the single public method for all notifications.
         Failures are logged but never raised.
         
+        The notification is routed to the appropriate Discord channel
+        based on the template's channel configuration.
+        
         Args:
             event_type: The type of event (maps to a template)
             payload: Dictionary of values to render into the template
         """
-        # Check if notifications are configured and enabled
-        if not self._config.is_valid():
-            logger.debug(f"Notification skipped (not configured): {event_type}")
+        if not self._config.enabled:
+            logger.debug(f"Notification skipped (disabled): {event_type}")
             return
         
         try:
@@ -82,6 +89,15 @@ class NotificationManager:
             logger.warning(f"No template for event type: {event_type}")
             return
         
+        # Get webhook URL for the template's channel
+        webhook_url = self._config.get_webhook_url(template.channel)
+        if not webhook_url:
+            logger.debug(
+                f"No webhook configured for channel '{template.channel}' "
+                f"(event: {event_type})"
+            )
+            return
+        
         # Validate required fields
         if not validate_required_fields(template, payload):
             missing = get_missing_fields(template, payload)
@@ -95,33 +111,34 @@ class NotificationManager:
         
         # Send via Discord
         success = send_message(
-            self._config.webhook_url,
+            webhook_url,
             message,
             self._config.timeout,
         )
         
         if success:
-            logger.debug(f"Notification sent: {event_type}")
+            logger.debug(f"Notification sent: {event_type} -> {template.channel}")
         else:
             logger.warning(f"Notification delivery failed: {event_type}")
     
     def _get_template(self, event_type: str) -> Optional[MessageTemplate]:
         """
-        Get template for event type, falling back to generic if not found.
+        Get template for event type.
         
         Args:
             event_type: The event type to look up
             
         Returns:
-            MessageTemplate or None if not found and no generic fallback
+            MessageTemplate or None if not found
         """
-        template = get_template(event_type)
-        if template is None:
-            # Try generic fallback
-            template = get_template("generic")
-        return template
+        return get_template(event_type)
     
     @property
     def is_enabled(self) -> bool:
-        """Check if the notification manager is enabled and configured."""
-        return self._config.is_valid()
+        """Check if the notification manager is enabled."""
+        return self._config.enabled
+    
+    @property
+    def configured_channels(self) -> list:
+        """Return list of configured channel names."""
+        return list(self._config.webhook_urls.keys())

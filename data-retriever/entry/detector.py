@@ -28,6 +28,7 @@ from models.market import SignalData
 from trend.bias import get_overall_trend, get_trend_by_timeframe
 from utils.indicators import calculate_atr
 from logger import get_logger
+from notifications import notify
 
 logger = get_logger(__name__)
 
@@ -264,7 +265,20 @@ def _process_symbol(
                 logger.warning(f"    ⚠️ Pattern found but no live execution data for {symbol}")
                 continue
 
-            # TODO: ADD HERE WHATSAPP NOTIFICATIONS with execution data
+            # Send signal detected notification
+            notify("signal_detected", {
+                "symbol": symbol,
+                "direction": ctx.direction.value,
+                "signal_time": str(ctx.signal_time),
+                "entry_price": f"{execution.entry_price:.5f}",
+                "sl_price": f"{execution.sl_price:.5f}",
+                "tp_price": f"{execution.tp_price:.5f}",
+                "lot_size": f"{execution.lot_size}",
+                "aoi_range": f"{aoi.lower:.5f} - {aoi.upper:.5f}",
+                "aoi_timeframe": aoi.timeframe,
+                "score": f"{ctx.score_result.total_score:.2f}",
+                "atr_1h": f"{ctx.atr_1h:.5f}",
+            })
             
             # Place MT5 order (only if MT5 module is available)
             if mt5:
@@ -287,13 +301,34 @@ def _process_symbol(
                 )
                 
                 if order_result is None or (hasattr(order_result, 'retcode') and order_result.retcode != mt5.TRADE_RETCODE_DONE):
+                    error_code = getattr(order_result, 'retcode', 'N/A') if order_result else 'None'
                     logger.error(f"    ❌ MT5 order failed for {symbol}. Skipping signal storage.")
+                    notify("trade_failed", {
+                        "symbol": symbol,
+                        "direction": ctx.direction.value,
+                        "price": f"{execution.entry_price:.5f}",
+                        "lot_size": f"{execution.lot_size}",
+                        "error_code": str(error_code),
+                        "reason": f"MT5 order placement failed (code: {error_code})",
+                    })
                     continue
                 
                 logger.info(
                     f"    💰 MT5 ORDER PLACED: Ticket #{order_result.order} | "
                     f"{ctx.direction.value} {symbol} @ {execution.entry_price:.5f}"
                 )
+                
+                # Send trade opened notification
+                notify("trade_opened", {
+                    "symbol": symbol,
+                    "direction": ctx.direction.value,
+                    "entry_price": f"{execution.entry_price:.5f}",
+                    "lot_size": f"{execution.lot_size}",
+                    "sl_price": f"{execution.sl_price:.5f}",
+                    "tp_price": f"{execution.tp_price:.5f}",
+                    "ticket": str(order_result.order),
+                    "score": f"{ctx.score_result.total_score:.2f}",
+                })
                 
                 # Verify position consistency (SL/TP, Volume, Price)
                 is_consistent = verify_position_consistency(
@@ -306,8 +341,25 @@ def _process_symbol(
                 
                 if not is_consistent:
                     logger.error(f"    ❌ Verification failed for {symbol}: Position mismatch or excessive slippage. Trade CLOSED.")
+                    notify("position_verification_failed", {
+                        "symbol": symbol,
+                        "ticket": str(order_result.order),
+                        "expected_sl": f"{execution.sl_price:.5f}",
+                        "expected_tp": f"{execution.tp_price:.5f}",
+                        "issue": "Position mismatch or excessive slippage",
+                    })
                     # Stop processing other AOIs for this symbol to avoid rapid re-entry (churning)
                     break
+                else:
+                    # Send position verification success notification
+                    notify("position_verification_success", {
+                        "symbol": symbol,
+                        "ticket": str(order_result.order),
+                        "entry_price": f"{execution.entry_price:.5f}",
+                        "sl_price": f"{execution.sl_price:.5f}",
+                        "tp_price": f"{execution.tp_price:.5f}",
+                        "volume": f"{execution.lot_size}",
+                    })
             else:
                 logger.warning(f"    ⚠️ MT5 not available. Skipping order placement for {symbol}.")
                 logger.error("    ❌ MT5 module missing. Skipping signal storage.")

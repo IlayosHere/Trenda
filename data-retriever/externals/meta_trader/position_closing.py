@@ -7,6 +7,7 @@ from configuration.broker_config import (
 from .safeguards import _trading_lock
 from .types import CloseAttemptStatus
 from .error_categorization import MT5ErrorCategorizer, ErrorCategory
+from notifications import notify
 
 logger = get_logger(__name__)
 
@@ -39,6 +40,14 @@ class PositionCloser:
             # All retry attempts exhausted - this is a critical failure
             error_message = f"Failed to close position {ticket} after {MT5_CLOSE_RETRY_ATTEMPTS} attempts"
             logger.critical(f"CRITICAL FAILURE: {error_message}")
+            
+            # Send position close failed notification
+            notify("position_close_failed", {
+                "symbol": "Unknown",
+                "ticket": str(ticket),
+                "attempts": str(MT5_CLOSE_RETRY_ATTEMPTS),
+                "error": error_message,
+            })
             
             # Create lock file to prevent trading on restart
             try:
@@ -167,6 +176,14 @@ class PositionCloser:
                 return False
 
         logger.info(f"Position {ticket} closed and verified successfully.")
+        
+        # Send position closed notification
+        notify("position_closed", {
+            "symbol": "N/A",  # Symbol not available at this point
+            "ticket": str(ticket),
+            "reason": "Verified close",
+        })
+        
         return True
 
     def _get_active_position(self, ticket: int) -> Optional[Any]:
