@@ -1,11 +1,11 @@
-mt5linux
 APScheduler
-pandas
 python-dotenv
 psycopg2-binary
 requests
-numpy
-pandas_ta
-scipy
 pytest
 pytest-mock
+pandas>=1.5.0
+numpy>=1.21.0
+pandas-ta>=0.3.14b
+scipy
+mt5linux

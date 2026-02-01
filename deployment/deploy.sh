@@ -201,8 +201,8 @@ if [ "$SKIP_BUILD" = false ]; then
     
     # Build Docker image
     echo "    Building Docker image..."
-    cd "$SCRIPT_DIR"
-    docker build -t "$IMAGE_URL" -f Dockerfile "$DATA_RETRIEVER_DIR"
+    cd "$(dirname "$SCRIPT_DIR")"  # Go to project root
+    docker build -t "$IMAGE_URL" -f deployment/Dockerfile .
     success "Built: $IMAGE_URL"
     
     # Push Docker image

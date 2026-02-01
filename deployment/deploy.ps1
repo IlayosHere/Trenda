@@ -162,8 +162,9 @@ if (-not $SkipBuild) {
     
     # Build Docker image
     Write-Host "    Building Docker image..."
-    Push-Location $SCRIPT_DIR
-    docker build -t $IMAGE_URL -f Dockerfile $DATA_RETRIEVER_DIR
+    $PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
+    Push-Location $PROJECT_ROOT
+    docker build -t $IMAGE_URL -f deployment/Dockerfile .
     if ($LASTEXITCODE -ne 0) {
         Write-Failure "Docker build failed"
         Pop-Location
