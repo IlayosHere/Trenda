@@ -4,8 +4,6 @@ psycopg2-binary
 requests
 pytest
 pytest-mock
-pandas>=1.5.0
-numpy>=1.21.0
-pandas-ta>=0.3.14b
+pandas>=2.0.0
+numpy>=1.24.0
 scipy
-mt5linux
