@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from .config import TIMEFRAME_HOURS
+
 import pandas as pd
 
 from .config import (
@@ -50,10 +52,29 @@ class TimeframeCandles:
         return self.candles.empty
     
     def get_candles_up_to(self, as_of_time: datetime) -> pd.DataFrame:
-        """Return candles where time <= as_of_time (closed candles only)."""
+        """Return only closed candles as of the given time.
+        
+        For HTF candles, we must filter by CLOSE time, not open time.
+        A 4H candle opening at 08:00 closes at 12:00 - it should NOT
+        be included if as_of_time is 09:00 (candle not yet closed).
+        
+        Args:
+            as_of_time: The simulation time (usually 1H candle close)
+            
+        Returns:
+            DataFrame of candles that have CLOSED at or before as_of_time
+        """
         if self.is_empty:
             return pd.DataFrame()
-        return self.candles[self.candles["time"] <= as_of_time].copy()
+        
+        # Get duration for this timeframe
+        duration_hours = TIMEFRAME_HOURS.get(self.timeframe, 1)
+        duration = timedelta(hours=duration_hours)
+        
+        # Filter by close time: candle closes at open_time + duration
+        # A candle is closed when open_time + duration <= as_of_time
+        close_times = self.candles["time"] + duration
+        return self.candles[close_times <= as_of_time].copy()
     
     def get_candle_at_index(self, index: int) -> Optional[pd.Series]:
         """Get candle at specific index (0-based)."""
@@ -103,10 +124,20 @@ class TimeframeCandles:
         return int(matches.index[0])
     
     def get_last_closed_index(self, as_of_time: datetime) -> Optional[int]:
-        """Return index of the last candle where time <= as_of_time."""
+        """Return index of the last fully closed candle as of the given time.
+        
+        Uses close time (open + duration) to determine if a candle is closed.
+        """
         if self.is_empty:
             return None
-        closed = self.candles[self.candles["time"] <= as_of_time]
+        
+        # Get duration for this timeframe
+        duration_hours = TIMEFRAME_HOURS.get(self.timeframe, 1)
+        duration = timedelta(hours=duration_hours)
+        
+        # Filter by close time
+        close_times = self.candles["time"] + duration
+        closed = self.candles[close_times <= as_of_time]
         if closed.empty:
             return None
         return int(closed.index[-1])

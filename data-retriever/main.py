@@ -8,6 +8,10 @@ This module handles:
 
 For detailed explanation of the trading lock mechanism, see TRADING_LOCK_MECHANISM.md
 """
+# IMPORTANT: Load environment variables FIRST before any other imports
+# This ensures .env values are available when database.py and other modules load
+from core import env  # noqa: F401
+
 import os
 import time
 from scheduler import scheduler
