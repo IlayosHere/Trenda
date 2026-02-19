@@ -32,6 +32,7 @@ class SLGeometryData:
     signal_candle_opposite_extreme_atr: float  # Distance to opposite extreme
     signal_candle_range_atr: float             # Total candle range
     signal_candle_body_atr: float              # Candle body size
+    lookahead_drift_atr: float                 # Price drift during lookahead period
 
 
 class SLGeometryCalculator:
@@ -89,6 +90,7 @@ class SLGeometryCalculator:
             signal_candle_opposite_extreme_atr=candle_geometry["opposite_extreme"],
             signal_candle_range_atr=candle_geometry["range"],
             signal_candle_body_atr=candle_geometry["body"],
+            lookahead_drift_atr=candle_geometry["drift"],
         )
     
     def _compute_aoi_edges(self) -> tuple[float, float]:
@@ -129,14 +131,19 @@ class SLGeometryCalculator:
         if self._is_long:
             # Bullish: opposite extreme is the low
             opposite_extreme = (self._entry_price - low) / self._atr
+            # Drift: (Close - Entry) / ATR
+            drift = (close - self._entry_price) / self._atr
         else:
             # Bearish: opposite extreme is the high
             opposite_extreme = (high - self._entry_price) / self._atr
+            # Drift: (Entry - Close) / ATR
+            drift = (self._entry_price - close) / self._atr
         
         return {
             "opposite_extreme": opposite_extreme,
             "range": candle_range,
             "body": body,
+            "drift": drift,
         }
 
 
@@ -157,6 +164,7 @@ def persist_sl_geometry(signal_id: int, data: SLGeometryData) -> None:
             data.signal_candle_opposite_extreme_atr,
             data.signal_candle_range_atr,
             data.signal_candle_body_atr,
+            data.lookahead_drift_atr,
         ),
         context="persist_sl_geometry",
     )

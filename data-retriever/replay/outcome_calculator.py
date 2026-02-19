@@ -17,7 +17,7 @@ from signal_outcome.outcome_calculator import compute_outcome
 from signal_outcome.models import PendingSignal
 
 from .candle_store import CandleStore
-from .config import OUTCOME_WINDOW_BARS, BATCH_SIZE
+from .config import OUTCOME_WINDOW_BARS, BATCH_SIZE, CHECKPOINT_BARS
 from .replay_queries import (
     FETCH_PENDING_REPLAY_SIGNALS,
     INSERT_REPLAY_SIGNAL_OUTCOME,
@@ -60,6 +60,14 @@ class ReplayOutcomeResult:
     checkpoint_returns: list
 
 
+@dataclass
+class CheckpointReturn:
+    """Return at a specific checkpoint bar."""
+    
+    bars_after: int
+    return_atr: float
+
+
 class ReplayOutcomeCalculator:
     """Computes outcomes for signals during replay.
     
@@ -84,17 +92,22 @@ class ReplayOutcomeCalculator:
         if idx is not None:
             self._signal_indices[signal_id] = idx
     
-    def compute_eligible_outcomes(self, current_1h_index: int) -> int:
+    def compute_eligible_outcomes(self, current_time: datetime) -> int:
         """Compute outcomes for signals that are now eligible.
         
-        A signal is eligible when 48 candles have passed since its signal time.
+        A signal is eligible when 72 1H candles have passed since its signal time.
+        Outcomes are always computed on 1H candles regardless of entry TF.
         
         Args:
-            current_1h_index: Current index in the 1H candle iteration
+            current_time: Current replay time (from whatever entry TF candle)
             
         Returns:
             Number of outcomes computed
         """
+        # Resolve current time to a 1H candle index
+        current_1h_index = self._store.get_1h_candles().find_index_by_time(current_time)
+        if current_1h_index is None:
+            return 0
         computed_count = 0
         
         # Fetch pending signals from replay DB (filtered by symbol and time range)
@@ -191,6 +204,14 @@ class ReplayOutcomeCalculator:
         
         outcome = compute_outcome(pending, candles)
         
+        # Compute checkpoint returns at bars 3, 6, 12, 24, 48, 72
+        checkpoint_returns = self._compute_checkpoint_returns(
+            candles=candles,
+            entry_price=signal.entry_price,
+            atr_1h=signal.atr_1h,
+            direction=direction,
+        )
+        
         # Build simplified result for replay
         replay_result = ReplayOutcomeResult(
             window_bars=outcome.window_bars,
@@ -199,7 +220,7 @@ class ReplayOutcomeCalculator:
             bars_to_mfe=outcome.bars_to_mfe,
             bars_to_mae=outcome.bars_to_mae,
             first_extreme=outcome.first_extreme,
-            checkpoint_returns=[],  # Replay uses its own checkpoint calculation
+            checkpoint_returns=checkpoint_returns,
         )
         
         # Persist main outcome atomically
@@ -215,6 +236,47 @@ class ReplayOutcomeCalculator:
             )
         
         return success
+    
+    def _compute_checkpoint_returns(
+        self,
+        candles: pd.DataFrame,
+        entry_price: float,
+        atr_1h: float,
+        direction: TrendDirection,
+    ) -> List[CheckpointReturn]:
+        """Compute return at each checkpoint bar.
+        
+        Returns signed return in ATR units:
+        - Positive = favorable (in direction of trade)
+        - Negative = adverse (against direction)
+        """
+        checkpoint_returns = []
+        
+        if candles.empty or atr_1h <= 0:
+            return checkpoint_returns
+        
+        for bar_idx in CHECKPOINT_BARS:
+            if bar_idx > len(candles):
+                break
+            
+            # Get close at checkpoint bar (bar_idx is 1-indexed, candles are 0-indexed)
+            bar_close = float(candles.iloc[bar_idx - 1]["close"])
+            
+            # Calculate return in ATR
+            raw_return = bar_close - entry_price
+            
+            # Sign based on direction (positive = favorable)
+            if direction == TrendDirection.BEARISH:
+                raw_return = -raw_return
+            
+            return_atr = raw_return / atr_1h
+            
+            checkpoint_returns.append(CheckpointReturn(
+                bars_after=bar_idx,
+                return_atr=return_atr,
+            ))
+        
+        return checkpoint_returns
     
     def _compute_exit_simulation_data(
         self,

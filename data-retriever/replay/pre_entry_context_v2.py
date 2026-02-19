@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from models import TrendDirection
+from trend.structure import SwingPoint, SWING_HIGH, SWING_LOW
 
 from .config import (
     PRE_ENTRY_V2_IMPULSE_THRESHOLD_ATR,
@@ -31,7 +32,11 @@ from .config import (
     SESSION_LONDON_END,
     SESSION_NY_START,
     SESSION_NY_END,
+    ACTIVE_PROFILE,
 )
+from trend.structure import get_swing_points, SwingPoint
+from configuration import require_analysis_params
+from utils.indicators import calculate_atr
 
 if TYPE_CHECKING:
     from .candle_store import CandleStore
@@ -43,16 +48,16 @@ class PreEntryContextV2Data:
     """Pre-entry market environment metrics computed at replay time."""
     
     # HTF Range Position
-    htf_range_position_daily: Optional[float] = None
-    htf_range_position_weekly: Optional[float] = None
+    htf_range_position_mid: Optional[float] = None
+    htf_range_position_high: Optional[float] = None
     
     # Distance to HTF Boundaries
-    distance_to_daily_high_atr: Optional[float] = None
-    distance_to_daily_low_atr: Optional[float] = None
-    distance_to_weekly_high_atr: Optional[float] = None
-    distance_to_weekly_low_atr: Optional[float] = None
-    distance_to_4h_high_atr: Optional[float] = None
-    distance_to_4h_low_atr: Optional[float] = None
+    distance_to_mid_tf_high_atr: Optional[float] = None
+    distance_to_mid_tf_low_atr: Optional[float] = None
+    distance_to_high_tf_high_atr: Optional[float] = None
+    distance_to_high_tf_low_atr: Optional[float] = None
+    distance_to_low_tf_high_atr: Optional[float] = None
+    distance_to_low_tf_low_atr: Optional[float] = None
     distance_to_next_htf_obstacle_atr: Optional[float] = None
     
     # Session Context
@@ -78,12 +83,12 @@ class PreEntryContextV2Data:
     distance_from_last_impulse_atr: Optional[float] = None
     
     # HTF Range Size (compressed vs expanded markets)
-    htf_range_size_daily_atr: Optional[float] = None
-    htf_range_size_weekly_atr: Optional[float] = None
+    htf_range_size_mid_atr: Optional[float] = None
+    htf_range_size_high_atr: Optional[float] = None
     
     # AOI Position Inside HTF Range
-    aoi_midpoint_range_position_daily: Optional[float] = None
-    aoi_midpoint_range_position_weekly: Optional[float] = None
+    aoi_midpoint_range_position_mid: Optional[float] = None
+    aoi_midpoint_range_position_high: Optional[float] = None
     
     # Break Candle Metrics
     break_impulse_range_atr: Optional[float] = None      # (high - low) / atr_1h
@@ -92,6 +97,52 @@ class PreEntryContextV2Data:
     
     # Retest Candle Metrics
     retest_candle_body_penetration: Optional[float] = None  # combined body ratio and penetration depth
+
+    # HTF Trend Quality Metrics
+    htf_slope_strength_low: Optional[float] = None
+    htf_slope_strength_mid: Optional[float] = None
+    htf_slope_strength_high: Optional[float] = None
+    
+    htf_impulse_ratio_low: Optional[float] = None
+    htf_impulse_ratio_mid: Optional[float] = None
+    htf_impulse_ratio_high: Optional[float] = None
+    
+    htf_struct_eff_low: Optional[float] = None
+    htf_struct_eff_mid: Optional[float] = None
+    htf_struct_eff_high: Optional[float] = None
+
+    # AOI Geometry Metrics
+    aoi_height_atr: Optional[float] = None
+    aoi_entry_depth: Optional[float] = None
+    aoi_compression_ratio: Optional[float] = None
+
+    # Break Candle Metrics
+    break_def_dist_from_balance_atr: Optional[float] = None
+    break_def_liquidity_sweep: Optional[bool] = None
+
+    # After-Break Candle Metrics
+    after_break_pullback_depth_atr: Optional[float] = None
+    after_break_close_dist_edge_atr: Optional[float] = None
+    after_break_range_compress_ratio: Optional[float] = None
+    after_break_range_compress_ratio: Optional[float] = None
+    after_break_retest_fail_flag: Optional[bool] = None
+
+    # Session Dynamics
+    session_transition_prox_flag: Optional[bool] = None
+    session_align_break_low: Optional[bool] = None
+    session_align_break_mid: Optional[bool] = None
+    session_align_break_mid: Optional[bool] = None
+    session_align_break_high: Optional[bool] = None
+
+    # Path-Risk Context
+    dist_nearest_opposing_liq_atr: Optional[float] = None
+    structure_density_behind_entry: Optional[float] = None
+    
+    # New Features
+    day_range_atr: Optional[float] = None
+    opposing_wick_ratio: Optional[float] = None
+
+
 
 
 def _to_python_float(value) -> Optional[float]:
@@ -112,6 +163,13 @@ def _to_python_int(value) -> Optional[int]:
     return int(value) if value is not None else None
 
 
+def _to_python_bool(value) -> Optional[bool]:
+    """Convert numpy types/int to native Python bool for DB compatibility."""
+    if value is None:
+        return None
+    return bool(value)
+
+
 class PreEntryContextV2Calculator:
     """Computes pre-entry market environment metrics from candle data.
     
@@ -130,6 +188,7 @@ class PreEntryContextV2Calculator:
         aoi_high: float,
         aoi_timeframe: str,
         state: "SymbolState",
+        is_break_candle_last: bool,  # New param
         break_candle: Optional[dict] = None,      # {open, high, low, close}
         retest_candle: Optional[dict] = None,     # {open, high, low, close}
     ):
@@ -144,6 +203,7 @@ class PreEntryContextV2Calculator:
         self._aoi_timeframe = aoi_timeframe
         self._state = state
         self._is_long = direction == TrendDirection.BULLISH
+        self._is_break_candle_last = is_break_candle_last
         self._break_candle = break_candle
         self._retest_candle = retest_candle
     
@@ -178,15 +238,15 @@ class PreEntryContextV2Calculator:
         
         return PreEntryContextV2Data(
             # HTF Range Position
-            htf_range_position_daily=_to_python_float(htf_range.get("daily")),
-            htf_range_position_weekly=_to_python_float(htf_range.get("weekly")),
+            htf_range_position_mid=_to_python_float(htf_range.get("daily")),
+            htf_range_position_high=_to_python_float(htf_range.get("weekly")),
             # HTF Distances
-            distance_to_daily_high_atr=_to_python_float(htf_distances.get("daily_high")),
-            distance_to_daily_low_atr=_to_python_float(htf_distances.get("daily_low")),
-            distance_to_weekly_high_atr=_to_python_float(htf_distances.get("weekly_high")),
-            distance_to_weekly_low_atr=_to_python_float(htf_distances.get("weekly_low")),
-            distance_to_4h_high_atr=_to_python_float(htf_distances.get("4h_high")),
-            distance_to_4h_low_atr=_to_python_float(htf_distances.get("4h_low")),
+            distance_to_mid_tf_high_atr=_to_python_float(htf_distances.get("daily_high")),
+            distance_to_mid_tf_low_atr=_to_python_float(htf_distances.get("daily_low")),
+            distance_to_high_tf_high_atr=_to_python_float(htf_distances.get("weekly_high")),
+            distance_to_high_tf_low_atr=_to_python_float(htf_distances.get("weekly_low")),
+            distance_to_low_tf_high_atr=_to_python_float(htf_distances.get("4h_high")),
+            distance_to_low_tf_low_atr=_to_python_float(htf_distances.get("4h_low")),
             distance_to_next_htf_obstacle_atr=_to_python_float(htf_distances.get("next_obstacle")),
             # Session
             prev_session_high=_to_python_float(session_metrics.get("high")),
@@ -206,18 +266,532 @@ class PreEntryContextV2Calculator:
             # Momentum
             distance_from_last_impulse_atr=_to_python_float(momentum),
             # HTF Range Size
-            htf_range_size_daily_atr=_to_python_float(htf_range_size.get("daily")),
-            htf_range_size_weekly_atr=_to_python_float(htf_range_size.get("weekly")),
+            htf_range_size_mid_atr=_to_python_float(htf_range_size.get("daily")),
+            htf_range_size_high_atr=_to_python_float(htf_range_size.get("weekly")),
             # AOI Position in HTF Range
-            aoi_midpoint_range_position_daily=_to_python_float(aoi_position.get("daily")),
-            aoi_midpoint_range_position_weekly=_to_python_float(aoi_position.get("weekly")),
+            aoi_midpoint_range_position_mid=_to_python_float(aoi_position.get("daily")),
+            aoi_midpoint_range_position_high=_to_python_float(aoi_position.get("weekly")),
             # Break Candle Metrics
             break_impulse_range_atr=_to_python_float(self._compute_break_impulse_range()),
             break_impulse_body_atr=_to_python_float(self._compute_break_impulse_body()),
             break_close_location=_to_python_float(self._compute_break_close_location()),
             # Retest Candle Metrics
             retest_candle_body_penetration=_to_python_float(self._compute_retest_body_penetration()),
+            
+            # HTF Trend Quality Metrics
+            htf_slope_strength_low=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_low, self._state.trend_low).get("slope")),
+            htf_slope_strength_mid=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_mid, self._state.trend_mid).get("slope")),
+            htf_slope_strength_high=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_high, self._state.trend_high).get("slope")),
+            
+            htf_impulse_ratio_low=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_low, self._state.trend_low).get("impulse_ratio")),
+            htf_impulse_ratio_mid=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_mid, self._state.trend_mid).get("impulse_ratio")),
+            htf_impulse_ratio_high=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_high, self._state.trend_high).get("impulse_ratio")),
+            
+            htf_struct_eff_low=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_low, self._state.trend_low).get("struct_eff")),
+            htf_struct_eff_mid=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_mid, self._state.trend_mid).get("struct_eff")),
+            htf_struct_eff_high=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_high, self._state.trend_high).get("struct_eff")),
+            
+            # AOI Geometry
+            aoi_height_atr=_to_python_float(self._compute_aoi_height_atr()),
+            aoi_entry_depth=_to_python_float(self._compute_aoi_entry_depth()),
+            aoi_compression_ratio=_to_python_float(self._compute_aoi_compression_ratio()),
+            
+            # Break Candle Metrics (Only if is_break_candle_last=True)
+            break_def_dist_from_balance_atr=_to_python_float(self._compute_break_metrics().get("dist_balance")) if self._is_break_candle_last else None,
+            break_def_liquidity_sweep=_to_python_bool(self._compute_break_metrics().get("sweep")) if self._is_break_candle_last else None,
+            
+            # After-Break Metrics (Only if is_break_candle_last=False)
+            after_break_pullback_depth_atr=_to_python_float(self._compute_after_break_metrics().get("pullback_depth")) if not self._is_break_candle_last else None,
+            after_break_close_dist_edge_atr=_to_python_float(self._compute_after_break_metrics().get("dist_edge")) if not self._is_break_candle_last else None,
+            after_break_range_compress_ratio=_to_python_float(self._compute_after_break_metrics().get("compression_ratio")) if not self._is_break_candle_last else None,
+
+            after_break_retest_fail_flag=_to_python_bool(self._compute_after_break_metrics().get("retest_fail")) if not self._is_break_candle_last else None,
+
+            # Session Dynamics
+            session_transition_prox_flag=_to_python_bool(self._compute_session_transition_flag()),
+            session_align_break_low=_to_python_bool(self._compute_session_alignment(ACTIVE_PROFILE.trend_tf_low)),
+            session_align_break_mid=_to_python_bool(self._compute_session_alignment(ACTIVE_PROFILE.trend_tf_mid)),
+            session_align_break_high=_to_python_bool(self._compute_session_alignment(ACTIVE_PROFILE.trend_tf_high)),
+            
+            # Path-Risk Context
+            dist_nearest_opposing_liq_atr=_to_python_float(self._compute_path_risk_metrics().get("dist_liq")),
+            structure_density_behind_entry=_to_python_float(self._compute_path_risk_metrics().get("density")),
+            
+            # New Features
+            day_range_atr=_to_python_float(self._compute_day_range_atr()),
+            opposing_wick_ratio=_to_python_float(self._compute_opposing_wick_ratio()),
         )
+    
+    def _compute_aoi_height_atr(self) -> Optional[float]:
+        """Compute AOI height in ATR units."""
+        if self._atr_1h <= 0:
+            return None
+        height = self._aoi_high - self._aoi_low
+        return height / self._atr_1h
+
+    def _compute_aoi_entry_depth(self) -> Optional[float]:
+        """Compute entry depth inside AOI (0.0=Edge, 1.0=Other Edge)."""
+        height = self._aoi_high - self._aoi_low
+        if height <= 0:
+            return None
+            
+        if self._is_long:
+            # Bullish: Depth measured from Low up to High
+            # (entry_price - aoi_low) / height
+            return (self._entry_price - self._aoi_low) / height
+        else:
+            # Bearish: Depth measured from High down to Low
+            # (aoi_high - entry_price) / height
+            return (self._aoi_high - self._entry_price) / height
+
+    def _compute_aoi_compression_ratio(self) -> Optional[float]:
+        """Compute compression ratio: AOI Height ATR / Avg 4H Candle Range ATR."""
+        aoi_height_atr = self._compute_aoi_height_atr()
+        if aoi_height_atr is None:
+            return None
+            
+        # Get last 20 completed low-TF candles
+        candles_4h = self._store.get(ACTIVE_PROFILE.trend_tf_low).get_candles_up_to(self._signal_time)
+        if candles_4h is None or len(candles_4h) == 0:
+             return None
+             
+        # Filter strictly before signal
+        candles = candles_4h[candles_4h["time"] < self._signal_time].tail(20)
+        if len(candles) < 20:
+             # User specified "over the last 20 completed 4H candles". 
+             # If we don't have 20, should we return None?
+             # Probably safer to return None or calculate on available.
+             # Strict compliance = return None if < 20.
+             return None
+             
+        # Calculate Average 4H Candle Range in ATR
+        # User defined: Mean of (High - Low) / atr_1h_at_signal_time
+        ranges = candles["high"] - candles["low"]
+        avg_range = ranges.mean()
+        
+        if self._atr_1h <= 0: 
+             return None
+             
+        avg_range_atr = avg_range / self._atr_1h
+        
+        if avg_range_atr <= 0:
+             return None
+             
+        return aoi_height_atr / avg_range_atr
+    
+    def _compute_break_metrics(self) -> dict:
+        """Compute metrics specific to the Break Candle."""
+        result = {"dist_balance": None, "sweep": None}
+        if self._atr_1h <= 0 or not self._break_candle:
+            return result
+
+        # 1. Distance from Recent Balance (Mean of last 20 closes before break)
+        # Strategy: Get 1H candles up to signal.
+        candles = self._store.get_1h_candles().get_candles_up_to(self._signal_time)
+        if candles is None or len(candles) < 22: # Need 20 + break + buffer
+            return result
+        
+        # Last 20 candles BEFORE break.
+        # If break is -1, then slice [-21 : -1]
+        pre_break_candles = candles.iloc[-21:-1]
+        if len(pre_break_candles) < 20: 
+             return result
+             
+        balance_price = pre_break_candles["close"].mean()
+        raw_diff = self._entry_price - balance_price
+        
+        if self._is_long:
+            result["dist_balance"] = raw_diff / self._atr_1h
+        else:
+            result["dist_balance"] = -raw_diff / self._atr_1h
+            
+        # 2. Liquidity Sweep Flag
+        # Most recent external swing before break.
+        # Scan ample history (e.g. 200 bars).
+        scan_candles = candles.iloc[-200:-1] 
+        if len(scan_candles) < 20:
+             return result
+        
+        try:
+             prices = scan_candles["close"].values 
+             swings = get_swing_points(prices, distance=5, prominence=0.0004) # 1H params assumption
+             
+             if not swings: 
+                 return result
+                 
+             last_swing = None
+             if self._is_long:
+                 for s in reversed(swings):
+                     if s.kind == SWING_HIGH:
+                         last_swing = s
+                         break
+             else:
+                 for s in reversed(swings):
+                     if s.kind == SWING_LOW:
+                         last_swing = s
+                         break
+                         
+             if last_swing:
+                 break_h = self._break_candle["high"]
+                 break_l = self._break_candle["low"]
+                 
+                 if self._is_long:
+                     result["sweep"] = break_h > last_swing.price
+                 else:
+                     result["sweep"] = break_l < last_swing.price
+                     
+        except Exception:
+            pass
+
+        return result
+
+    def _compute_after_break_metrics(self) -> dict:
+        """Compute metrics for the After-Break period (Signal is After-Break or later)."""
+        result = {
+            "pullback_depth": None, 
+            "dist_edge": None, 
+            "compression_ratio": None, 
+            "retest_fail": None
+        }
+        
+        candles = self._store.get_1h_candles().get_candles_up_to(self._signal_time)
+        if candles is None or len(candles) < 22:
+            return result
+            
+        after_break_candle = candles.iloc[-1]
+        
+        # 1. Pullback Depth
+        if self._is_long:
+            depth = (after_break_candle["open"] - after_break_candle["low"]) / self._atr_1h
+        else:
+            depth = (after_break_candle["high"] - after_break_candle["open"]) / self._atr_1h
+        result["pullback_depth"] = depth
+        
+        # 2. Close Distance from Edge
+        if self._is_long:
+            dist = (after_break_candle["close"] - self._aoi_high) / self._atr_1h
+        else:
+            dist = (self._aoi_low - after_break_candle["close"]) / self._atr_1h
+        result["dist_edge"] = dist
+        
+        # 3. Range Compression Ratio
+        prev_20 = candles.iloc[-21:-1]
+        if len(prev_20) == 20:
+             # Ranges normalized by CURRENT ATR
+             ranges_atr = (prev_20["high"] - prev_20["low"]) / self._atr_1h
+             avg_range_atr = ranges_atr.mean()
+             
+             current_range_atr = (after_break_candle["high"] - after_break_candle["low"]) / self._atr_1h
+             
+             if avg_range_atr > 0:
+                 result["compression_ratio"] = current_range_atr / avg_range_atr
+                 
+        # 4. Retest Failure Flag
+        ab_high = after_break_candle["high"]
+        ab_low = after_break_candle["low"]
+        ab_close = after_break_candle["close"]
+        
+        if self._is_long:
+            touched = ab_low <= self._aoi_high
+            closed_outside = ab_close > self._aoi_high
+            result["retest_fail"] = touched and closed_outside
+        else:
+            touched = ab_high >= self._aoi_low
+            closed_outside = ab_close < self._aoi_low
+            result["retest_fail"] = touched and closed_outside
+            
+        return result
+
+    def _get_session_bucket(self, hour: int) -> str:
+        """Get session bucket from UTC hour (Duplicate of SignalDetector logic for consistency)."""
+        if 4 <= hour <= 6:
+            return "pre_london"
+        elif 7 <= hour <= 11:
+            return "london"
+        elif 12 <= hour <= 16:
+            return "ny"
+        else:
+            return "post_ny"
+
+    def _compute_session_transition_flag(self) -> bool:
+        """Check if signal time is within 2 hours of session boundaries (07:00 and 12:00)."""
+        # Boundaries: London Open (7), NY Open (12).
+        # X = 2 hours.
+        h = self._signal_time.hour
+        
+        # Check proximity to 7
+        dist_7 = abs(h - 7)
+        if dist_7 <= 2:
+            return True
+            
+        # Check proximity to 12
+        dist_12 = abs(h - 12)
+        if dist_12 <= 2:
+            return True
+            
+        return False
+
+    def _compute_session_alignment(self, timeframe: str) -> Optional[bool]:
+        """Check if HTF break happened in same session bucket as signal."""
+        break_time = None
+        break_time = self._state.break_times.get(timeframe)
+            
+        if not break_time:
+            return None
+            
+        break_bucket = self._get_session_bucket(break_time.hour)
+        signal_bucket = self._get_session_bucket(self._signal_time.hour)
+        
+        return break_bucket == signal_bucket
+
+    def _compute_path_risk_metrics(self) -> dict:
+        """Compute Path-Risk Context metrics."""
+        result = {"dist_liq": None, "density": None}
+        if self._atr_1h <= 0:
+            return result
+            
+        candles = self._store.get_1h_candles().get_candles_up_to(self._signal_time)
+        
+        # 1. Distance to Nearest Opposing Liquidity
+        # Lookback 200 bars to find nearest swing.
+        if candles is None or len(candles) < 20:
+            return result
+            
+        scan_len = 200
+        scan_candles = candles.iloc[-scan_len:-1] if len(candles) > scan_len else candles.iloc[:-1]
+        
+        if len(scan_candles) < 5:
+            return result
+            
+        try:
+            prices = scan_candles["close"].values
+            # Using standard 1H swing params (assumed 5, 0.0004 from earlier code)
+            swings = get_swing_points(prices, distance=5, prominence=0.0004)
+            
+            nearest_dist = None
+            
+            if self._is_long:
+                # Find nearest Swing Low below entry price for "Opposing Liquidity"? 
+                # WAIT. User Requirements:
+                # "For bullish trades... nearest confirmed swing LOW below entry."
+                # RE-READ CAREFULLY: "Distance to nearest opposing liquidity pool"
+                # usually means Target (Resistance for Long).
+                # BUT user explicitly defined: "For bullish trades, compute ATR-normalized distance from entry_price to the nearest confirmed swing LOW below entry."
+                # AND "Structure density... count swing LOWs below entry".
+                # OK, I will follow the Explicit Definition: Distance to Swing Low < Entry (Support).
+                
+                # Check for Swing Low < Entry
+                valid_swings = [s for s in swings if s.kind == SWING_LOW and s.price < self._entry_price]
+                if valid_swings:
+                    # Nearest in PRICE or TIME? Usually "Nearest Opposing Liquidity" implies Price distance.
+                    # "Distance from entry_price to..." -> implies Price delta.
+                    # We want the one closest to entry price (highest valid low).
+                    best_swing = max(valid_swings, key=lambda s: s.price)
+                    nearest_dist = abs(self._entry_price - best_swing.price) / self._atr_1h
+            else:
+                # Bearish: Nearest Swing High > Entry
+                valid_swings = [s for s in swings if s.kind == SWING_HIGH and s.price > self._entry_price]
+                if valid_swings:
+                    # Closest to entry is the lowest valid high.
+                    best_swing = min(valid_swings, key=lambda s: s.price)
+                    nearest_dist = abs(best_swing.price - self._entry_price) / self._atr_1h
+                    
+            result["dist_liq"] = nearest_dist
+            
+            # 2. Structure Density
+            # "Count number of confirmed swing LOWs below entry_price within the last 50 completed 1H candles."
+            density_lookback = 50
+            density_subset = candles.iloc[-density_lookback:-1] if len(candles) > density_lookback else candles.iloc[:-1]
+            if len(density_subset) > 5:
+                 d_prices = density_subset["close"].values
+                 d_swings = get_swing_points(d_prices, distance=5, prominence=0.0004)
+                 
+                 count = 0
+                 if self._is_long:
+                     # Count Swing Lows < Entry
+                     count = sum(1 for s in d_swings if s.kind == SWING_LOW and s.price < self._entry_price)
+                 else:
+                     # Count Swing Highs > Entry
+                     count = sum(1 for s in d_swings if s.kind == SWING_HIGH and s.price > self._entry_price)
+                     
+                 result["density"] = count / 50.0
+                 
+        except Exception:
+            pass
+            
+        return result
+
+    def _compute_htf_quality_metrics(self, timeframe: str, trend_direction: Optional[TrendDirection]) -> dict:
+        """Compute slope strength, impulse ratio, and structural efficiency for a timeframe."""
+        result = {"slope": None, "impulse_ratio": None, "struct_eff": None}
+        
+        if not trend_direction:
+            return result
+            
+        # Get candles for structure analysis
+        lookback = ACTIVE_PROFILE.lookback_for_trend(timeframe) * 2
+        tf_candles = self._store.get(timeframe).get_candles_up_to(self._signal_time)
+            
+        if tf_candles is None or len(tf_candles) < 20: 
+            return result
+            
+        # Filter to relevant history before signal
+        candles = tf_candles[tf_candles["time"] < self._signal_time].copy()
+        if len(candles) < 20:
+            return result
+
+        # Compute ATR at signal time for normalization
+        current_atr = calculate_atr(candles, length=14)
+        if current_atr <= 0:
+            return result
+            
+        # Get swings
+        try:
+            params = require_analysis_params(timeframe)
+            distance = params.distance
+            prominence = params.prominence
+        except KeyError:
+            distance = 1
+            prominence = 0.0004
+            
+        prices = candles["close"].values
+        swings = get_swing_points(prices, distance, prominence)
+        
+        # 1. Slope Strength
+        result["slope"] = self._calculate_slope_strength(swings, current_atr)
+        
+        # 2. Impulse Ratio & 3. Structural Efficiency (require completed impulse)
+        impulse_data = self._identify_last_completed_impulse(swings, candles, trend_direction)
+        if impulse_data:
+            range_impulse, range_correction, start_swing, end_swing = impulse_data
+            
+            # Impulse Ratio
+            if range_correction >= 0.3 * current_atr:
+                 ratio = (range_impulse / current_atr) / (range_correction / current_atr)
+                 result["impulse_ratio"] = ratio
+                 
+            # Structural Efficiency
+            result["struct_eff"] = self._calculate_structural_efficiency(
+                start_swing, end_swing, candles, current_atr, trend_direction
+            )
+            
+        return result
+
+    def _calculate_slope_strength(self, swings: list[SwingPoint], atr: float) -> Optional[float]:
+        """Linear regression slope of last 5 swings."""
+        if len(swings) < 5:
+            return None
+            
+        relevant_swings = swings[-5:]
+        
+        x = np.array(range(5))
+        y = np.array([s.price / atr for s in relevant_swings])
+        
+        try:
+            slope, _ = np.polyfit(x, y, 1)
+            return float(slope)
+        except:
+            return None
+
+    def _identify_last_completed_impulse(
+        self, 
+        swings: list[SwingPoint], 
+        candles: pd.DataFrame, 
+        trend: TrendDirection
+    ) -> Optional[tuple[float, float, SwingPoint, SwingPoint]]:
+        """Identify last completed impulse and preceeding correction ranges."""
+        if len(swings) < 3:
+            return None
+            
+        is_bullish = trend == TrendDirection.BULLISH
+        
+        # Scan backwards for sequence: Pivot A -> Pivot B (Correction) -> Pivot C (Impulse)
+        for i in range(len(swings) - 1, 1, -1):
+            c = swings[i]
+            b = swings[i-1]
+            a = swings[i-2]
+            
+            is_impulse = False
+            if is_bullish:
+                # Expect B=Low, C=High (Impulse Up)
+                if b.kind == "L" and c.kind == "H":
+                    if c.price > b.price:
+                         is_impulse = True
+            else: # Bearish
+                # Expect B=High, C=Low (Impulse Down)
+                if b.kind == "H" and c.kind == "L":
+                    if c.price < b.price:
+                        is_impulse = True
+                        
+            if is_impulse:
+                range_impulse = abs(c.price - b.price)
+                range_correction = abs(b.price - a.price)
+                return range_impulse, range_correction, b, c
+                
+        return None
+
+    def _calculate_structural_efficiency(
+        self, 
+        start_swing: SwingPoint, 
+        end_swing: SwingPoint, 
+        candles: pd.DataFrame, 
+        atr: float,
+        trend: TrendDirection
+    ) -> Optional[float]:
+        """MFE / max(|MAE|, 0.5) for the impulse start_swing -> end_swing."""
+        start_idx = start_swing.index
+        end_idx = end_swing.index
+        
+        if start_idx >= end_idx or end_idx >= len(candles):
+            return None
+            
+        impulse_candles = candles.iloc[start_idx : end_idx + 1]
+        
+        if len(impulse_candles) == 0:
+            return None
+            
+        start_price = start_swing.price
+        is_bullish = trend == TrendDirection.BULLISH
+        
+        if is_bullish:
+            max_h_val = impulse_candles["high"].max()
+            mfe_atr = (max_h_val - start_price) / atr
+            
+            # Find index of first max_h
+            highs = impulse_candles["high"].values
+            lows = impulse_candles["low"].values
+            mfe_idx_rel = np.argmax(highs)
+            
+            pre_mfe_lows = lows[:mfe_idx_rel + 1]
+            if len(pre_mfe_lows) > 0:
+                min_l_val = np.min(pre_mfe_lows)
+                # Ensure MAE is negative if it goes against us, positive otherwise? 
+                # MAE logic usually: Price - Low (Bullish). If Low < Price, result is positive distance against us?
+                # User said: "max(|MAE_ATR|, 0.5)".
+                # Standard MAE: Drawdown.
+                # Bullish: Entry - Low.
+                mae_atr = (start_price - min_l_val) / atr
+            else:
+                mae_atr = 0.0
+                
+        else:
+             lows = impulse_candles["low"].values
+             highs = impulse_candles["high"].values
+             
+             min_l_val = np.min(lows)
+             mfe_atr = (start_price - min_l_val) / atr
+             
+             mfe_idx_rel = np.argmin(lows)
+             
+             pre_mfe_highs = highs[:mfe_idx_rel + 1]
+             if len(pre_mfe_highs) > 0:
+                 max_h_val = np.max(pre_mfe_highs)
+                 mae_atr = (max_h_val - start_price) / atr
+             else:
+                 mae_atr = 0.0
+
+        denom = max(abs(mae_atr), 0.5)
+        return mfe_atr / denom
     
     def _compute_htf_range_positions(self) -> dict:
         """Compute position within daily and weekly ranges.
@@ -226,8 +800,8 @@ class PreEntryContextV2Calculator:
         """
         result = {}
         
-        # Get last closed daily candle
-        daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+        # Get last closed mid-TF candle
+        daily_candles = self._store.get(ACTIVE_PROFILE.trend_tf_mid).get_candles_up_to(self._signal_time)
         if daily_candles is not None and len(daily_candles) > 0:
             last_daily = daily_candles.iloc[-1]
             daily_high = float(last_daily["high"])
@@ -236,8 +810,8 @@ class PreEntryContextV2Calculator:
             if daily_range > 0:
                 result["daily"] = (self._entry_price - daily_low) / daily_range
         
-        # Get last closed weekly candle
-        weekly_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+        # Get last closed high-TF candle
+        weekly_candles = self._store.get(ACTIVE_PROFILE.trend_tf_high).get_candles_up_to(self._signal_time)
         if weekly_candles is not None and len(weekly_candles) > 0:
             last_weekly = weekly_candles.iloc[-1]
             weekly_high = float(last_weekly["high"])
@@ -252,8 +826,8 @@ class PreEntryContextV2Calculator:
         """Compute distances to 4H/daily/weekly high/low in ATR units."""
         result = {}
         
-        # Get last closed 4H candle
-        candles_4h = self._store.get_4h_candles().get_candles_up_to(self._signal_time)
+        # Get last closed low-TF candle
+        candles_4h = self._store.get(ACTIVE_PROFILE.trend_tf_low).get_candles_up_to(self._signal_time)
         if candles_4h is not None and len(candles_4h) > 0:
             last_4h = candles_4h.iloc[-1]
             h4_high = float(last_4h["high"])
@@ -262,8 +836,8 @@ class PreEntryContextV2Calculator:
             result["4h_high"] = abs(h4_high - self._entry_price) / self._atr_1h
             result["4h_low"] = abs(self._entry_price - h4_low) / self._atr_1h
         
-        # Get last closed daily candle
-        daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+        # Get last closed mid-TF candle
+        daily_candles = self._store.get(ACTIVE_PROFILE.trend_tf_mid).get_candles_up_to(self._signal_time)
         if daily_candles is not None and len(daily_candles) > 0:
             last_daily = daily_candles.iloc[-1]
             daily_high = float(last_daily["high"])
@@ -272,8 +846,8 @@ class PreEntryContextV2Calculator:
             result["daily_high"] = abs(daily_high - self._entry_price) / self._atr_1h
             result["daily_low"] = abs(self._entry_price - daily_low) / self._atr_1h
         
-        # Get last closed weekly candle
-        weekly_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+        # Get last closed high-TF candle
+        weekly_candles = self._store.get(ACTIVE_PROFILE.trend_tf_high).get_candles_up_to(self._signal_time)
         if weekly_candles is not None and len(weekly_candles) > 0:
             last_weekly = weekly_candles.iloc[-1]
             weekly_high = float(last_weekly["high"])
@@ -425,17 +999,17 @@ class PreEntryContextV2Calculator:
         4. Return hours from the most recent flip to signal_time
         """
         # Check if all 3 TFs are aligned
-        if self._state.trend_4h != self._direction:
+        if self._state.trend_low != self._direction:
             return 0
-        if self._state.trend_1d != self._direction:
+        if self._state.trend_mid != self._direction:
             return 0
-        if self._state.trend_1w != self._direction:
+        if self._state.trend_high != self._direction:
             return 0
         
         # Find when each TF trend flipped to current direction
-        flip_time_4h = self._find_trend_flip_time("4H")
-        flip_time_1d = self._find_trend_flip_time("1D")
-        flip_time_1w = self._find_trend_flip_time("1W")
+        flip_time_4h = self._find_trend_flip_time(ACTIVE_PROFILE.trend_tf_low)
+        flip_time_1d = self._find_trend_flip_time(ACTIVE_PROFILE.trend_tf_mid)
+        flip_time_1w = self._find_trend_flip_time(ACTIVE_PROFILE.trend_tf_high)
         
         # If any flip time is None (no flip found), use a very old time
         flip_times = []
@@ -463,15 +1037,16 @@ class PreEntryContextV2Calculator:
         Uses simple higher-highs/lower-lows logic as a proxy for trend.
         """
         # Get candles for the timeframe
-        if timeframe == "4H":
-            tf_candles = self._store.get_4h_candles().get_candles_up_to(self._signal_time)
-            lookback = 50  # ~8 days
-        elif timeframe == "1D":
-            tf_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
-            lookback = 30  # ~1 month
-        elif timeframe == "1W":
-            tf_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
-            lookback = 20  # ~5 months
+        p = ACTIVE_PROFILE
+        if timeframe == p.trend_tf_low:
+            tf_candles = self._store.get(p.trend_tf_low).get_candles_up_to(self._signal_time)
+            lookback = 50
+        elif timeframe == p.trend_tf_mid:
+            tf_candles = self._store.get(p.trend_tf_mid).get_candles_up_to(self._signal_time)
+            lookback = 30
+        elif timeframe == p.trend_tf_high:
+            tf_candles = self._store.get(p.trend_tf_high).get_candles_up_to(self._signal_time)
+            lookback = 20
         else:
             return None
         
@@ -683,16 +1258,16 @@ class PreEntryContextV2Calculator:
         """
         result = {}
         
-        # Daily range size over last 20 candles
-        daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+        # Mid-TF range size over last 20 candles
+        daily_candles = self._store.get(ACTIVE_PROFILE.trend_tf_mid).get_candles_up_to(self._signal_time)
         if daily_candles is not None and len(daily_candles) >= 20:
             last_20_daily = daily_candles.tail(20)
             range_high = float(last_20_daily["high"].max())
             range_low = float(last_20_daily["low"].min())
             result["daily"] = (range_high - range_low) / self._atr_1h
         
-        # Weekly range size over last 12 candles
-        weekly_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+        # High-TF range size over last 12 candles
+        weekly_candles = self._store.get(ACTIVE_PROFILE.trend_tf_high).get_candles_up_to(self._signal_time)
         if weekly_candles is not None and len(weekly_candles) >= 12:
             last_12_weekly = weekly_candles.tail(12)
             range_high = float(last_12_weekly["high"].max())
@@ -710,8 +1285,8 @@ class PreEntryContextV2Calculator:
         result = {}
         aoi_mid = (self._aoi_low + self._aoi_high) / 2
         
-        # Daily range (last 20 candles)
-        daily_candles = self._store.get_1d_candles().get_candles_up_to(self._signal_time)
+        # Mid-TF range (last 20 candles)
+        daily_candles = self._store.get(ACTIVE_PROFILE.trend_tf_mid).get_candles_up_to(self._signal_time)
         if daily_candles is not None and len(daily_candles) >= 20:
             last_20_daily = daily_candles.tail(20)
             range_high = float(last_20_daily["high"].max())
@@ -720,8 +1295,8 @@ class PreEntryContextV2Calculator:
             if range_size > 0:
                 result["daily"] = (aoi_mid - range_low) / range_size
         
-        # Weekly range (last 12 candles)
-        weekly_candles = self._store.get_1w_candles().get_candles_up_to(self._signal_time)
+        # High-TF range (last 12 candles)
+        weekly_candles = self._store.get(ACTIVE_PROFILE.trend_tf_high).get_candles_up_to(self._signal_time)
         if weekly_candles is not None and len(weekly_candles) >= 12:
             last_12_weekly = weekly_candles.tail(12)
             range_high = float(last_12_weekly["high"].max())
@@ -817,3 +1392,62 @@ class PreEntryContextV2Calculator:
         
         # Combined score: 50% penetration + 50% body ratio
         return penetration * 0.5 + body_aoi_ratio * 0.5
+
+    def _compute_day_range_atr(self) -> Optional[float]:
+        """Compute Daily Range Consumed Ratio (Range since 00:00 UTC / ATR)."""
+        if self._atr_1h <= 0: return None
+        
+        # Get candles strictly before signal
+        candles_1h = self._store.get_1h_candles().get_candles_up_to(self._signal_time)
+        if candles_1h is None or candles_1h.empty: return None
+        
+        candles_past = candles_1h[candles_1h["time"] < self._signal_time]
+        if candles_past.empty: return None
+
+        # Filter from 00:00 UTC of signal day
+        # Ensure we are careful about timezones, assume candles are UTC compatible
+        day_start = self._signal_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # If signal time is tz-aware, make day_start tz-aware?
+        # CandleStore handles normalization but here we filter DataFrame directly.
+        # If candles['time'] is tz-aware, we need match.
+        # Usually internal candles are naive UTC or consistent.
+        if candles_past["time"].dt.tz is not None and day_start.tzinfo is None:
+             # Assume day_start is UTC
+             day_start = day_start.replace(tzinfo=timezone.utc)
+        elif candles_past["time"].dt.tz is None and day_start.tzinfo is not None:
+             day_start = day_start.replace(tzinfo=None)
+
+        today_candles = candles_past[candles_past["time"] >= day_start]
+        
+        if today_candles.empty: return 0.0
+        
+        day_h = today_candles["high"].max()
+        day_l = today_candles["low"].min()
+        return (day_h - day_l) / self._atr_1h
+
+    def _compute_opposing_wick_ratio(self) -> Optional[float]:
+        """Compute wick ratio of the signal candle (last closed candle before signal)."""
+        # Get candles strictly before signal
+        candles_1h = self._store.get_1h_candles().get_candles_up_to(self._signal_time)
+        if candles_1h is None or candles_1h.empty: return None
+        
+        candles_past = candles_1h[candles_1h["time"] < self._signal_time]
+        if candles_past.empty: return None
+        
+        # Signal candle is the last closed candle
+        sig_candle = candles_past.iloc[-1]
+        
+        c_high = sig_candle["high"]
+        c_low = sig_candle["low"]
+        c_close = sig_candle["close"]
+        c_range = c_high - c_low
+        
+        if c_range <= 0: return 0.0
+        
+        if self._is_long:
+            # Bullish: Upper wick (rejection)
+            return (c_high - c_close) / c_range
+        else:
+            # Bearish: Lower wick (rejection)
+            return (c_close - c_low) / c_range

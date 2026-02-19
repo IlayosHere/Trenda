@@ -16,11 +16,6 @@ from .config import TIMEFRAME_HOURS
 import pandas as pd
 
 from .config import (
-    LOOKBACK_4H,
-    LOOKBACK_1D,
-    LOOKBACK_1W,
-    LOOKBACK_AOI_4H,
-    LOOKBACK_AOI_1D,
     OUTCOME_WINDOW_BARS,
     TIMEFRAME_1H,
     TIMEFRAME_4H,
@@ -28,6 +23,7 @@ from .config import (
     TIMEFRAME_1W,
     MT5_INTERVALS,
     CANDLE_FETCH_BUFFER,
+    ACTIVE_PROFILE,
 )
 
 
@@ -149,18 +145,19 @@ class TimeframeCandles:
 class CandleStore:
     """In-memory candle store for a single symbol.
     
-    Stores candles for all timeframes (1H, 4H, 1D, 1W) and provides
-    efficient access methods for replay iteration.
+    Stores candles for timeframes required by the active profile,
+    plus 1H candles for outcome computation.
     """
     
     def __init__(self, symbol: str):
         self.symbol = symbol
-        self._candles: dict[str, TimeframeCandles] = {
-            TIMEFRAME_1H: TimeframeCandles(TIMEFRAME_1H),
-            TIMEFRAME_4H: TimeframeCandles(TIMEFRAME_4H),
-            TIMEFRAME_1D: TimeframeCandles(TIMEFRAME_1D),
-            TIMEFRAME_1W: TimeframeCandles(TIMEFRAME_1W),
-        }
+        # Initialize slots for all required TFs from the active profile
+        self._candles: dict[str, TimeframeCandles] = {}
+        for tf in ACTIVE_PROFILE.all_required_timeframes:
+            self._candles[tf] = TimeframeCandles(tf)
+        # Always ensure 1H is available for outcome computation
+        if TIMEFRAME_1H not in self._candles:
+            self._candles[TIMEFRAME_1H] = TimeframeCandles(TIMEFRAME_1H)
     
     def load_candles(
         self,
@@ -168,42 +165,32 @@ class CandleStore:
         end_date: datetime,
         fetch_func: callable,
     ) -> None:
-        """Load all candles for all timeframes.
-        
-        Args:
-            start_date: Replay start date
-            end_date: Replay end date
-            fetch_func: Function to fetch candles: (symbol, interval, lookback, end_date) -> DataFrame
-        """
-        # Calculate the end date for fetching (end_date + outcome window for 1H)
-        # Add extra buffer to ensure we have enough candles for outcome computation
+        """Load all candles for all required timeframes."""
+        profile = ACTIVE_PROFILE
         fetch_end_date = end_date + timedelta(hours=OUTCOME_WINDOW_BARS + CANDLE_FETCH_BUFFER)
-        
-        # Calculate required lookbacks for each timeframe
-        # 1H: needs lookback + outcome window + buffer
-        
-        # Calculate total hours in replay window
-        #TODO: change it
         replay_hours = int((end_date - start_date).total_seconds() / 3600) + 1
-        total_1h_candles = replay_hours + OUTCOME_WINDOW_BARS
         
-        # Fetch 1H candles with end_date
-        self._fetch_and_store(TIMEFRAME_1H, total_1h_candles, fetch_func, fetch_end_date)
-        
-        # Fetch 4H candles
-        lookback_4h = max(LOOKBACK_4H, LOOKBACK_AOI_4H) + CANDLE_FETCH_BUFFER
-        total_4h_candles = lookback_4h + (replay_hours // 4) + 20
-        self._fetch_and_store(TIMEFRAME_4H, total_4h_candles, fetch_func, fetch_end_date)
-        
-        # Fetch 1D candles
-        lookback_1d = max(LOOKBACK_1D, LOOKBACK_AOI_1D) + CANDLE_FETCH_BUFFER
-        total_1d_candles = lookback_1d + (replay_hours // 24) + 10
-        self._fetch_and_store(TIMEFRAME_1D, total_1d_candles, fetch_func, fetch_end_date)
-        
-        # Fetch 1W candles
-        lookback_1w = LOOKBACK_1W + CANDLE_FETCH_BUFFER
-        total_1w_candles = lookback_1w + (replay_hours // 168) + 5
-        self._fetch_and_store(TIMEFRAME_1W, total_1w_candles, fetch_func, fetch_end_date)
+        for tf in self._candles:
+            tf_hours = TIMEFRAME_HOURS.get(tf, 1)
+            bars_per_replay = int(replay_hours / tf_hours) + 1 if tf_hours > 0 else replay_hours
+            
+            # Determine the largest lookback needed for this TF across all roles
+            max_lookback = CANDLE_FETCH_BUFFER
+            # Check if it's a trend TF
+            if tf in profile.trend_alignment_tfs:
+                max_lookback = max(max_lookback, profile.lookback_for_trend(tf))
+            # Check if it's an AOI TF
+            if tf in (profile.aoi_tf_low, profile.aoi_tf_high):
+                max_lookback = max(max_lookback, profile.lookback_for_aoi(tf))
+            # Entry TF needs lookback + outcome window
+            if tf == profile.entry_tf:
+                max_lookback = max(max_lookback, profile.lookback_entry)
+            # 1H always needs outcome window
+            if tf == TIMEFRAME_1H:
+                max_lookback = max(max_lookback, OUTCOME_WINDOW_BARS)
+            
+            total_candles = max_lookback + bars_per_replay + CANDLE_FETCH_BUFFER
+            self._fetch_and_store(tf, total_candles, fetch_func, fetch_end_date)
     
     def _fetch_and_store(
         self,
@@ -244,21 +231,33 @@ class CandleStore:
         """Convenience accessor for 1W candles."""
         return self._candles[TIMEFRAME_1W]
     
+    def get_entry_candles(self) -> TimeframeCandles:
+        """Get candles for the active profile's entry timeframe."""
+        return self._candles[ACTIVE_PROFILE.entry_tf]
+    
     def get_replay_1h_indices(
         self,
         start_date: datetime,
         end_date: datetime,
     ) -> list[int]:
-        """Get indices of 1H candles within the replay window.
-        
-        Returns list of indices for candles where:
-        start_date <= candle.time <= end_date
-        """
+        """Get indices of 1H candles within the replay window."""
         candles_1h = self.get_1h_candles()
         if candles_1h.is_empty:
             return []
-        
         df = candles_1h.candles
+        mask = (df["time"] >= start_date) & (df["time"] <= end_date)
+        return list(df[mask].index)
+    
+    def get_replay_entry_indices(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> list[int]:
+        """Get indices of entry-TF candles within the replay window."""
+        entry_candles = self.get_entry_candles()
+        if entry_candles.is_empty:
+            return []
+        df = entry_candles.candles
         mask = (df["time"] >= start_date) & (df["time"] <= end_date)
         return list(df[mask].index)
     

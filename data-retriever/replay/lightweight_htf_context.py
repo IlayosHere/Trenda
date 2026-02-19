@@ -1,8 +1,8 @@
 """Lightweight HTF context for replay gate checks.
 
 Only computes the minimal fields needed for gates:
-- htf_range_position_daily
-- htf_range_position_weekly
+- htf_range_position_mid
+- htf_range_position_high
 - distance_to_next_htf_obstacle_atr
 """
 
@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
 from models import TrendDirection
+from .config import ACTIVE_PROFILE
 
 if TYPE_CHECKING:
     from .candle_store import CandleStore
@@ -21,8 +22,8 @@ if TYPE_CHECKING:
 @dataclass
 class LightweightHTFContext:
     """Minimal HTF context for gate checks only."""
-    htf_range_position_daily: Optional[float] = None
-    htf_range_position_weekly: Optional[float] = None
+    htf_range_position_mid: Optional[float] = None
+    htf_range_position_high: Optional[float] = None
     distance_to_next_htf_obstacle_atr: Optional[float] = None
 
 
@@ -33,18 +34,15 @@ def compute_lightweight_htf_context(
     atr_1h: float,
     direction: TrendDirection,
 ) -> Optional[LightweightHTFContext]:
-    """Compute minimal HTF context for gate checks.
-    
-    This is a fast version that only computes the 3 fields needed for gates.
-    """
+    """Compute minimal HTF context for gate checks."""
     if atr_1h <= 0:
         return None
     
     is_long = direction == TrendDirection.BULLISH
     result = LightweightHTFContext()
     
-    # Get last closed daily candle for range position
-    daily_candles = candle_store.get_1d_candles().get_candles_up_to(signal_time)
+    # Get last closed mid-TF candle for range position
+    daily_candles = candle_store.get(ACTIVE_PROFILE.trend_tf_mid).get_candles_up_to(signal_time)
     daily_high = None
     daily_low = None
     if daily_candles is not None and len(daily_candles) > 0:
@@ -53,10 +51,10 @@ def compute_lightweight_htf_context(
         daily_low = float(last_daily["low"])
         daily_range = daily_high - daily_low
         if daily_range > 0:
-            result.htf_range_position_daily = (entry_price - daily_low) / daily_range
+            result.htf_range_position_mid = (entry_price - daily_low) / daily_range
     
-    # Get last closed weekly candle for range position
-    weekly_candles = candle_store.get_1w_candles().get_candles_up_to(signal_time)
+    # Get last closed high-TF candle for range position
+    weekly_candles = candle_store.get(ACTIVE_PROFILE.trend_tf_high).get_candles_up_to(signal_time)
     weekly_high = None
     weekly_low = None
     if weekly_candles is not None and len(weekly_candles) > 0:
@@ -65,11 +63,11 @@ def compute_lightweight_htf_context(
         weekly_low = float(last_weekly["low"])
         weekly_range = weekly_high - weekly_low
         if weekly_range > 0:
-            result.htf_range_position_weekly = (entry_price - weekly_low) / weekly_range
+            result.htf_range_position_high = (entry_price - weekly_low) / weekly_range
     
     # Compute distance to next HTF obstacle
-    # Get 4H levels as well
-    candles_4h = candle_store.get_4h_candles().get_candles_up_to(signal_time)
+    # Get low-TF levels as well
+    candles_4h = candle_store.get(ACTIVE_PROFILE.trend_tf_low).get_candles_up_to(signal_time)
     h4_high = None
     h4_low = None
     if candles_4h is not None and len(candles_4h) > 0:

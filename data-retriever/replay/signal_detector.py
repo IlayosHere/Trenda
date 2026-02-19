@@ -19,14 +19,16 @@ from utils.indicators import calculate_atr
 
 from .market_state import SymbolState
 from .candle_store import CandleStore
-from .config import LOOKBACK_1H, SL_MODEL_VERSION, TP_MODEL_VERSION
+from .config import SL_MODEL_VERSION, TP_MODEL_VERSION, ACTIVE_PROFILE
 from .replay_queries import (
     CHECK_SIGNAL_EXISTS,
     GET_SIGNAL_ID,
     GET_RELATED_SIGNAL_TRADE_ID,
     INSERT_REPLAY_ENTRY_SIGNAL,
+    INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2,
 )
 from .lightweight_htf_context import compute_lightweight_htf_context
+from .pre_entry_context_v2 import PreEntryContextV2Calculator, PreEntryContextV2Data
 
 
 class ReplaySignalDetector:
@@ -68,72 +70,77 @@ class ReplaySignalDetector:
         if direction is None:
             return inserted_ids
         
-        # Get 1H candles for pattern detection
-        candles_1h = self._store.get_1h_candles().get_candles_up_to(current_time)
-        if candles_1h is None or candles_1h.empty:
+        # Get entry-TF candles for pattern detection
+        entry_candles = self._store.get_entry_candles().get_candles_up_to(current_time)
+        if entry_candles is None or entry_candles.empty:
             return inserted_ids
         
         # Limit to lookback
-        candles_1h = candles_1h.tail(LOOKBACK_1H)
+        entry_candles = entry_candles.tail(ACTIVE_PROFILE.lookback_entry)
         
-        # Calculate 1H ATR
+        # Calculate 1H ATR (always from 1H candles — normalization unit)
+        candles_1h = self._store.get_1h_candles().get_candles_up_to(current_time)
+        if candles_1h is None or candles_1h.empty:
+            return inserted_ids
+        candles_1h = candles_1h.tail(25)  # short window for ATR
         atr_1h = calculate_atr(candles_1h)
         if atr_1h <= 0:
             return inserted_ids
         
         # Build trend snapshot
-        trend_snapshot = {
-            "4H": state.trend_4h,
-            "1D": state.trend_1d,
-            "1W": state.trend_1w,
-        }
+        trend_snapshot = state.get_trend_snapshot()
         
         # Get trend alignment strength and conflicted TF
         trend_alignment = state.get_trend_alignment_strength(direction)
         conflicted_tf = self._get_conflicted_tf(state, direction)
         
-        # === SYMBOL-LEVEL GATE CHECK (outside AOI loop) ===
-        # Use last candle close as reference price for HTF context
-        reference_price = candles_1h.iloc[-1]["close"]
-        signal_time = candles_1h.iloc[-1]["time"]
+        # =================================================================
+        # GATES AND SCORING DISABLED FOR UNBIASED DATA COLLECTION
+        # All signals matching trend + AOI pattern will be stored
+        # =================================================================
         
-        # Compute lightweight HTF context for gate checks (fast)
-        htf_context = compute_lightweight_htf_context(
-            candle_store=self._store,
-            signal_time=signal_time,
-            entry_price=reference_price,
-            atr_1h=atr_1h,
-            direction=direction,
-        )
-        
-        if htf_context is None:
-            return inserted_ids
-        
-        # Run production gates using entry module
-        gate_result = check_all_gates(
-            signal_time=signal_time,
-            symbol=self._symbol,
-            direction=direction,
-            conflicted_tf=conflicted_tf,
-            htf_range_position_daily=htf_context.htf_range_position_daily,
-            htf_range_position_weekly=htf_context.htf_range_position_weekly,
-            distance_to_next_htf_obstacle_atr=htf_context.distance_to_next_htf_obstacle_atr,
-        )
-        
-        if not gate_result.passed:
-            # Symbol fails gates, skip all AOIs
-            return inserted_ids
-        
-        # Calculate score ONCE per symbol (using production scoring)
-        score_result = calculate_score(
-            direction=direction,
-            htf_range_position_daily=htf_context.htf_range_position_daily,
-            htf_range_position_weekly=htf_context.htf_range_position_weekly,
-        )
-        
-        if not score_result.passed:
-            # Score too low, skip all AOIs
-            return inserted_ids
+        # # === SYMBOL-LEVEL GATE CHECK (outside AOI loop) ===
+        # # Use last candle close as reference price for HTF context
+        # reference_price = candles_1h.iloc[-1]["close"]
+        # signal_time = candles_1h.iloc[-1]["time"]
+        # 
+        # # Compute lightweight HTF context for gate checks (fast)
+        # htf_context = compute_lightweight_htf_context(
+        #     candle_store=self._store,
+        #     signal_time=signal_time,
+        #     entry_price=reference_price,
+        #     atr_1h=atr_1h,
+        #     direction=direction,
+        # )
+        # 
+        # if htf_context is None:
+        #     return inserted_ids
+        # 
+        # # Run production gates using entry module
+        # gate_result = check_all_gates(
+        #     signal_time=signal_time,
+        #     symbol=self._symbol,
+        #     direction=direction,
+        #     conflicted_tf=conflicted_tf,
+        #     htf_range_position_mid=htf_context.htf_range_position_mid,
+        #     htf_range_position_high=htf_context.htf_range_position_high,
+        #     distance_to_next_htf_obstacle_atr=htf_context.distance_to_next_htf_obstacle_atr,
+        # )
+        # 
+        # if not gate_result.passed:
+        #     # Symbol fails gates, skip all AOIs
+        #     return inserted_ids
+        # 
+        # # Calculate score ONCE per symbol (using production scoring)
+        # score_result = calculate_score(
+        #     direction=direction,
+        #     htf_range_position_mid=htf_context.htf_range_position_mid,
+        #     htf_range_position_high=htf_context.htf_range_position_high,
+        # )
+        # 
+        # if not score_result.passed:
+        #     # Score too low, skip all AOIs
+        #     return inserted_ids
         
         # Get tradable AOIs
         tradable_aois = state.get_tradable_aois()
@@ -141,14 +148,14 @@ class ReplaySignalDetector:
         # === AOI LOOP (only pattern finding and signal creation) ===
         for aoi in tradable_aois:
             signal_id = self._scan_aoi_for_entry(
-                candles_1h=candles_1h,
+                candles_1h=entry_candles,
                 aoi=aoi,
                 direction=direction,
                 trend_snapshot=trend_snapshot,
                 trend_alignment=trend_alignment,
                 atr_1h=atr_1h,
                 conflicted_tf=conflicted_tf,
-                score_result=score_result,
+                state=state,
             )
             if signal_id:
                 inserted_ids.append(signal_id)
@@ -164,12 +171,13 @@ class ReplaySignalDetector:
         trend_alignment: int,
         atr_1h: float,
         conflicted_tf: Optional[str],
-        score_result: ScoreResult,
+        state: SymbolState,
     ) -> Optional[int]:
         """Scan a single AOI for entry pattern and store if found.
         
-        Gates and scoring have already passed at symbol level.
-        Streamlined for performance - only stores essential signal data.
+        Gates and scoring are disabled for unbiased data collection.
+        Stores all signals matching trend + AOI pattern.
+        Also computes and stores pre_entry_context_v2 for comprehensive data.
         """
         # Find entry pattern (AOI-specific)
         pattern = find_entry_pattern(candles_1h, aoi, direction)
@@ -182,9 +190,9 @@ class ReplaySignalDetector:
         else:
             break_index = len(pattern.candles) - 2
         
-        # Use production score (already computed and passed)
-        final_score = score_result.total_score
-        tier = "scored" if score_result.passed else "unscored"
+        # Scoring disabled - use defaults
+        final_score = 0.0
+        tier = "unscored"
         
         # Get entry price (close of last candle)
         entry_price = pattern.candles[-1].close
@@ -229,6 +237,45 @@ class ReplaySignalDetector:
             aoi_touch_count_since_creation=0,  # Skip expensive computation
             trade_id=trade_id,
         )
+        
+        # Compute and store pre-entry context V2 (comprehensive market environment)
+        if signal_id:
+            retest_time = pattern.candles[0].time
+            break_candle = {
+                "open": pattern.candles[break_index].open,
+                "high": pattern.candles[break_index].high,
+                "low": pattern.candles[break_index].low,
+                "close": pattern.candles[break_index].close,
+            }
+            retest_candle = {
+                "open": pattern.candles[0].open,
+                "high": pattern.candles[0].high,
+                "low": pattern.candles[0].low,
+                "close": pattern.candles[0].close,
+            }
+            
+            try:
+                context_v2 = self._compute_pre_entry_context_v2(
+                    signal_time=signal_time,
+                    retest_time=retest_time,
+                    direction=direction,
+                    entry_price=entry_price,
+                    atr_1h=atr_1h,
+                    aoi_low=aoi.lower,
+                    aoi_high=aoi.upper,
+                    aoi_timeframe=aoi.timeframe or ACTIVE_PROFILE.aoi_tf_low,
+                    state=state,
+                    is_break_candle_last=pattern.is_break_candle_last,
+                    break_candle=break_candle,
+                    retest_candle=retest_candle,
+                )
+                if context_v2:
+                    self._persist_pre_entry_context_v2(signal_id, context_v2)
+            except Exception as e:
+                # Log error but don't fail signal creation
+                from logger import get_logger
+                logger = get_logger(__name__)
+                logger.warning(f"Failed to compute pre_entry_context_v2 for signal {signal_id}: {e}")
         
         return signal_id
     
@@ -292,10 +339,11 @@ class ReplaySignalDetector:
                     normalized_symbol,
                     signal_time,
                     direction.value,
-                    self._get_trend_value(trend_snapshot, "4H"),
-                    self._get_trend_value(trend_snapshot, "1D"),
-                    self._get_trend_value(trend_snapshot, "1W"),
+                    self._get_trend_value(trend_snapshot, ACTIVE_PROFILE.trend_tf_low),
+                    self._get_trend_value(trend_snapshot, ACTIVE_PROFILE.trend_tf_mid),
+                    self._get_trend_value(trend_snapshot, ACTIVE_PROFILE.trend_tf_high),
                     trend_alignment,
+                    ACTIVE_PROFILE.name,  # timeframe_profile
                     aoi.timeframe or "",
                     aoi.lower,
                     aoi.upper,
@@ -396,6 +444,7 @@ class ReplaySignalDetector:
         aoi_high: float,
         aoi_timeframe: str,
         state: SymbolState,
+        is_break_candle_last: bool,
         break_candle: Optional[dict] = None,
         retest_candle: Optional[dict] = None,
     ) -> Optional[PreEntryContextV2Data]:
@@ -411,6 +460,7 @@ class ReplaySignalDetector:
             aoi_high=aoi_high,
             aoi_timeframe=aoi_timeframe,
             state=state,
+            is_break_candle_last=is_break_candle_last,
             break_candle=break_candle,
             retest_candle=retest_candle,
         )
@@ -428,14 +478,14 @@ class ReplaySignalDetector:
             INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2,
             (
                 signal_id,
-                context.htf_range_position_daily,
-                context.htf_range_position_weekly,
-                context.distance_to_daily_high_atr,
-                context.distance_to_daily_low_atr,
-                context.distance_to_weekly_high_atr,
-                context.distance_to_weekly_low_atr,
-                context.distance_to_4h_high_atr,
-                context.distance_to_4h_low_atr,
+                context.htf_range_position_mid,
+                context.htf_range_position_high,
+                context.distance_to_mid_tf_high_atr,
+                context.distance_to_mid_tf_low_atr,
+                context.distance_to_high_tf_high_atr,
+                context.distance_to_high_tf_low_atr,
+                context.distance_to_low_tf_high_atr,
+                context.distance_to_low_tf_low_atr,
                 context.distance_to_next_htf_obstacle_atr,
                 context.prev_session_high,
                 context.prev_session_low,
@@ -449,10 +499,10 @@ class ReplaySignalDetector:
                 context.aoi_time_since_last_touch,
                 context.aoi_last_reaction_strength,
                 context.distance_from_last_impulse_atr,
-                context.htf_range_size_daily_atr,
-                context.htf_range_size_weekly_atr,
-                context.aoi_midpoint_range_position_daily,
-                context.aoi_midpoint_range_position_weekly,
+                context.htf_range_size_mid_atr,
+                context.htf_range_size_high_atr,
+                context.aoi_midpoint_range_position_mid,
+                context.aoi_midpoint_range_position_high,
                 # New break/retest candle metrics
                 context.break_impulse_range_atr,
                 context.break_impulse_body_atr,
@@ -473,56 +523,45 @@ class ReplaySignalDetector:
         Returns:
             TrendDirection if consecutive alignment found, None otherwise
         """
-        trend_4h = state.trend_4h
-        trend_1d = state.trend_1d
-        trend_1w = state.trend_1w
+        trend_low = state.trend_low
+        trend_mid = state.trend_mid
+        trend_high = state.trend_high
         
         # Check all 3 aligned
-        if trend_4h == trend_1d == trend_1w:
-            if trend_4h in (TrendDirection.BULLISH, TrendDirection.BEARISH):
-                return trend_4h
+        if trend_low == trend_mid == trend_high:
+            if trend_low in (TrendDirection.BULLISH, TrendDirection.BEARISH):
+                return trend_low
         
         # Check 4H + 1D aligned (consecutive)
-        if trend_4h == trend_1d:
-            if trend_4h in (TrendDirection.BULLISH, TrendDirection.BEARISH):
-                return trend_4h
+        if trend_low == trend_mid:
+            if trend_low in (TrendDirection.BULLISH, TrendDirection.BEARISH):
+                return trend_low
         
         # Check 1D + 1W aligned (consecutive)
-        if trend_1d == trend_1w:
-            if trend_1d in (TrendDirection.BULLISH, TrendDirection.BEARISH):
-                return trend_1d
+        if trend_mid == trend_high:
+            if trend_mid in (TrendDirection.BULLISH, TrendDirection.BEARISH):
+                return trend_mid
         
         # No consecutive alignment
         return None
     
     def _get_conflicted_tf(self, state: SymbolState, direction: TrendDirection) -> Optional[str]:
-        """Get the conflicted TF (the one that disagrees with direction).
-        
-        With consecutive alignment requirement, only 4H or 1W can conflict:
-        - If 4H + 1D aligned → 1W conflicts
-        - If 1D + 1W aligned → 4H conflicts
-        - If all 3 aligned → None
-        
-        Returns:
-            None if all 3 TFs aligned
-            '4H' if 4H differs from direction
-            '1W' if 1W differs
-        """
-        trend_4h = state.trend_4h
-        trend_1d = state.trend_1d
-        trend_1w = state.trend_1w
+        """Get the conflicted TF (the one that disagrees with direction)."""
+        trend_low = state.trend_low
+        trend_mid = state.trend_mid
+        trend_high = state.trend_high
         
         # All 3 aligned
-        if trend_4h == trend_1d == trend_1w:
+        if trend_low == trend_mid == trend_high:
             return None
         
-        # 4H + 1D aligned, 1W differs
-        if trend_4h == trend_1d == direction:
-            return "1W"
+        # low + mid aligned, high differs
+        if trend_low == trend_mid == direction:
+            return ACTIVE_PROFILE.trend_tf_high
         
-        # 1D + 1W aligned, 4H differs
-        if trend_1d == trend_1w == direction:
-            return "4H"
+        # mid + high aligned, low differs
+        if trend_mid == trend_high == direction:
+            return ACTIVE_PROFILE.trend_tf_low
         
         return None
     
@@ -573,11 +612,9 @@ class ReplaySignalDetector:
             return None
         
         # Get appropriate candles for AOI's timeframe
-        if timeframe == "4H":
-            tf_candles = self._store.get_4h_candles().get_candles_up_to(signal_time)
-        elif timeframe == "1D":
-            tf_candles = self._store.get_1d_candles().get_candles_up_to(signal_time)
-        else:
+        try:
+            tf_candles = self._store.get(timeframe).get_candles_up_to(signal_time)
+        except KeyError:
             return None
         
         if tf_candles is None or tf_candles.empty:

@@ -30,14 +30,7 @@ from .timeframe_alignment import (
     get_candles_for_analysis,
 )
 from .config import (
-    TIMEFRAME_4H,
-    TIMEFRAME_1D,
-    TIMEFRAME_1W,
-    LOOKBACK_4H,
-    LOOKBACK_1D,
-    LOOKBACK_1W,
-    LOOKBACK_AOI_4H,
-    LOOKBACK_AOI_1D,
+    ACTIVE_PROFILE,
     TREND_ALIGNMENT_TIMEFRAMES,
 )
 
@@ -46,56 +39,51 @@ from .config import (
 class SymbolState:
     """Current market state for a symbol at a point in time."""
     
-    # Trend states per timeframe
-    trend_4h: Optional[TrendDirection] = None
-    trend_1d: Optional[TrendDirection] = None
-    trend_1w: Optional[TrendDirection] = None
+    # Dict-based storage keyed by TF string
+    trends: dict[str, Optional[TrendDirection]] = field(default_factory=dict)
+    trend_results: dict[str, Optional[TrendAnalysisResult]] = field(default_factory=dict)
+    aois: dict[str, List[AOIZone]] = field(default_factory=dict)
+    break_times: dict[str, Optional[datetime]] = field(default_factory=dict)
+    last_updates: dict[str, Optional[datetime]] = field(default_factory=dict)
     
-    # Trend analysis results (for structural levels)
-    trend_result_4h: Optional[TrendAnalysisResult] = None
-    trend_result_1d: Optional[TrendAnalysisResult] = None
-    trend_result_1w: Optional[TrendAnalysisResult] = None
+    # Backward-compatible accessors for trend_low / trend_mid / trend_high
+    @property
+    def trend_low(self) -> Optional[TrendDirection]:
+        return self.trends.get(ACTIVE_PROFILE.trend_tf_low)
     
-    # AOI lists per timeframe
-    aois_4h: List[AOIZone] = field(default_factory=list)
-    aois_1d: List[AOIZone] = field(default_factory=list)
+    @property
+    def trend_mid(self) -> Optional[TrendDirection]:
+        return self.trends.get(ACTIVE_PROFILE.trend_tf_mid)
     
-    # Last update times (for debugging/logging)
-    last_4h_update: Optional[datetime] = None
-    last_1d_update: Optional[datetime] = None
-    last_1w_update: Optional[datetime] = None
+    @property
+    def trend_high(self) -> Optional[TrendDirection]:
+        return self.trends.get(ACTIVE_PROFILE.trend_tf_high)
     
     def get_trend_snapshot(self) -> Mapping[str, Optional[TrendDirection]]:
         """Get trend values as a mapping for production functions."""
+        p = ACTIVE_PROFILE
         return {
-            "4H": self.trend_4h,
-            "1D": self.trend_1d,
-            "1W": self.trend_1w,
+            p.trend_tf_low:  self.trends.get(p.trend_tf_low),
+            p.trend_tf_mid:  self.trends.get(p.trend_tf_mid),
+            p.trend_tf_high: self.trends.get(p.trend_tf_high),
         }
     
     def get_overall_trend(self) -> Optional[TrendDirection]:
-        """Determine overall trend using production logic.
-        
-        Uses get_overall_trend_from_values from trend.bias module
-        which implements the middle/consensus trend algorithm.
-        """
+        """Determine overall trend using production logic."""
         return get_overall_trend_from_values(
             self.get_trend_snapshot(),
             TREND_ALIGNMENT_TIMEFRAMES,
         )
     
     def get_tradable_aois(self) -> List[AOIZone]:
-        """Get all tradable AOIs from both 4H and 1D timeframes."""
-        return [
-            aoi for aoi in (self.aois_4h + self.aois_1d)
-            if aoi.classification == "tradable"
-        ]
+        """Get all tradable AOIs from all AOI timeframes."""
+        all_aois: List[AOIZone] = []
+        for tf in (ACTIVE_PROFILE.aoi_tf_low, ACTIVE_PROFILE.aoi_tf_high):
+            all_aois.extend(self.aois.get(tf, []))
+        return [aoi for aoi in all_aois if aoi.classification == "tradable"]
     
     def get_trend_alignment_strength(self, direction: TrendDirection) -> int:
-        """Count how many timeframes align with the given direction.
-        
-        Uses calculate_trend_alignment_strength from trend.bias module.
-        """
+        """Count how many timeframes align with the given direction."""
         return calculate_trend_alignment_strength(
             self.get_trend_snapshot(),
             direction,
@@ -120,6 +108,10 @@ class MarketStateManager:
         self._store = candle_store
         self._aligner = aligner
         self._state = SymbolState()
+        self._profile = ACTIVE_PROFILE
+        
+        # Which TFs get AOI computation
+        self._aoi_tfs = {self._profile.aoi_tf_low, self._profile.aoi_tf_high}
     
     @property
     def state(self) -> SymbolState:
@@ -127,97 +119,43 @@ class MarketStateManager:
         return self._state
     
     def update_state(self, current_time: datetime) -> None:
-        """Update market state based on new timeframe closes.
-        
-        Checks for new 4H/1D/1W closes and recomputes the corresponding
-        trend and AOI states when needed.
-        
-        Args:
-            current_time: Current simulation time (1H candle close)
-        """
-        # Detect which timeframes have new closes
+        """Update market state based on new timeframe closes."""
         close_flags = self._aligner.detect_new_closes(current_time)
         
-        # Update 4H state if new 4H candle closed
-        if close_flags.new_4h:
-            self._update_4h_state(current_time)
-        
-        # Update 1D state if new 1D candle closed
-        if close_flags.new_1d:
-            self._update_1d_state(current_time)
-        
-        # Update 1W state if new 1W candle closed
-        if close_flags.new_1w:
-            self._update_1w_state(current_time)
+        for tf in self._profile.trend_alignment_tfs:
+            if close_flags.is_new(tf):
+                self._update_tf_state(tf, current_time)
     
-    def _update_4h_state(self, as_of_time: datetime) -> None:
-        """Recompute 4H trend and AOIs."""
-        # Get 4H candles for trend analysis
+    def _update_tf_state(self, tf: str, as_of_time: datetime) -> None:
+        """Recompute trend (and possibly AOIs) for a given timeframe."""
+        # --- Trend ---
+        trend_lookback = self._profile.lookback_for_trend(tf)
         trend_candles = get_candles_for_analysis(
-            self._store, TIMEFRAME_4H, as_of_time, LOOKBACK_4H
+            self._store, tf, as_of_time, trend_lookback
         )
         
         if trend_candles is not None and not trend_candles.empty:
-            self._state.trend_result_4h = self._compute_trend(trend_candles)
-            self._state.trend_4h = (
-                self._state.trend_result_4h.trend
-                if self._state.trend_result_4h else None
+            result = self._compute_trend(trend_candles, tf)
+            self._state.trend_results[tf] = result
+            self._state.trends[tf] = result.trend if result else None
+            self._state.break_times[tf] = self._resolve_break_time(
+                trend_candles, result
             )
         
-        # Get 4H candles for AOI analysis (may need more lookback)
-        aoi_candles = get_candles_for_analysis(
-            self._store, TIMEFRAME_4H, as_of_time, LOOKBACK_AOI_4H
-        )
-        
-        if aoi_candles is not None and not aoi_candles.empty:
-            self._state.aois_4h = self._compute_aois(
-                TIMEFRAME_4H, aoi_candles, self._state.get_overall_trend()
+        # --- AOIs (only for AOI timeframes) ---
+        if tf in self._aoi_tfs:
+            aoi_lookback = self._profile.lookback_for_aoi(tf)
+            aoi_candles = get_candles_for_analysis(
+                self._store, tf, as_of_time, aoi_lookback
             )
+            if aoi_candles is not None and not aoi_candles.empty:
+                self._state.aois[tf] = self._compute_aois(
+                    tf, aoi_candles, self._state.get_overall_trend()
+                )
         
-        self._state.last_4h_update = as_of_time
+        self._state.last_updates[tf] = as_of_time
     
-    def _update_1d_state(self, as_of_time: datetime) -> None:
-        """Recompute 1D trend and AOIs."""
-        # Get 1D candles for trend analysis
-        trend_candles = get_candles_for_analysis(
-            self._store, TIMEFRAME_1D, as_of_time, LOOKBACK_1D
-        )
-        
-        if trend_candles is not None and not trend_candles.empty:
-            self._state.trend_result_1d = self._compute_trend(trend_candles)
-            self._state.trend_1d = (
-                self._state.trend_result_1d.trend
-                if self._state.trend_result_1d else None
-            )
-        
-        # Get 1D candles for AOI analysis
-        aoi_candles = get_candles_for_analysis(
-            self._store, TIMEFRAME_1D, as_of_time, LOOKBACK_AOI_1D
-        )
-        
-        if aoi_candles is not None and not aoi_candles.empty:
-            self._state.aois_1d = self._compute_aois(
-                TIMEFRAME_1D, aoi_candles, self._state.get_overall_trend()
-            )
-        
-        self._state.last_1d_update = as_of_time
-    
-    def _update_1w_state(self, as_of_time: datetime) -> None:
-        """Recompute 1W trend (no AOIs for weekly)."""
-        trend_candles = get_candles_for_analysis(
-            self._store, TIMEFRAME_1W, as_of_time, LOOKBACK_1W
-        )
-        
-        if trend_candles is not None and not trend_candles.empty:
-            self._state.trend_result_1w = self._compute_trend(trend_candles)
-            self._state.trend_1w = (
-                self._state.trend_result_1w.trend
-                if self._state.trend_result_1w else None
-            )
-        
-        self._state.last_1w_update = as_of_time
-    
-    def _compute_trend(self, candles: pd.DataFrame) -> Optional[TrendAnalysisResult]:
+    def _compute_trend(self, candles: pd.DataFrame, tf: str) -> Optional[TrendAnalysisResult]:
         """Compute trend from candles using production logic."""
         if candles is None or candles.empty or "close" not in candles.columns:
             return None
@@ -226,9 +164,9 @@ class MarketStateManager:
         if len(prices) < 2:
             return None
         
-        # Get analysis params (using 4H defaults for prominence/distance)
+        # Get analysis params for this timeframe
         try:
-            params = require_analysis_params(TIMEFRAME_4H)
+            params = require_analysis_params(tf)
             distance = params.distance
             prominence = params.prominence
         except KeyError:
@@ -238,6 +176,78 @@ class MarketStateManager:
         swings = get_swing_points(prices, distance, prominence)
         return analyze_snake_trend(swings)
     
+    def _resolve_break_time(
+        self, candles: pd.DataFrame, result: TrendAnalysisResult
+    ) -> Optional[datetime]:
+        """Find the exact time of the structural break."""
+        if not result or not result.broken_swing or "close" not in candles.columns:
+            return None
+            
+        broken_price = result.broken_swing.price
+        # Break happens after broken_swing.index
+        # We need to find the first candle AFTER broken_swing.index where Close crosses broken_price.
+        
+        start_idx = result.broken_swing.index + 1
+        if start_idx >= len(candles):
+            return None
+            
+        try:
+            # Slicing creates a copy/view. We iterate row by row or vectorized.
+            # We need the Time of the break candle.
+            
+            # Identify direction based on trend (if Bullish, break was up)
+            # Actually result.trend tells us the *current* trend.
+            # If broken_swing was a High, we broke UP (Bullish).
+            # If broken_swing was a Low, we broke DOWN (Bearish).
+            
+            from trend.structure import SWING_HIGH, SWING_LOW
+            
+            # But TrendAnalysisResult doesn't store broken_swing.kind directly?
+            # It stores SwingPoint, which has .kind.
+            
+            target_time = None
+            is_break_up = result.broken_swing.kind == SWING_HIGH
+            
+            # Scan
+            subset = candles.iloc[start_idx:]
+            
+            if is_break_up:
+                # Find first close > price
+                mask = subset["close"] > broken_price
+            else:
+                # Find first close < price
+                mask = subset["close"] < broken_price
+                
+            # Get first True
+            # mask is a Series of booleans.
+            if mask.any():
+                # idxmax() on boolean returns first True index
+                first_true_idx = mask.idxmax()
+                # Use the index to get the time.
+                # If dataframe index is integer (default for reset_index), or if it is Time?
+                # The 'candles' from `get_candles_for_analysis` usually comes from `store.get_Xh_candles().get_candles_up_to`.
+                # CandleStore usually returns DF with 'formatted' time or just time column.
+                # Let's assume 'time' column exists or index is time.
+                # `market_state.py` usually deals with `candles` having properties.
+                # Let's check `candles["time"]`.
+                
+                # Careful: idxmax() returns the *Label* of the index.
+                # If candles index is RangeIndex, it works as position.
+                # If candles index is Time, it returns Time.
+                
+                if "time" in candles.columns:
+                    target_time = candles.loc[first_true_idx, "time"]
+                else: 
+                     # Fallback if Time is index
+                     target_time = first_true_idx
+                     
+                return target_time
+                
+        except Exception:
+            pass
+            
+        return None
+
     def _compute_aois(
         self,
         timeframe: str,

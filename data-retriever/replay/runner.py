@@ -172,11 +172,12 @@ def _replay_symbol(
     signal_detector = ReplaySignalDetector(symbol, candle_store)
     outcome_calculator = ReplayOutcomeCalculator(symbol, candle_store, start_date, end_date)
     
-    # Step 3: Get 1H candle indices for replay window
-    replay_indices = candle_store.get_replay_1h_indices(start_date, end_date)
+    # Step 3: Get entry-TF candle indices for replay window
+    from .config import ACTIVE_PROFILE
+    replay_indices = candle_store.get_replay_entry_indices(start_date, end_date)
     total_candles = len(replay_indices)
     
-    logger.info(f"  📈 Replaying {total_candles} 1H candles...")
+    logger.info(f"  📈 Replaying {total_candles} {ACTIVE_PROFILE.entry_tf} candles (profile={ACTIVE_PROFILE.name})...")
     
     # Progress tracking
     log_interval = max(total_candles // 10, 1)  # Log every 10%
@@ -184,7 +185,7 @@ def _replay_symbol(
     # Step 4: Main replay loop
     for i, candle_idx in enumerate(replay_indices):
         try:
-            candle = candle_store.get_1h_candles().get_candle_at_index(candle_idx)
+            candle = candle_store.get_entry_candles().get_candle_at_index(candle_idx)
             if candle is None:
                 continue
             
@@ -203,8 +204,8 @@ def _replay_symbol(
             for sig_id in signal_ids:
                 outcome_calculator.register_signal(sig_id, current_time)
             
-            # Compute outcomes for eligible signals
-            outcomes = outcome_calculator.compute_eligible_outcomes(candle_idx)
+            # Compute outcomes for eligible signals (always uses 1H candles internally)
+            outcomes = outcome_calculator.compute_eligible_outcomes(current_time)
             stats.outcomes_computed += outcomes
             
             stats.candles_processed += 1

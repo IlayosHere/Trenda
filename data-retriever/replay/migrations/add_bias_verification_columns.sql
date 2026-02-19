@@ -13,6 +13,7 @@ ALTER TABLE trenda_replay.entry_signal
     ADD COLUMN IF NOT EXISTS real_trend_4h VARCHAR(10),
     ADD COLUMN IF NOT EXISTS real_trend_1d VARCHAR(10),
     ADD COLUMN IF NOT EXISTS real_trend_1w VARCHAR(10),
+    ADD COLUMN IF NOT EXISTS real_overall_trend VARCHAR(10),
     ADD COLUMN IF NOT EXISTS real_trend_alignment INTEGER,
     ADD COLUMN IF NOT EXISTS aoi_still_valid BOOLEAN,
     ADD COLUMN IF NOT EXISTS trend_matches_original BOOLEAN;
@@ -26,6 +27,7 @@ WHERE real_trend_4h IS NULL;
 COMMENT ON COLUMN trenda_replay.entry_signal.real_trend_4h IS 'Unbiased 4H trend (computed with fixed HTF alignment)';
 COMMENT ON COLUMN trenda_replay.entry_signal.real_trend_1d IS 'Unbiased 1D trend (computed with fixed HTF alignment)';
 COMMENT ON COLUMN trenda_replay.entry_signal.real_trend_1w IS 'Unbiased 1W trend (computed with fixed HTF alignment)';
+COMMENT ON COLUMN trenda_replay.entry_signal.real_overall_trend IS 'Overall trend using 2-aligned-TF logic (bullish/bearish/neutral)';
 COMMENT ON COLUMN trenda_replay.entry_signal.real_trend_alignment IS 'Unbiased trend alignment strength';
 COMMENT ON COLUMN trenda_replay.entry_signal.aoi_still_valid IS 'TRUE if AOI zone still generated without bias';
 COMMENT ON COLUMN trenda_replay.entry_signal.trend_matches_original IS 'TRUE if all 3 real trends match original biased trends';

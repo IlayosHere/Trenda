@@ -108,15 +108,21 @@ class ExitSimulator:
             return 1.2
         elif sl_model == "SL_ATR_1_5":
             return 1.5
+        elif sl_model == "SL_ATR_2_0":
+            return 2.0
         # AOI-based SL distances
         elif sl_model == "SL_AOI_FAR":
             return self._geometry.aoi_far_edge_atr
         elif sl_model == "SL_AOI_FAR_PLUS_0_25":
             return self._geometry.aoi_far_edge_atr + 0.25
+        elif sl_model == "SL_AOI_FAR_PLUS_0_5":
+            return self._geometry.aoi_far_edge_atr + 0.5
         elif sl_model == "SL_AOI_NEAR":
             return self._geometry.aoi_near_edge_atr
         elif sl_model == "SL_AOI_NEAR_PLUS_0_25":
             return self._geometry.aoi_near_edge_atr + 0.25
+        elif sl_model == "SL_AOI_NEAR_PLUS_0_5":
+            return self._geometry.aoi_near_edge_atr + 0.5
         # Signal candle-based SL distances
         elif sl_model == "SL_SIGNAL_CANDLE":
             return self._geometry.signal_candle_opposite_extreme_atr

@@ -171,13 +171,13 @@ def _check_range_position(
     context_v2: PreEntryContextV2Data,
 ) -> GateResult:
     """Gate 4: Bullish <= 0.40, Bearish >= 0.60."""
-    position = context_v2.htf_range_position_daily
+    position = context_v2.htf_range_position_mid
     
     if position is None:
         return GateResult(
             passed=False,
             gate_name="Gate 4 - Range Position",
-            reason="htf_range_position_daily is NULL",
+            reason="htf_range_position_mid is NULL",
         )
     
     is_bullish = direction == TrendDirection.BULLISH

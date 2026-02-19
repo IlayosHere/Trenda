@@ -34,7 +34,8 @@ GET_RELATED_SIGNAL_TRADE_ID = f"""
 INSERT_REPLAY_ENTRY_SIGNAL = f"""
     INSERT INTO {SCHEMA_NAME}.entry_signal (
         symbol, signal_time, direction,
-        trend_4h, trend_1d, trend_1w, trend_alignment_strength,
+        trend_low, trend_mid, trend_high, trend_alignment_strength,
+        timeframe_profile,
         aoi_timeframe, aoi_low, aoi_high, aoi_classification,
         entry_price, atr_1h,
         final_score, tier,
@@ -46,7 +47,7 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         aoi_touch_count_since_creation,
         trade_id
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -134,9 +135,9 @@ CREATE_REPLAY_ENTRY_SIGNAL_TABLE = f"""
         symbol VARCHAR(20) NOT NULL,
         signal_time TIMESTAMPTZ NOT NULL,
         direction VARCHAR(10) NOT NULL,
-        trend_4h VARCHAR(10),
-        trend_1d VARCHAR(10),
-        trend_1w VARCHAR(10),
+        trend_low VARCHAR(10),
+        trend_mid VARCHAR(10),
+        trend_high VARCHAR(10),
         trend_alignment_strength INTEGER,
         aoi_timeframe VARCHAR(10),
         aoi_low NUMERIC,
@@ -248,10 +249,10 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_TABLE = f"""
 INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
     INSERT INTO {SCHEMA_NAME}.pre_entry_context_v2 (
         entry_signal_id,
-        htf_range_position_daily, htf_range_position_weekly,
-        distance_to_daily_high_atr, distance_to_daily_low_atr,
-        distance_to_weekly_high_atr, distance_to_weekly_low_atr,
-        distance_to_4h_high_atr, distance_to_4h_low_atr,
+        htf_range_position_mid, htf_range_position_high,
+        distance_to_mid_tf_high_atr, distance_to_mid_tf_low_atr,
+        distance_to_high_tf_high_atr, distance_to_high_tf_low_atr,
+        distance_to_low_tf_high_atr, distance_to_low_tf_low_atr,
         distance_to_next_htf_obstacle_atr,
         prev_session_high, prev_session_low,
         distance_to_prev_session_high_atr, distance_to_prev_session_low_atr,
@@ -260,8 +261,8 @@ INSERT_REPLAY_PRE_ENTRY_CONTEXT_V2 = f"""
         session_directional_bias,
         aoi_time_since_last_touch, aoi_last_reaction_strength,
         distance_from_last_impulse_atr,
-        htf_range_size_daily_atr, htf_range_size_weekly_atr,
-        aoi_midpoint_range_position_daily, aoi_midpoint_range_position_weekly,
+        htf_range_size_mid_atr, htf_range_size_high_atr,
+        aoi_midpoint_range_position_mid, aoi_midpoint_range_position_high,
         break_impulse_range_atr, break_impulse_body_atr,
         break_close_location, retest_candle_body_penetration
     )
@@ -273,14 +274,14 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_V2_TABLE = f"""
     CREATE TABLE IF NOT EXISTS {SCHEMA_NAME}.pre_entry_context_v2 (
         entry_signal_id INTEGER PRIMARY KEY
             REFERENCES {SCHEMA_NAME}.entry_signal(id) ON DELETE CASCADE,
-        htf_range_position_daily NUMERIC,
-        htf_range_position_weekly NUMERIC,
-        distance_to_daily_high_atr NUMERIC,
-        distance_to_daily_low_atr NUMERIC,
-        distance_to_weekly_high_atr NUMERIC,
-        distance_to_weekly_low_atr NUMERIC,
-        distance_to_4h_high_atr NUMERIC,
-        distance_to_4h_low_atr NUMERIC,
+        htf_range_position_mid NUMERIC,
+        htf_range_position_high NUMERIC,
+        distance_to_mid_tf_high_atr NUMERIC,
+        distance_to_mid_tf_low_atr NUMERIC,
+        distance_to_high_tf_high_atr NUMERIC,
+        distance_to_high_tf_low_atr NUMERIC,
+        distance_to_low_tf_high_atr NUMERIC,
+        distance_to_low_tf_low_atr NUMERIC,
         distance_to_next_htf_obstacle_atr NUMERIC,
         prev_session_high NUMERIC,
         prev_session_low NUMERIC,
@@ -294,10 +295,10 @@ CREATE_REPLAY_PRE_ENTRY_CONTEXT_V2_TABLE = f"""
         aoi_time_since_last_touch INTEGER,
         aoi_last_reaction_strength NUMERIC,
         distance_from_last_impulse_atr NUMERIC,
-        htf_range_size_daily_atr NUMERIC,
-        htf_range_size_weekly_atr NUMERIC,
-        aoi_midpoint_range_position_daily NUMERIC,
-        aoi_midpoint_range_position_weekly NUMERIC,
+        htf_range_size_mid_atr NUMERIC,
+        htf_range_size_high_atr NUMERIC,
+        aoi_midpoint_range_position_mid NUMERIC,
+        aoi_midpoint_range_position_high NUMERIC,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
 """
@@ -325,9 +326,10 @@ INSERT_ENTRY_SL_GEOMETRY = f"""
     INSERT INTO {SCHEMA_NAME}.entry_sl_geometry (
         entry_signal_id, direction,
         aoi_far_edge_atr, aoi_near_edge_atr, aoi_height_atr, aoi_age_bars,
-        signal_candle_opposite_extreme_atr, signal_candle_range_atr, signal_candle_body_atr
+        signal_candle_opposite_extreme_atr, signal_candle_range_atr, signal_candle_body_atr,
+        lookahead_drift_atr
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (entry_signal_id) DO NOTHING
 """
 

@@ -21,10 +21,11 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     direction VARCHAR(10) NOT NULL,
     
     -- Trend data
-    trend_4h VARCHAR(10),
-    trend_1d VARCHAR(10),
-    trend_1w VARCHAR(10),
-    trend_alignment_strength INTEGER,
+    trend_low VARCHAR(10),
+    trend_mid VARCHAR(10),
+    trend_high VARCHAR(10),
+    trend_alignment_strength INTEGER, --checked
+    timeframe_profile VARCHAR(20) DEFAULT 'DEFAULT',
     
     -- AOI data
     aoi_timeframe VARCHAR(10),
@@ -46,18 +47,18 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     tp_model_version TEXT NOT NULL,
     
     -- Conflicted TF (NULL if all 3 aligned, '4H'/'1W' for the odd one out, never '1D')
-    conflicted_tf VARCHAR(10),
+    conflicted_tf VARCHAR(10), --checked
     
     -- Retest depth metrics
-    max_retest_penetration_atr NUMERIC,
-    bars_between_retest_and_break INTEGER,
+    max_retest_penetration_atr NUMERIC, --checked
+    bars_between_retest_and_break INTEGER, --checked
     
     -- Session encoding
-    hour_of_day_utc INTEGER,
+    hour_of_day_utc INTEGER, --checked
     session_bucket VARCHAR(20),
     
     -- AOI decay
-    aoi_touch_count_since_creation INTEGER,
+    aoi_touch_count_since_creation INTEGER, --checked
     
     -- Trade grouping (groups break + after-break signals together)
     trade_id VARCHAR(50),
@@ -104,6 +105,8 @@ CREATE TABLE IF NOT EXISTS trenda_replay.checkpoint_return (
     signal_outcome_id INTEGER REFERENCES trenda_replay.signal_outcome(id) ON DELETE CASCADE,
     bars_after INTEGER NOT NULL,      -- e.g., 3, 6, 12, 24, 48, 72
     return_atr NUMERIC NOT NULL,      -- Return in ATR units at this checkpoint
+    mae_atr NUMERIC,                  -- MAE (in ATR) up to this checkpoint
+    mfe_atr NUMERIC,                  -- MFE (in ATR) up to this checkpoint
     
     UNIQUE(signal_outcome_id, bars_after)
 );
@@ -121,16 +124,16 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
         REFERENCES trenda_replay.entry_signal(id) ON DELETE CASCADE,
 
     -- HTF Range Position (where price sits within completed ranges)
-    htf_range_position_daily NUMERIC,     -- (entry - daily_low) / (daily_high - daily_low)
-    htf_range_position_weekly NUMERIC,    -- (entry - weekly_low) / (weekly_high - weekly_low)
+    htf_range_position_mid NUMERIC,     -- (entry - daily_low) / (daily_high - daily_low)
+    htf_range_position_high NUMERIC,    -- (entry - weekly_low) / (weekly_high - weekly_low)
     
     -- Distance to HTF Boundaries (room to move, in ATR units)
-    distance_to_daily_high_atr NUMERIC,
-    distance_to_daily_low_atr NUMERIC,
-    distance_to_weekly_high_atr NUMERIC,
-    distance_to_weekly_low_atr NUMERIC,
-    distance_to_4h_high_atr NUMERIC,
-    distance_to_4h_low_atr NUMERIC,
+    distance_to_mid_tf_high_atr NUMERIC,
+    distance_to_mid_tf_low_atr NUMERIC,
+    distance_to_high_tf_high_atr NUMERIC,
+    distance_to_high_tf_low_atr NUMERIC,
+    distance_to_low_tf_high_atr NUMERIC,
+    distance_to_low_tf_low_atr NUMERIC,
     distance_to_next_htf_obstacle_atr NUMERIC,  -- min of relevant distances based on direction
     
     -- Session Context (previous session high/low using fixed UTC windows)
@@ -149,19 +152,19 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     session_directional_bias NUMERIC,     -- (session_close - session_open) / atr
     
     -- AOI Freshness
-    aoi_time_since_last_touch INTEGER,    -- bars since last AOI overlap before signal
-    aoi_last_reaction_strength NUMERIC,   -- MFE in ATR after last AOI exit (NULL if fresh)
+    aoi_time_since_last_touch INTEGER, --checked    -- bars since last AOI overlap before signal
+    aoi_last_reaction_strength NUMERIC, --checked  -- MFE in ATR after last AOI exit (NULL if fresh)
     
     -- Momentum Chase Detection
     distance_from_last_impulse_atr NUMERIC,  -- distance from last large candle close
     
     -- HTF Range Size (compressed vs expanded markets)
-    htf_range_size_daily_atr NUMERIC,        -- (max(high) - min(low)) / atr over last 20 daily candles
-    htf_range_size_weekly_atr NUMERIC,       -- (max(high) - min(low)) / atr over last 12 weekly candles
+    htf_range_size_mid_atr NUMERIC,        -- (max(high) - min(low)) / atr over last 20 daily candles
+    htf_range_size_high_atr NUMERIC,       -- (max(high) - min(low)) / atr over last 12 weekly candles
     
     -- AOI Position Inside HTF Range
-    aoi_midpoint_range_position_daily NUMERIC,   -- (aoi_mid - range_low) / (range_high - range_low)
-    aoi_midpoint_range_position_weekly NUMERIC,  -- same for weekly
+    aoi_midpoint_range_position_mid NUMERIC,   -- (aoi_mid - range_low) / (range_high - range_low)
+    aoi_midpoint_range_position_high NUMERIC,  -- same for weekly
     
     -- Break Candle Metrics
     break_impulse_range_atr NUMERIC,            -- (high - low) / atr_1h
@@ -170,6 +173,15 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     
     -- Retest Candle Metrics
     retest_candle_body_penetration NUMERIC,     -- combined body ratio and penetration depth
+    
+    -- HTF Structure Obstacle Distances (computed from trend structure H/L, not last candle)
+    distance_to_low_tf_struct_high_atr NUMERIC,     -- Distance from entry to 4H trend structure high
+    distance_to_low_tf_struct_low_atr NUMERIC,      -- Distance from entry to 4H trend structure low
+    distance_to_mid_tf_struct_high_atr NUMERIC,  -- Distance from entry to 1D trend structure high
+    distance_to_mid_tf_struct_low_atr NUMERIC,   -- Distance from entry to 1D trend structure low
+    distance_to_high_tf_struct_high_atr NUMERIC, -- Distance from entry to 1W trend structure high
+    distance_to_high_tf_struct_low_atr NUMERIC,  -- Distance from entry to 1W trend structure low
+    distance_to_next_htf_struct_obstacle_atr NUMERIC, -- Min distance to nearest HTF structure in trade direction
     
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
