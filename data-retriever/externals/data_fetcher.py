@@ -100,9 +100,9 @@ def _fetch_from_mt5(
             # Historical data fetch using copy_rates_range
             # Convert to naive datetime for MT5 (it expects local time or naive UTC)
             if end_date.tzinfo is not None:
-                end_date_naive = end_date.replace(tzinfo=None)
+                end_date_naive = end_date.replace(tzinfo=None, microsecond=0)
             else:
-                end_date_naive = end_date
+                end_date_naive = end_date.replace(microsecond=0)
             
             # Estimate start_date (overfetch to ensure we get enough candles)
             # Account for weekends and holidays by adding extra buffer
@@ -122,6 +122,13 @@ def _fetch_from_mt5(
                 # Fallback
                 start_date = end_date_naive - timedelta(hours=lookback * 4)
             
+            # Strip microseconds from start_date as well
+            start_date = start_date.replace(microsecond=0)
+            
+            # Ensure symbol is selected in Market Watch
+            if not mt5.symbol_select(symbol, True):
+                logger.warning(f"Failed to select symbol {symbol}")
+            
             rates = mt5.copy_rates_range(symbol, tf_int, start_date, end_date_naive)
             
             # Check for MT5 errors
@@ -129,6 +136,7 @@ def _fetch_from_mt5(
                 error = mt5.last_error()
                 if error[0] != 1:  # 1 = success
                     logger.warning(f"MT5 error for {symbol} TF {tf_int}: code={error[0]}, msg={error[1]}")
+                    logger.warning(f"  Params: start={start_date}, end={end_date_naive}, lookback={lookback}")
         else:
             # Live data fetch using current position
             rates = mt5.copy_rates_from_pos(symbol, tf_int, 0, lookback)

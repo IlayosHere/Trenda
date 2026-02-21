@@ -1,0 +1,230 @@
+sl_model,n_groups,gate_label,n_trades,trades_per_year,win_pct,expectancy_r,max_losing_streak,profit_factor
+SL_ATR_0_5,2,aoi_near_edge_atr>=0.5,718,102.6,0.4081,0.2242,10,1.379
+SL_ATR_0_5,2,htf_range_mid>=0.4 & break_close_location>=0.65,780,111.5,0.4051,0.2154,16,1.362
+SL_ATR_0_5,2,break_close_location>=0.7 & max_retest_penetration_atr<=1.25,878,125.5,0.4043,0.213,11,1.358
+SL_ATR_1_0,6,aoi_far_edge_atr>=2.0,756,108.1,0.4034,0.2103,14,1.353
+SL_ATR_0_5,2,break_close_location>=0.65 & max_retest_penetration_atr<=1.25,962,137.5,0.4002,0.2006,13,1.334
+SL_ATR_0_5,2,break_close_location>=0.75,1043,149.1,0.3969,0.1908,11,1.316
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & break_close_location>=0.65,955,136.5,0.3969,0.1906,12,1.316
+SL_ATR_0_5,2,max_retest_penetration_atr<=1.0 & signal_candle_opposite_extreme_atr>=0.5,882,126.1,0.3968,0.1905,15,1.316
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.5 & break_close_location>=0.65,1013,144.8,0.3968,0.1923,13,1.319
+SL_ATR_0_5,2,break_close_location>=0.7,1180,168.7,0.3966,0.1898,12,1.315
+SL_ATR_1_0,6,break_close_location>=0.7 & max_retest_penetration_atr<=1.25,1478,211.3,0.3958,0.188,14,1.311
+SL_ATR_0_5,2,break_close_location>=0.65,1284,183.6,0.3956,0.1869,14,1.309
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & aoi_far_edge_atr>=1.5,876,125.2,0.395,0.1849,11,1.306
+SL_ATR_1_0,6,htf_dir>=0.4 & bars_between_retest_and_break<=2,1128,161.3,0.3945,0.1851,12,1.306
+SL_ATR_1_0,6,max_retest_penetration_atr<=0.5,834,119.2,0.3945,0.1856,10,1.307
+SL_ATR_1_0,6,break_close_location>=0.65 & max_retest_penetration_atr<=1.25,1691,241.7,0.3938,0.1831,15,1.303
+SL_ATR_0_5,2,aoi_far_edge_atr>=1.5,1179,168.5,0.3936,0.1807,13,1.298
+SL_ATR_0_5,2,htf_range_size_mid_atr>=20,861,123.1,0.3926,0.1777,12,1.293
+SL_ATR_1_0,6,aoi_near_edge_atr>=0.5,857,122.5,0.3921,0.1762,13,1.29
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & max_retest_penetration_atr<=1.25,1091,156.0,0.3914,0.1742,15,1.286
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & break_close_location>=0.5,1128,161.3,0.3901,0.1702,14,1.279
+SL_ATR_1_0,6,htf_range_mid>=0.4 & break_close_location>=0.65,1255,179.4,0.3896,0.1696,14,1.278
+SL_ATR_0_5,2,max_retest_penetration_atr<=1.25 & signal_candle_opposite_extreme_atr>=0.35,1204,172.1,0.3895,0.1686,17,1.276
+SL_ATR_0_5,2,signal_candle_opposite_extreme_atr>=0.5,1466,209.6,0.3895,0.1685,17,1.276
+SL_ATR_1_0,6,htf_dir>=0.4 & bars_between_retest_and_break<=3,1248,178.4,0.3894,0.1697,13,1.278
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.5,1451,207.4,0.3887,0.1674,14,1.274
+SL_ATR_0_5,2,break_close_location>=0.5,1503,214.9,0.3886,0.1657,17,1.271
+SL_ATR_0_5,2,bars_between_retest_and_break<=1,1058,151.2,0.3885,0.1654,13,1.27
+SL_ATR_1_0,6,bars_between_retest_and_break<=3 & distance_to_next_htf_obstacle_atr>=0.5,1283,183.4,0.3882,0.1659,17,1.271
+SL_ATR_0_5,2,max_retest_penetration_atr<=1.0,1002,143.2,0.3882,0.1647,16,1.269
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & signal_candle_opposite_extreme_atr>=0.35,1185,169.4,0.3882,0.1646,15,1.269
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.5 & bars_between_retest_and_break<=3,1283,183.4,0.3882,0.1659,17,1.271
+SL_ATR_0_5,2,htf_range_size_mid_atr>=15,1358,194.1,0.3881,0.1642,16,1.268
+SL_ATR_0_5,2,trend_age_impulses>=3,1541,220.3,0.3881,0.1642,18,1.268
+SL_ATR_0_5,2,bars_between_retest_and_break<=3 & break_close_location>=0.65,1052,150.4,0.3878,0.1635,13,1.267
+SL_ATR_1_0,6,break_close_location>=0.75,1572,224.7,0.3874,0.1628,14,1.266
+SL_ATR_0_5,2,aoi_far_edge_atr>=1.5 & bars_between_retest_and_break<=3,958,137.0,0.3873,0.1618,13,1.264
+SL_ATR_1_0,6,htf_range_mid>=0.4 & distance_to_next_htf_obstacle_atr>=0.25,1204,172.1,0.387,0.1618,15,1.264
+SL_ATR_1_0,6,bear_htf>=0.4&bull_htf>=0.3,1851,264.6,0.3868,0.1609,14,1.263
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.25 & max_retest_penetration_atr<=1.25,918,131.2,0.3867,0.1601,12,1.261
+SL_ATR_0_5,2,signal_candle_opposite_extreme_atr>=0.35,1581,226.0,0.3865,0.1594,18,1.26
+SL_ATR_0_5,2,max_retest_penetration_atr<=1.5,1431,204.6,0.3864,0.1593,17,1.26
+SL_ATR_0_5,2,max_retest_penetration_atr<=1.25,1243,177.7,0.3862,0.1585,17,1.258
+SL_AOI_NEAR_PLUS_0_25,1,bars_between_retest_and_break<=3,800,114.4,0.3862,0.1606,12,1.262
+SL_ATR_1_0,6,distance_from_last_impulse_atr>=1.5,870,124.4,0.3862,0.1607,13,1.262
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.25 & break_close_location>=0.65,899,128.5,0.386,0.158,13,1.257
+SL_AOI_NEAR_PLUS_0_5,1,htf_range_size_mid_atr>=15,788,112.6,0.3858,0.1662,16,1.273
+SL_ATR_0_5,2,aoi_far_edge_atr>=1.5 & distance_to_next_htf_obstacle_atr>=0.25,817,116.8,0.3856,0.1567,17,1.255
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.25 & max_retest_penetration_atr<=1.25,1741,248.9,0.3854,0.1578,16,1.257
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & break_close_location>=0.65,1549,221.4,0.3854,0.158,18,1.258
+SL_ATR_0_5,2,bars_between_retest_and_break<=2,1220,174.4,0.3852,0.1557,15,1.253
+SL_ATR_1_5,1,break_close_location>=0.65,740,105.8,0.3851,0.18,14,1.3
+SL_ATR_1_0,6,aoi_far_edge_atr>=1.5 & distance_to_next_htf_obstacle_atr>=0.25,1367,195.4,0.3848,0.1544,15,1.251
+SL_ATR_1_0,6,htf_dir>=0.4,1539,220.0,0.3847,0.1552,14,1.252
+SL_ATR_0_5,2,bars_between_retest_and_break<=3 & max_retest_penetration_atr<=1.25,1167,166.8,0.3847,0.1542,17,1.251
+SL_ATR_0_5,2,htf_range_size_mid_atr>=10,1605,229.4,0.3844,0.1533,18,1.249
+SL_ATR_1_0,6,break_close_location>=0.65,2146,306.8,0.3844,0.1546,17,1.251
+SL_ATR_0_5,2,no_gate,1626,232.4,0.3844,0.1531,18,1.249
+SL_ATR_0_5,2,trend_age_impulses>=5,1023,146.2,0.3842,0.1525,17,1.248
+SL_ATR_1_0,6,bars_between_retest_and_break<=3 & break_close_location>=0.65,1716,245.3,0.384,0.1537,14,1.25
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & htf_range_size_mid_atr>=10,1203,172.0,0.384,0.1521,15,1.247
+SL_ATR_0_5,2,htf_dir>=0.4,857,122.5,0.3839,0.1517,13,1.246
+SL_ATR_0_5,2,aoi_far_edge_atr>=1.0,1592,227.6,0.3838,0.1514,18,1.246
+SL_SIGNAL_CANDLE,1,break_close_location>=0.65,740,105.8,0.3838,0.1875,14,1.313
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & aoi_far_edge_atr>=1.5,1459,208.6,0.3838,0.1515,16,1.246
+SL_ATR_0_5,2,aoi_near_edge_atr>=0.25,1105,158.0,0.3837,0.1511,12,1.245
+SL_ATR_1_0,6,aoi_far_edge_atr>=1.5,2017,288.3,0.3837,0.1512,19,1.245
+SL_ATR_0_5,2,signal_candle_opposite_extreme_atr>=0.25,1614,230.7,0.3835,0.1506,18,1.244
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & aoi_near_edge_atr>=0.25,850,121.5,0.3835,0.1506,13,1.244
+SL_ATR_0_5,2,break_close_location>=0.5 & distance_to_next_htf_obstacle_atr>=0.25,1072,153.2,0.3834,0.1502,12,1.244
+SL_ATR_1_0,6,trend_age_impulses>=5,2006,286.8,0.3833,0.15,14,1.243
+SL_ATR_1_5,1,htf_range_size_mid_atr>=15,788,112.6,0.3832,0.1644,14,1.27
+SL_ATR_1_0,6,break_close_location>=0.7,1887,269.8,0.3831,0.1499,15,1.243
+SL_ATR_1_0,6,aoi_near_edge_atr>=0.25,1642,234.7,0.3831,0.1503,19,1.244
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.75,1029,147.1,0.3829,0.1505,12,1.244
+SL_SIGNAL_CANDLE,1,bars_between_retest_and_break<=2,713,101.9,0.3829,0.172,17,1.284
+SL_AOI_NEAR_PLUS_0_25,1,trend_age_impulses>=3,865,123.7,0.3827,0.1526,13,1.248
+SL_ATR_1_0,6,bear_htf>=0.7&bull_htf>=0.3,1500,214.4,0.3827,0.1486,18,1.241
+SL_AOI_NEAR_PLUS_0_25,1,bars_between_retest_and_break<=4,844,120.7,0.3827,0.1499,12,1.243
+SL_ATR_0_5,2,bars_between_retest_and_break<=2 & distance_to_next_htf_obstacle_atr>=0.25,918,131.2,0.3824,0.1471,13,1.238
+SL_AOI_NEAR_PLUS_0_5,1,break_close_location>=0.65,740,105.8,0.3824,0.1664,14,1.274
+SL_ATR_0_5,2,htf_dir>=0.5,722,103.2,0.3823,0.1468,12,1.238
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.25 & break_close_location>=0.65,1499,214.3,0.3823,0.1486,16,1.241
+SL_ATR_0_5,2,htf_range_mid>=0.4,971,138.8,0.3821,0.1462,22,1.237
+SL_ATR_0_5,2,htf_range_mid>=0.5,848,121.2,0.3821,0.1462,19,1.237
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & aoi_near_edge_atr>=0.25,1233,176.3,0.382,0.1475,15,1.239
+SL_AOI_NEAR_PLUS_0_25,1,max_retest_penetration_atr<=1.5,801,114.5,0.382,0.151,11,1.245
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.25 & signal_candle_opposite_extreme_atr>=0.35,1132,161.8,0.3816,0.1449,13,1.234
+SL_ATR_0_5,2,bars_between_retest_and_break<=3 & distance_to_next_htf_obstacle_atr>=0.5,758,108.4,0.3813,0.1438,19,1.232
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.5 & bars_between_retest_and_break<=3,758,108.4,0.3813,0.1438,19,1.232
+SL_ATR_0_5,2,bear_htf>=0.4&bull_htf>=0.3,1026,146.7,0.3811,0.1433,22,1.231
+SL_ATR_1_0,6,distance_from_last_impulse_atr>=1.0,1262,180.4,0.3811,0.1449,13,1.234
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.25 & aoi_near_edge_atr>=0.25,1103,157.7,0.3808,0.144,15,1.233
+SL_ATR_0_5,2,htf_dir>=0.45,788,112.6,0.3807,0.1421,12,1.23
+SL_ATR_1_0,6,max_retest_penetration_atr<=1.25,2380,340.2,0.3807,0.1431,17,1.231
+SL_ATR_1_0,6,aoi_far_edge_atr>=1.5 & bars_between_retest_and_break<=3,1591,227.4,0.3803,0.1408,17,1.227
+SL_ATR_0_5,2,htf_dir>=0.4 & bars_between_retest_and_break<=3,710,101.5,0.3803,0.1408,12,1.227
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & distance_to_next_htf_obstacle_atr>=0.25,1623,232.0,0.3802,0.1421,16,1.23
+SL_AOI_NEAR_PLUS_0_5,1,signal_candle_opposite_extreme_atr>=0.5,863,123.4,0.3801,0.1544,16,1.252
+SL_AOI_NEAR_PLUS_0_5,1,bars_between_retest_and_break<=2,713,101.9,0.3801,0.1567,12,1.257
+SL_AOI_NEAR_PLUS_0_25,1,bars_between_retest_and_break<=2,742,106.1,0.3801,0.1422,11,1.23
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=1.0,716,102.4,0.3799,0.1422,10,1.23
+SL_ATR_1_0,6,htf_range_mid>=0.4,1727,246.9,0.3798,0.14,16,1.226
+SL_ATR_1_0,6,bars_between_retest_and_break<=3 & distance_to_next_htf_obstacle_atr>=0.25,1773,253.5,0.3796,0.1403,16,1.226
+SL_AOI_FAR,1,htf_range_size_mid_atr>=15,741,105.9,0.3792,0.172,14,1.287
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.25,1169,167.1,0.379,0.1369,13,1.22
+SL_ATR_1_0,6,bars_between_retest_and_break<=1,1837,262.6,0.3789,0.1381,18,1.223
+SL_ATR_1_5,1,htf_range_size_mid_atr>=10,929,132.8,0.3789,0.1565,12,1.257
+SL_AOI_NEAR_PLUS_0_5,1,htf_range_size_mid_atr>=10,929,132.8,0.3789,0.1499,16,1.244
+SL_ATR_1_5,1,break_close_location>=0.5,871,124.5,0.3789,0.1624,12,1.268
+SL_ATR_1_0,6,max_retest_penetration_atr<=1.0 & signal_candle_opposite_extreme_atr>=0.5,1470,210.1,0.3789,0.1367,17,1.22
+SL_SIGNAL_CANDLE,1,signal_candle_opposite_extreme_atr>=0.5,863,123.4,0.3789,0.1706,14,1.282
+SL_SIGNAL_CANDLE,1,htf_range_size_mid_atr>=10,929,132.8,0.3789,0.1681,16,1.278
+SL_ATR_1_5,1,signal_candle_opposite_extreme_atr>=0.5,863,123.4,0.3789,0.1599,14,1.263
+SL_ATR_0_5,2,distance_from_last_impulse_atr>=1.0,742,106.1,0.3787,0.1361,11,1.219
+SL_ATR_0_5,2,bars_between_retest_and_break<=3 & distance_to_next_htf_obstacle_atr>=0.25,1004,143.5,0.3785,0.1355,12,1.218
+SL_AOI_NEAR_PLUS_0_5,1,max_retest_penetration_atr<=1.5,819,117.1,0.3785,0.1528,12,1.249
+SL_AOI_NEAR_PLUS_0_25,1,bars_between_retest_and_break<=2 & htf_range_size_mid_atr>=10,727,103.9,0.3783,0.1368,11,1.221
+SL_AOI_NEAR_PLUS_0_25,1,signal_candle_opposite_extreme_atr>=0.5,846,120.9,0.3783,0.1395,15,1.225
+SL_ATR_0_5,2,bars_between_retest_and_break<=3,1343,192.0,0.3783,0.1348,17,1.217
+SL_ATR_0_5,2,bars_between_retest_and_break<=4,1433,204.9,0.3782,0.1347,17,1.217
+SL_SIGNAL_CANDLE,1,htf_range_size_mid_atr>=15,788,112.6,0.3782,0.1617,13,1.266
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & htf_range_size_mid_atr>=10,2140,305.9,0.378,0.1345,18,1.216
+SL_ATR_1_0,6,max_retest_penetration_atr<=1.0,2003,286.3,0.3779,0.1351,17,1.218
+SL_ATR_1_0,6,max_retest_penetration_atr<=1.25 & signal_candle_opposite_extreme_atr>=0.35,2149,307.2,0.3779,0.1348,17,1.217
+SL_AOI_NEAR_PLUS_0_25,1,aoi_far_edge_atr>=1.0,905,129.4,0.3779,0.1381,15,1.223
+SL_ATR_0_5,2,distance_from_last_impulse_atr>=0.5,1114,159.3,0.3779,0.1338,15,1.215
+SL_AOI_NEAR_PLUS_0_5,1,break_close_location>=0.5,871,124.5,0.3777,0.1494,16,1.243
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.25,2092,299.1,0.3776,0.1342,18,1.216
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.25 & aoi_near_edge_atr>=0.25,760,108.6,0.3776,0.1329,20,1.214
+SL_ATR_1_0,6,max_retest_penetration_atr<=1.5,2641,377.5,0.3775,0.1335,17,1.215
+SL_SIGNAL_CANDLE,1,signal_candle_opposite_extreme_atr>=0.35,922,131.8,0.3774,0.164,16,1.27
+SL_AOI_NEAR_PLUS_0_5,1,signal_candle_opposite_extreme_atr>=0.35,922,131.8,0.3774,0.1476,15,1.24
+SL_AOI_NEAR_PLUS_0_25,1,no_gate,928,132.7,0.3772,0.1358,13,1.219
+SL_AOI_NEAR_PLUS_0_25,1,signal_candle_opposite_extreme_atr>=0.25,920,131.5,0.3772,0.1359,13,1.219
+SL_ATR_0_5,2,distance_to_next_htf_obstacle_atr>=0.5,851,121.7,0.3772,0.1316,19,1.211
+SL_ATR_1_0,6,bars_between_retest_and_break<=2,2169,310.1,0.3771,0.1326,18,1.213
+SL_SIGNAL_CANDLE,1,bars_between_retest_and_break<=3,793,113.4,0.377,0.1558,19,1.256
+SL_AOI_NEAR_PLUS_0_5,1,bars_between_retest_and_break<=3,793,113.4,0.377,0.1459,14,1.237
+SL_AOI_NEAR_PLUS_0_25,1,break_close_location>=0.5,849,121.4,0.3769,0.1354,12,1.218
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & max_retest_penetration_atr<=1.25,2014,287.9,0.3769,0.1319,17,1.212
+SL_AOI_NEAR_PLUS_0_25,1,break_close_location>=0.65,720,102.9,0.3764,0.1347,12,1.217
+SL_AOI_NEAR_PLUS_0_5,1,signal_candle_opposite_extreme_atr>=0.25,938,134.1,0.3763,0.1441,16,1.234
+SL_SIGNAL_CANDLE,1,signal_candle_opposite_extreme_atr>=0.25,938,134.1,0.3763,0.1601,16,1.263
+SL_ATR_1_0,6,htf_range_size_mid_atr>=15,2491,356.1,0.3762,0.1285,18,1.206
+SL_ATR_1_0,6,htf_range_mid>=0.5,1505,215.1,0.3761,0.1288,17,1.207
+SL_ATR_1_0,6,break_close_location>=0.5 & distance_to_next_htf_obstacle_atr>=0.25,1877,268.3,0.3761,0.1298,16,1.208
+SL_AOI_NEAR_PLUS_0_25,1,htf_range_size_mid_atr>=10,912,130.4,0.3761,0.1327,13,1.213
+SL_ATR_1_5,1,bars_between_retest_and_break<=2,713,101.9,0.3759,0.1502,11,1.246
+SL_SIGNAL_CANDLE,1,no_gate,945,135.1,0.3757,0.1579,16,1.259
+SL_ATR_2_0,1,break_close_location>=0.65,740,105.8,0.3757,0.2123,12,1.371
+SL_AOI_NEAR_PLUS_0_5,1,no_gate,945,135.1,0.3757,0.1419,16,1.23
+SL_ATR_1_0,6,htf_range_size_mid_atr>=10,2912,416.3,0.3757,0.1274,20,1.204
+SL_ATR_1_0,6,bars_between_retest_and_break<=4,2529,361.5,0.3756,0.128,19,1.205
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & break_close_location>=0.5,1949,278.6,0.3756,0.1281,19,1.205
+SL_SIGNAL_CANDLE,1,break_close_location>=0.5,871,124.5,0.3754,0.1598,15,1.263
+SL_AOI_NEAR_PLUS_0_25,1,signal_candle_opposite_extreme_atr>=0.35,903,129.1,0.3754,0.1307,13,1.21
+SL_AOI_NEAR_PLUS_0_25,1,bars_between_retest_and_break<=2 & signal_candle_opposite_extreme_atr>=0.35,722,103.2,0.3753,0.1281,11,1.206
+SL_ATR_1_5,1,signal_candle_opposite_extreme_atr>=0.35,922,131.8,0.3753,0.1501,10,1.246
+SL_ATR_1_0,6,htf_dir>=0.45,1423,203.4,0.3753,0.1271,13,1.204
+SL_ATR_1_5,1,signal_candle_opposite_extreme_atr>=0.25,938,134.1,0.3753,0.1497,11,1.245
+SL_ATR_1_0,6,trend_age_impulses>=3,2841,406.1,0.3752,0.126,19,1.202
+SL_AOI_NEAR_PLUS_0_25,1,htf_range_size_mid_atr>=15,765,109.4,0.3752,0.1255,11,1.201
+SL_AOI_NEAR_PLUS_0_5,1,trend_age_impulses>=3,885,126.5,0.3751,0.1376,16,1.222
+SL_ATR_1_0,6,no_gate,2949,421.6,0.375,0.126,20,1.202
+SL_ATR_1_0,6,bars_between_retest_and_break<=3 & max_retest_penetration_atr<=1.25,2164,309.4,0.3748,0.1256,17,1.201
+SL_ATR_1_5,1,no_gate,945,135.1,0.3746,0.1475,12,1.241
+SL_ATR_1_5,1,bars_between_retest_and_break<=3,793,113.4,0.3745,0.1495,12,1.245
+SL_ATR_0_5,2,bear_htf>=0.7&bull_htf>=0.3,820,117.2,0.3744,0.1232,18,1.197
+SL_ATR_1_0,6,break_close_location>=0.5,2661,380.4,0.3743,0.1239,19,1.198
+SL_ATR_1_0,6,bars_between_retest_and_break<=3,2386,341.1,0.3743,0.1239,19,1.198
+SL_ATR_1_0,6,distance_from_last_impulse_atr>=0.5,1962,280.5,0.3741,0.1233,17,1.197
+SL_ATR_1_5,1,trend_age_impulses>=3,885,126.5,0.374,0.1342,12,1.217
+SL_ATR_1_0,6,bars_between_retest_and_break<=2 & signal_candle_opposite_extreme_atr>=0.35,1965,280.9,0.374,0.1235,18,1.198
+SL_AOI_NEAR_PLUS_0_5,1,aoi_far_edge_atr>=1.0,923,131.9,0.3738,0.1366,16,1.221
+SL_ATR_1_0,6,aoi_far_edge_atr>=1.0,2860,408.9,0.3731,0.1199,20,1.191
+SL_ATR_1_0,6,distance_to_next_htf_obstacle_atr>=0.25 & signal_candle_opposite_extreme_atr>=0.35,1884,269.3,0.3731,0.1209,21,1.193
+SL_ATR_2_0,1,htf_range_size_mid_atr>=15,788,112.6,0.3731,0.1936,12,1.333
+SL_SIGNAL_CANDLE,1,trend_age_impulses>=3,885,126.5,0.3729,0.1485,15,1.242
+SL_SIGNAL_CANDLE,1,bars_between_retest_and_break<=4,851,121.7,0.3725,0.1465,18,1.239
+SL_AOI_NEAR_PLUS_0_5,1,bars_between_retest_and_break<=4,851,121.7,0.3725,0.1313,14,1.212
+SL_SIGNAL_CANDLE,1,max_retest_penetration_atr<=1.5,819,117.1,0.3724,0.1431,19,1.233
+SL_ATR_1_0,6,signal_candle_opposite_extreme_atr>=0.25,2857,408.4,0.3717,0.1161,20,1.185
+SL_SIGNAL_CANDLE,1,aoi_far_edge_atr>=1.0,923,131.9,0.3716,0.1465,16,1.239
+SL_ATR_1_0,6,signal_candle_opposite_extreme_atr>=0.5,2280,325.9,0.3715,0.1145,16,1.182
+SL_ATR_1_0,6,signal_candle_opposite_extreme_atr>=0.35,2682,383.4,0.3714,0.1151,20,1.183
+SL_ATR_1_5,1,bars_between_retest_and_break<=4,851,121.7,0.3713,0.1403,12,1.229
+SL_ATR_1_5,1,max_retest_penetration_atr<=1.5,819,117.1,0.3712,0.1317,12,1.213
+SL_ATR_1_5,1,aoi_far_edge_atr>=1.0,923,131.9,0.3705,0.1321,12,1.214
+SL_SIGNAL_CANDLE_PLUS_0_25,1,break_close_location>=0.65,740,105.8,0.3703,0.1801,14,1.305
+SL_ATR_1_0,6,htf_dir>=0.5,1306,186.7,0.3698,0.1109,12,1.176
+SL_ATR_2_0,1,signal_candle_opposite_extreme_atr>=0.5,863,123.4,0.3696,0.195,12,1.338
+SL_ATR_2_0,1,htf_range_size_mid_atr>=10,929,132.8,0.3692,0.1934,9,1.335
+SL_ATR_1_0,6,bear_htf>=0.8&bull_htf>=0.3 & bars_between_retest_and_break<=3,1104,157.8,0.3687,0.1068,17,1.169
+SL_SIGNAL_CANDLE_PLUS_0_25,1,signal_candle_opposite_extreme_atr>=0.5,863,123.4,0.3685,0.1666,14,1.279
+SL_ATR_2_0,1,break_close_location>=0.5,871,124.5,0.3685,0.1889,11,1.326
+SL_SIGNAL_CANDLE_PLUS_0_25,1,break_close_location>=0.5,871,124.5,0.3685,0.1672,15,1.28
+SL_SIGNAL_CANDLE_PLUS_0_25,1,htf_range_size_mid_atr>=10,929,132.8,0.3681,0.1621,16,1.27
+SL_ATR_2_0,1,signal_candle_opposite_extreme_atr>=0.35,922,131.8,0.3677,0.1918,9,1.333
+SL_AOI_FAR,1,break_close_location>=0.5,808,115.5,0.3676,0.1468,15,1.242
+SL_SIGNAL_CANDLE_PLUS_0_25,1,bars_between_retest_and_break<=2,713,101.9,0.3675,0.1544,15,1.256
+SL_SIGNAL_CANDLE_PLUS_0_25,1,max_retest_penetration_atr<=1.5,819,117.1,0.3675,0.1509,13,1.248
+SL_AOI_FAR,1,htf_range_size_mid_atr>=10,855,122.2,0.3673,0.1393,16,1.229
+SL_ATR_1_0,6,htf_range_size_mid_atr>=20,1610,230.2,0.3671,0.1012,17,1.16
+SL_AOI_FAR,1,no_gate,870,124.4,0.3667,0.1409,16,1.232
+SL_SIGNAL_CANDLE_PLUS_0_25,1,signal_candle_opposite_extreme_atr>=0.35,922,131.8,0.3666,0.1579,16,1.263
+SL_ATR_2_0,1,signal_candle_opposite_extreme_atr>=0.25,938,134.1,0.3657,0.1862,10,1.322
+SL_SIGNAL_CANDLE_PLUS_0_25,1,signal_candle_opposite_extreme_atr>=0.25,938,134.1,0.3657,0.1541,16,1.256
+SL_AOI_FAR,1,max_retest_penetration_atr<=1.25,722,103.2,0.3657,0.1398,15,1.23
+SL_SIGNAL_CANDLE_PLUS_0_25,1,htf_range_size_mid_atr>=15,788,112.6,0.3655,0.1522,15,1.252
+SL_AOI_FAR,1,max_retest_penetration_atr<=1.5,783,111.9,0.3653,0.1372,17,1.225
+SL_ATR_2_0,1,no_gate,945,135.1,0.3651,0.1838,10,1.317
+SL_SIGNAL_CANDLE_PLUS_0_25,1,no_gate,945,135.1,0.3651,0.1519,16,1.252
+SL_ATR_2_0,1,trend_age_impulses>=3,885,126.5,0.365,0.1679,15,1.285
+SL_AOI_FAR,1,aoi_far_edge_atr>=1.0,844,120.7,0.3649,0.137,16,1.225
+SL_AOI_FAR,1,bars_between_retest_and_break<=4,735,105.1,0.3646,0.134,19,1.219
+SL_AOI_FAR,1,trend_age_impulses>=3,836,119.5,0.3636,0.1277,14,1.208
+SL_ATR_2_0,1,bars_between_retest_and_break<=2,713,101.9,0.3633,0.1838,10,1.319
+SL_ATR_2_0,1,bars_between_retest_and_break<=3,793,113.4,0.3632,0.1857,9,1.322
+SL_SIGNAL_CANDLE_PLUS_0_25,1,bars_between_retest_and_break<=3,793,113.4,0.3632,0.1413,12,1.233
+SL_AOI_FAR,1,bars_between_retest_and_break<=3,701,100.2,0.3623,0.129,18,1.211
+SL_ATR_2_0,1,aoi_far_edge_atr>=1.0,923,131.9,0.3619,0.1697,10,1.29
+SL_SIGNAL_CANDLE_PLUS_0_25,1,bars_between_retest_and_break<=4,851,121.7,0.3619,0.1399,13,1.23
+SL_SIGNAL_CANDLE_PLUS_0_25,1,aoi_far_edge_atr>=1.0,923,131.9,0.3608,0.1395,16,1.23
+SL_AOI_FAR,1,signal_candle_opposite_extreme_atr>=0.25,826,118.1,0.3608,0.1231,16,1.201
+SL_ATR_2_0,1,max_retest_penetration_atr<=1.5,819,117.1,0.3602,0.1681,10,1.288
+SL_ATR_2_0,1,bars_between_retest_and_break<=4,851,121.7,0.3584,0.1704,10,1.293
+SL_SIGNAL_CANDLE_PLUS_0_25,1,trend_age_impulses>=3,885,126.5,0.3582,0.128,16,1.209
+SL_AOI_FAR,1,signal_candle_opposite_extreme_atr>=0.35,764,109.2,0.3573,0.1161,15,1.189

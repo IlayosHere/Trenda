@@ -1,0 +1,12 @@
+group,direction,zone,sl_model,window,hours,n,tpy,win,exp,mls,pf
+jpy_pairs,bearish,discount,SL_ATR_1_0,h02+8h,"[2, 3, 4, 5, 6, 7, 8, 9]",114,16.3,46.49,0.3947,7,1.738
+jpy_pairs,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h03+6h,"[3, 4, 5, 6, 7, 8]",110,15.7,40.91,0.2273,11,1.385
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_25,h12+7h,"[12, 13, 14, 15, 16, 17, 18]",106,15.2,47.17,0.4595,5,1.928
+usd_majors,bearish,premium,SL_AOI_NEAR_PLUS_0_25,h10+12h,"[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]",105,15.0,40.0,0.2,9,1.333
+usd_majors,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h21+3h,"[21, 22, 23]",109,15.6,42.2,0.2661,13,1.46
+eur_crosses,bearish,discount,SL_ATR_0_5,h10+11h,"[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]",109,15.6,38.53,0.156,11,1.254
+eur_crosses,bullish,premium,SL_AOI_NEAR_PLUS_0_5,h05+10h,"[5, 6, 7, 8, 9, 10, 11, 12, 13, 14]",116,16.6,43.1,0.3248,5,1.587
+gbp_crosses,bearish,discount,SL_AOI_FAR,h23+12h,"[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 23]",113,16.2,42.48,0.3357,8,1.627
+gbp_crosses,bearish,premium,SL_AOI_FAR,h07+12h,"[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]",105,15.0,46.67,0.4307,10,1.842
+gbp_crosses,bullish,premium,SL_AOI_FAR,h07+10h,"[7, 8, 9, 10, 11, 12, 13, 14, 15, 16]",108,15.4,38.89,0.2692,6,1.494
+commodity,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h21+3h,"[21, 22, 23]",119,17.0,38.66,0.1701,9,1.281

@@ -49,8 +49,8 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2019,1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2022, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2023,1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid terminal candle limits (typically 5000)
 # 120 days * 24 hours = 2880 1H candles (safe margin)

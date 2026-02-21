@@ -1,0 +1,2 @@
+n_groups,groups,n_trades,tpy,win_pct,expectancy_r,max_losing_streak,profit_factor
+5,jpy_pairs+usd_majors+eur_crosses+gbp_crosses+commodity,2630,376.0,0.3806,0.1536,16,1.251

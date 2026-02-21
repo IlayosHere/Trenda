@@ -46,7 +46,7 @@ FETCH_SIGNALS_SQL = f"""
         es.aoi_low, 
         es.aoi_high
     FROM {SCHEMA_NAME}.entry_signal es
-    WHERE es.is_break_candle_last = TRUE
+    WHERE es.is_break_candle_last = FALSE
     AND es.sl_model_version = 'CHECK_GEO'
     ORDER BY es.signal_time ASC
 """
@@ -55,14 +55,12 @@ INSERT_UNBIASED_SIM_SQL = f"""
     INSERT INTO {SCHEMA_NAME}.exit_simulation_unbiased (
         entry_signal_id,
         sl_model, rr_multiple, sl_atr, tp_atr,
-        realized_rr,
         exit_reason, exit_bar, return_atr, return_r,
         mfe_atr, mae_atr, bars_to_sl_hit, bars_to_tp_hit, is_bad_pre48
     ) VALUES (
-        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
     )
     ON CONFLICT (entry_signal_id, sl_model, rr_multiple) DO UPDATE SET
-        realized_rr = EXCLUDED.realized_rr,
         sl_atr = EXCLUDED.sl_atr,
         tp_atr = EXCLUDED.tp_atr,
         exit_reason = EXCLUDED.exit_reason,
@@ -266,7 +264,7 @@ def process_signal(row, stats):
             INSERT_UNBIASED_SIM_SQL,
             (
                 signal_id, res.sl_model, res.rr_multiple,
-                res.sl_atr, res.tp_atr, res.rr_multiple,
+                res.sl_atr, res.tp_atr,
                 res.exit_reason, res.exit_bar,
                 res.return_atr, res.return_r,
                 res.mfe_atr, res.mae_atr,

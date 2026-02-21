@@ -15,7 +15,7 @@ class AOISettings:
     max_zones_per_symbol: int
     min_height_atr_multiplier: float
     min_height_pips_floor: float
-    max_heihgt_pips_floor: float
+    max_height_pips_floor: float
     max_height_atr_multiplier: float
     alignment_weight: float
     trend_alignment_timeframes: Tuple[str, ...]
@@ -29,6 +29,21 @@ class AOISettings:
 
 
 AOI_CONFIGS: Dict[str, AOISettings] = {
+    "1H": AOISettings(
+        timeframe="1H",
+        timeframe_hours=1,
+        min_touches=3,
+        min_swing_gap_bars=12,
+        overlap_tolerance_pips=8.0,
+        max_age_days=5,
+        max_zones_per_symbol=3,
+        min_height_atr_multiplier=0.15,
+        min_height_pips_floor=5,
+        max_height_pips_floor=30,
+        max_height_atr_multiplier=0.5,
+        alignment_weight=1.5,
+        trend_alignment_timeframes=("1H", "4H", "1D")
+    ),
     "4H": AOISettings(
         timeframe="4H",
         timeframe_hours=4,
@@ -39,7 +54,7 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         max_zones_per_symbol=3,
         min_height_atr_multiplier=0.2,
         min_height_pips_floor=10,
-        max_heihgt_pips_floor=50,
+        max_height_pips_floor=50,
         max_height_atr_multiplier=0.7,
         alignment_weight=1.5,
         trend_alignment_timeframes=("4H", "1D", "1W")
@@ -54,7 +69,7 @@ AOI_CONFIGS: Dict[str, AOISettings] = {
         max_zones_per_symbol=2,
         min_height_atr_multiplier=0.25,
         min_height_pips_floor=10,
-        max_heihgt_pips_floor=50,
+        max_height_pips_floor=100,
         max_height_atr_multiplier=0.35,
         alignment_weight=1.25,
         trend_alignment_timeframes=("4H", "1D", "1W")

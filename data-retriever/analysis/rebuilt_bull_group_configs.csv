@@ -1,0 +1,4 @@
+group,direction,zone,sl_model,hours,window,win,n,tpy
+jpy_pairs,bullish,all,SL_ATR_1_5,"[12, 13, 14, 15, 16, 17]",h12+6h,40.0,240,34.3
+usd_majors,bullish,all,SL_ATR_1_5,"[0, 1, 2, 3, 4, 5]",h00+6h,39.42,137,19.6
+eur_crosses,bullish,all,SL_AOI_NEAR_PLUS_0_5,"[8, 9, 10, 11, 12, 13]",h08+6h,40.12,172,24.6

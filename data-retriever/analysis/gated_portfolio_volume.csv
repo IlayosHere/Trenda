@@ -1,0 +1,8 @@
+group,direction,zone,sl_model,window,hours,n,tpy,win,exp,mls,pf
+jpy_pairs,bearish,discount,SL_ATR_1_0,h02+10h,"[2, 3, 4, 5, 6, 7, 8, 9, 10, 11]",143,20.4,44.06,0.3217,7,1.575
+jpy_pairs,bullish,premium,SL_AOI_FAR_PLUS_0_25,h16+6h,"[16, 17, 18, 19, 20, 21]",150,21.4,39.33,0.2298,7,1.403
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_25,h11+10h,"[11, 12, 13, 14, 15, 16, 17, 18, 19, 20]",141,20.2,42.55,0.3174,7,1.585
+usd_majors,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h22+6h,"[0, 1, 2, 3, 22, 23]",144,20.6,39.58,0.1875,13,1.31
+eur_crosses,bullish,premium,SL_ATR_0_5,h21+5h,"[0, 1, 21, 22, 23]",143,20.4,41.26,0.2378,15,1.405
+gbp_crosses,bullish,premium,SL_AOI_FAR,h08+11h,"[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]",142,20.3,35.21,0.139,8,1.233
+commodity,bullish,premium,SL_ATR_1_0,h20+6h,"[0, 1, 20, 21, 22, 23]",146,20.9,36.3,0.089,9,1.14

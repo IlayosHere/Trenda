@@ -35,7 +35,7 @@ def build_context(
     )
     max_height_pips = min(
         atr * settings.max_height_atr_multiplier,
-        settings.max_heihgt_pips_floor
+        settings.max_height_pips_floor
     )
 
     min_height_price = pips_to_price(min_height_pips, pip_size)

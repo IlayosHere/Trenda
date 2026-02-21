@@ -1,0 +1,6 @@
+group,symbols,phase,main_sl,bear_sl,bull_sl,window,window_hours,bear_gate,bull_gate,p1_win_pct,p1_tpy,bear_win_pct,bear_tpy,bull_win_pct,bull_tpy,win_pct,tpy,expectancy_r,max_losing_streak,profit_factor,n_trades
+jpy_pairs,"['AUDJPY', 'CADJPY', 'CHFJPY', 'EURJPY', 'GBPJPY', 'NZDJPY', 'USDJPY']",directional,SL_ATR_1_0,SL_ATR_0_5,SL_ATR_1_5,h12+4h,"[12, 13, 14, 15]",conflicted_tf_not_null,aoi_midpoint_range_position_mid<=0.69,0.3749,174.3,0.4129,50.9,0.4184,54.3,0.4239,105.2,0.285,18,1.501,736.0
+usd_majors,"['AUDUSD', 'EURUSD', 'GBPUSD', 'NZDUSD', 'USDCAD', 'USDCHF']",fallback_p1,SL_AOI_NEAR_PLUS_0_25,SL_AOI_NEAR_PLUS_0_25,SL_AOI_NEAR_PLUS_0_25,h21+3h,"[21, 22, 23]",no_gate,no_gate,0.3682,76.5,,,,,0.3682,76.5,0.1071,16,1.17,
+eur_crosses,"['EURAUD', 'EURCAD', 'EURCHF', 'EURGBP', 'EURNZD']",fallback_p1,SL_AOI_FAR,SL_AOI_FAR,SL_AOI_FAR,h23+3h,"[23, 0, 1]",no_gate,no_gate,0.3701,83.1,,,,,0.3701,83.1,0.1443,12,1.236,
+gbp_crosses,"['GBPAUD', 'GBPCAD', 'GBPCHF', 'GBPNZD']",fallback_p1,SL_ATR_1_0,SL_ATR_1_0,SL_ATR_1_0,h03+3h,"[3, 4, 5]",no_gate,no_gate,0.3579,54.3,,,,,0.3579,54.3,0.0737,10,1.115,
+commodity,"['AUDCAD', 'AUDCHF', 'NZDCAD', 'NZDCHF']",fallback_p1,SL_AOI_NEAR_PLUS_0_25,SL_AOI_NEAR_PLUS_0_25,SL_AOI_NEAR_PLUS_0_25,h15+3h,"[15, 16, 17]",no_gate,no_gate,0.3543,56.9,,,,,0.3543,56.9,0.0628,10,1.097,

@@ -108,6 +108,7 @@ class TrendAnalysisResult:
     trend: Optional[TrendDirection]
     structural_high: Optional[SwingPoint]
     structural_low: Optional[SwingPoint]
+    broken_swing: Optional[SwingPoint] = None
 
 
 def analyze_snake_trend(
@@ -117,18 +118,19 @@ def analyze_snake_trend(
     Orchestrates the analysis of swings to find the trend and structural points.
     """
     if len(all_swings) < 2:
-        return TrendAnalysisResult(TREND_NEUTRAL, None, None)
+        return TrendAnalysisResult(TREND_NEUTRAL, None, None, None)
 
     initial_high, initial_low = _find_initial_structure(all_swings)
 
     if not initial_high or not initial_low:
-        return TrendAnalysisResult(TREND_NEUTRAL, None, None)
+        return TrendAnalysisResult(TREND_NEUTRAL, None, None, None)
 
     current_trend: TrendDirection = TREND_NEUTRAL
     current_structure: Dict[str, SwingPoint] = {
         SWING_HIGH: initial_high,
         SWING_LOW: initial_low,
     }
+    last_broken_swing: Optional[SwingPoint] = None
 
     for i in range(len(all_swings)):
         current_swing = all_swings[i]
@@ -138,6 +140,9 @@ def analyze_snake_trend(
         )
 
         if break_type == BREAK_BULLISH:
+            if current_trend != TREND_BULLISH or True:
+                last_broken_swing = current_structure[SWING_HIGH]
+            
             current_trend = TREND_BULLISH
             new_low = _find_corresponding_structural_swing(BREAK_BULLISH, i, all_swings)
             current_structure[SWING_HIGH] = current_swing
@@ -145,6 +150,9 @@ def analyze_snake_trend(
                 current_structure[SWING_LOW] = new_low
 
         elif break_type == BREAK_BEARISH:
+            if current_trend != TREND_BEARISH or True:
+                last_broken_swing = current_structure[SWING_LOW]
+                
             current_trend = TREND_BEARISH
             new_high = _find_corresponding_structural_swing(
                 BREAK_BEARISH, i, all_swings
@@ -157,4 +165,5 @@ def analyze_snake_trend(
         current_trend,
         current_structure[SWING_HIGH],
         current_structure[SWING_LOW],
+        last_broken_swing
     )

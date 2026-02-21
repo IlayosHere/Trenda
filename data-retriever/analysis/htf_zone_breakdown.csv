@@ -1,0 +1,99 @@
+group,direction,zone,sl_model,window,window_hours,n_trades,tpy,win_pct,expectancy_r,max_losing_streak,profit_factor
+jpy_pairs,bearish,discount,SL_ATR_0_5,h07+3h,"[7, 8, 9]",140,20.0,0.4357,0.3071,7,1.544
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_25,h14+5h,"[14, 15, 16, 17, 18]",156,22.3,0.4295,0.3337,7,1.612
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_25,h13+5h,"[13, 14, 15, 16, 17]",181,25.9,0.4254,0.3075,11,1.554
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_25,h13+6h,"[13, 14, 15, 16, 17, 18]",203,29.0,0.4236,0.3082,11,1.556
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_5,h14+5h,"[14, 15, 16, 17, 18]",156,22.3,0.4231,0.3235,7,1.594
+usd_majors,bearish,discount,SL_AOI_NEAR_PLUS_0_25,h13+4h,"[13, 14, 15, 16]",159,22.7,0.4151,0.2809,18,1.499
+jpy_pairs,bearish,discount,SL_ATR_0_5,h07+4h,"[7, 8, 9, 10]",165,23.6,0.4121,0.2364,8,1.402
+jpy_pairs,bearish,discount,SL_ATR_0_5,h06+4h,"[6, 7, 8, 9]",171,24.4,0.4094,0.2281,7,1.386
+jpy_pairs,bearish,discount,SL_ATR_1_0,h23+3h,"[23, 0, 1]",145,20.7,0.4069,0.2207,9,1.372
+jpy_pairs,bearish,discount,SL_AOI_FAR,h01+4h,"[1, 2, 3, 4]",153,21.9,0.4052,0.2623,12,1.467
+gbp_crosses,bearish,discount,SL_ATR_1_0,h22+7h,"[22, 23, 0, 1, 2, 3, 4]",141,20.2,0.4043,0.2128,6,1.357
+gbp_crosses,bearish,discount,SL_ATR_1_0,h21+8h,"[21, 22, 23, 0, 1, 2, 3, 4]",156,22.3,0.391,0.1731,7,1.284
+gbp_crosses,bearish,discount,SL_ATR_1_0,h20+7h,"[20, 21, 22, 23, 0, 1, 2]",141,20.2,0.3901,0.1702,6,1.279
+gbp_crosses,bearish,discount,SL_ATR_1_0,h19+8h,"[19, 20, 21, 22, 23, 0, 1, 2]",162,23.2,0.3889,0.1667,8,1.273
+gbp_crosses,bearish,discount,SL_ATR_1_0,h21+7h,"[21, 22, 23, 0, 1, 2, 3]",142,20.3,0.3873,0.162,7,1.264
+commodity,bearish,discount,SL_ATR_2_0,h01+9h,"[1, 2, 3, 4, 5, 6, 7, 8, 9]",163,23.3,0.3865,0.1812,10,1.304
+commodity,bearish,discount,SL_ATR_2_0,h03+9h,"[3, 4, 5, 6, 7, 8, 9, 10, 11]",151,21.6,0.3841,0.18,11,1.304
+commodity,bearish,discount,SL_ATR_2_0,h03+10h,"[3, 4, 5, 6, 7, 8, 9, 10, 11, 12]",179,25.6,0.3799,0.1663,10,1.279
+commodity,bearish,discount,SL_ATR_2_0,h01+11h,"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]",195,27.9,0.3795,0.1682,11,1.282
+commodity,bearish,discount,SL_ATR_2_0,h02+10h,"[2, 3, 4, 5, 6, 7, 8, 9, 10, 11]",164,23.4,0.378,0.1597,10,1.266
+eur_crosses,bearish,discount,SL_AOI_NEAR_PLUS_0_5,h17+8h,"[17, 18, 19, 20, 21, 22, 23, 0]",153,21.9,0.3595,0.0784,13,1.122
+eur_crosses,bearish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h17+8h,"[17, 18, 19, 20, 21, 22, 23, 0]",153,21.9,0.3595,0.0784,11,1.122
+eur_crosses,bearish,discount,SL_AOI_NEAR_PLUS_0_5,h23+7h,"[23, 0, 1, 2, 3, 4, 5]",143,20.4,0.3566,0.0837,10,1.132
+eur_crosses,bullish,discount,SL_ATR_1_5,h00+6h,"[0, 1, 2, 3, 4, 5]",162,23.2,0.4568,0.3704,6,1.682
+eur_crosses,bullish,discount,SL_ATR_1_5,h01+6h,"[1, 2, 3, 4, 5, 6]",162,23.2,0.4506,0.3519,7,1.64
+eur_crosses,bullish,discount,SL_ATR_1_5,h23+6h,"[23, 0, 1, 2, 3, 4]",148,21.2,0.4459,0.3378,9,1.61
+eur_crosses,bullish,discount,SL_ATR_1_5,h23+7h,"[23, 0, 1, 2, 3, 4, 5]",189,27.0,0.4444,0.3333,8,1.6
+eur_crosses,bullish,discount,SL_ATR_1_5,h00+7h,"[0, 1, 2, 3, 4, 5, 6]",185,26.4,0.4432,0.3297,8,1.592
+jpy_pairs,bullish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h12+3h,"[12, 13, 14]",166,23.7,0.4398,0.3488,7,1.636
+jpy_pairs,bullish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h13+3h,"[13, 14, 15]",160,22.9,0.4375,0.3471,6,1.636
+commodity,bullish,discount,SL_ATR_1_0,h21+10h,"[21, 22, 23, 0, 1, 2, 3, 4, 5, 6]",144,20.6,0.4306,0.2917,9,1.512
+jpy_pairs,bullish,discount,SL_ATR_1_5,h12+3h,"[12, 13, 14]",166,23.7,0.4277,0.3228,8,1.582
+jpy_pairs,bullish,discount,SL_SIGNAL_CANDLE,h12+3h,"[12, 13, 14]",166,23.7,0.4277,0.2831,7,1.495
+jpy_pairs,bullish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h12+4h,"[12, 13, 14, 15]",209,29.9,0.4258,0.304,6,1.541
+commodity,bullish,discount,SL_AOI_FAR_PLUS_0_25,h20+11h,"[20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6]",150,21.4,0.42,0.2739,12,1.478
+commodity,bullish,discount,SL_ATR_1_0,h20+11h,"[20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6]",150,21.4,0.42,0.26,9,1.448
+commodity,bullish,discount,SL_AOI_FAR_PLUS_0_25,h21+10h,"[21, 22, 23, 0, 1, 2, 3, 4, 5, 6]",144,20.6,0.4167,0.2645,11,1.459
+gbp_crosses,bullish,discount,SL_ATR_1_0,h05+6h,"[5, 6, 7, 8, 9, 10]",147,21.0,0.415,0.2449,6,1.419
+gbp_crosses,bullish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h05+6h,"[5, 6, 7, 8, 9, 10]",147,21.0,0.415,0.269,6,1.471
+commodity,bullish,discount,SL_ATR_1_0,h21+11h,"[21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7]",162,23.2,0.4074,0.2222,9,1.375
+gbp_crosses,bullish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h04+7h,"[4, 5, 6, 7, 8, 9, 10]",163,23.3,0.3988,0.218,6,1.37
+gbp_crosses,bullish,discount,SL_SIGNAL_CANDLE_PLUS_0_25,h03+8h,"[3, 4, 5, 6, 7, 8, 9, 10]",178,25.4,0.3933,0.1997,8,1.335
+gbp_crosses,bullish,discount,SL_ATR_1_0,h03+8h,"[3, 4, 5, 6, 7, 8, 9, 10]",178,25.4,0.3876,0.1629,8,1.266
+usd_majors,bullish,discount,SL_SIGNAL_CANDLE,h12+4h,"[12, 13, 14, 15]",156,22.3,0.3782,0.1587,9,1.264
+usd_majors,bullish,discount,SL_SIGNAL_CANDLE,h13+4h,"[13, 14, 15, 16]",164,23.4,0.378,0.157,9,1.261
+usd_majors,bullish,discount,SL_SIGNAL_CANDLE,h10+6h,"[10, 11, 12, 13, 14, 15]",218,31.2,0.367,0.1181,7,1.191
+usd_majors,bullish,discount,SL_AOI_NEAR_PLUS_0_25,h13+4h,"[13, 14, 15, 16]",164,23.4,0.3659,0.0976,13,1.154
+usd_majors,bullish,discount,SL_AOI_NEAR_PLUS_0_25,h12+4h,"[12, 13, 14, 15]",156,22.3,0.3654,0.0962,8,1.152
+gbp_crosses,bearish,premium,SL_ATR_0_5,h16+9h,"[16, 17, 18, 19, 20, 21, 22, 23, 0]",141,20.2,0.4823,0.4468,6,1.863
+gbp_crosses,bearish,premium,SL_AOI_NEAR_PLUS_0_5,h15+7h,"[15, 16, 17, 18, 19, 20, 21]",145,20.7,0.4759,0.4484,7,1.879
+gbp_crosses,bearish,premium,SL_ATR_0_5,h15+7h,"[15, 16, 17, 18, 19, 20, 21]",145,20.7,0.4759,0.4276,5,1.816
+gbp_crosses,bearish,premium,SL_AOI_NEAR_PLUS_0_5,h16+9h,"[16, 17, 18, 19, 20, 21, 22, 23, 0]",141,20.2,0.4752,0.4255,7,1.811
+gbp_crosses,bearish,premium,SL_AOI_NEAR_PLUS_0_5,h15+9h,"[15, 16, 17, 18, 19, 20, 21, 22, 23]",160,22.9,0.475,0.4438,7,1.866
+commodity,bearish,premium,SL_ATR_0_5,h18+12h,"[18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5]",150,21.4,0.4533,0.36,7,1.659
+commodity,bearish,premium,SL_ATR_0_5,h17+11h,"[17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3]",144,20.6,0.4514,0.3542,9,1.646
+commodity,bearish,premium,SL_ATR_0_5,h17+12h,"[17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4]",153,21.9,0.451,0.3529,7,1.643
+commodity,bearish,premium,SL_ATR_0_5,h01+11h,"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]",141,20.2,0.4468,0.3404,7,1.615
+commodity,bearish,premium,SL_SIGNAL_CANDLE,h01+11h,"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]",141,20.2,0.4397,0.3337,6,1.605
+jpy_pairs,bearish,premium,SL_ATR_1_0,h04+7h,"[4, 5, 6, 7, 8, 9, 10]",157,22.4,0.4331,0.2994,8,1.528
+jpy_pairs,bearish,premium,SL_ATR_1_0,h03+8h,"[3, 4, 5, 6, 7, 8, 9, 10]",179,25.6,0.4302,0.2905,8,1.51
+jpy_pairs,bearish,premium,SL_AOI_FAR,h04+7h,"[4, 5, 6, 7, 8, 9, 10]",157,22.4,0.4268,0.2955,9,1.528
+jpy_pairs,bearish,premium,SL_ATR_1_0,h03+7h,"[3, 4, 5, 6, 7, 8, 9]",150,21.4,0.4267,0.28,8,1.488
+jpy_pairs,bearish,premium,SL_AOI_FAR,h03+7h,"[3, 4, 5, 6, 7, 8, 9]",150,21.4,0.42,0.2629,9,1.456
+eur_crosses,bearish,premium,SL_AOI_FAR,h00+12h,"[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]",142,20.3,0.4155,0.2722,10,1.477
+eur_crosses,bearish,premium,SL_AOI_FAR,h09+9h,"[9, 10, 11, 12, 13, 14, 15, 16, 17]",144,20.6,0.4028,0.2581,8,1.457
+usd_majors,bearish,premium,SL_SIGNAL_CANDLE,h16+10h,"[16, 17, 18, 19, 20, 21, 22, 23, 0, 1]",180,25.7,0.4,0.2,13,1.333
+usd_majors,bearish,premium,SL_SIGNAL_CANDLE,h17+9h,"[17, 18, 19, 20, 21, 22, 23, 0, 1]",163,23.3,0.3988,0.1963,14,1.327
+eur_crosses,bearish,premium,SL_AOI_FAR,h01+12h,"[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]",148,21.2,0.3986,0.2144,10,1.365
+usd_majors,bearish,premium,SL_SIGNAL_CANDLE,h16+11h,"[16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2]",200,28.6,0.395,0.185,13,1.306
+usd_majors,bearish,premium,SL_AOI_NEAR_PLUS_0_25,h15+11h,"[15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1]",218,31.2,0.3945,0.1835,12,1.303
+usd_majors,bearish,premium,SL_SIGNAL_CANDLE,h17+10h,"[17, 18, 19, 20, 21, 22, 23, 0, 1, 2]",183,26.2,0.3934,0.1803,15,1.297
+eur_crosses,bearish,premium,SL_AOI_FAR,h09+10h,"[9, 10, 11, 12, 13, 14, 15, 16, 17, 18]",157,22.4,0.3885,0.2113,7,1.363
+eur_crosses,bearish,premium,SL_AOI_FAR_PLUS_0_25,h09+9h,"[9, 10, 11, 12, 13, 14, 15, 16, 17]",144,20.6,0.3819,0.223,8,1.391
+jpy_pairs,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h04+3h,"[4, 5, 6]",164,23.4,0.4085,0.2311,9,1.394
+jpy_pairs,bullish,premium,SL_ATR_1_5,h14+2h,"[14, 15]",142,20.3,0.4014,0.2288,5,1.391
+eur_crosses,bullish,premium,SL_AOI_NEAR_PLUS_0_5,h05+5h,"[5, 6, 7, 8, 9]",195,27.9,0.4,0.2,11,1.333
+eur_crosses,bullish,premium,SL_AOI_NEAR_PLUS_0_5,h06+4h,"[6, 7, 8, 9]",165,23.6,0.4,0.2,10,1.333
+usd_majors,bullish,premium,SL_ATR_0_5,h06+3h,"[6, 7, 8]",176,25.2,0.3977,0.1932,6,1.321
+jpy_pairs,bullish,premium,SL_ATR_2_0,h12+3h,"[12, 13, 14]",229,32.7,0.3974,0.2218,8,1.379
+usd_majors,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h21+3h,"[21, 22, 23]",141,20.2,0.3972,0.1915,17,1.318
+jpy_pairs,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h03+4h,"[3, 4, 5, 6]",207,29.6,0.3961,0.1928,9,1.322
+jpy_pairs,bullish,premium,SL_AOI_NEAR_PLUS_0_25,h14+2h,"[14, 15]",142,20.3,0.3944,0.2112,12,1.357
+eur_crosses,bullish,premium,SL_ATR_0_5,h22+2h,"[22, 23]",140,20.0,0.3929,0.1786,13,1.294
+gbp_crosses,bullish,premium,SL_ATR_2_0,h12+4h,"[12, 13, 14, 15]",151,21.6,0.3907,0.2599,10,1.466
+usd_majors,bullish,premium,SL_ATR_1_0,h04+4h,"[4, 5, 6, 7]",181,25.9,0.3867,0.1602,8,1.261
+eur_crosses,bullish,premium,SL_ATR_0_5,h22+3h,"[22, 23, 0]",181,25.9,0.3867,0.1602,9,1.261
+usd_majors,bullish,premium,SL_AOI_FAR_PLUS_0_25,h13+4h,"[13, 14, 15, 16]",156,22.3,0.3846,0.2675,7,1.486
+usd_majors,bullish,premium,SL_ATR_1_5,h13+4h,"[13, 14, 15, 16]",156,22.3,0.3846,0.1653,7,1.272
+eur_crosses,bullish,premium,SL_AOI_NEAR_PLUS_0_5,h05+6h,"[5, 6, 7, 8, 9, 10]",239,34.2,0.3808,0.1423,12,1.23
+gbp_crosses,bullish,premium,SL_ATR_1_5,h04+4h,"[4, 5, 6, 7]",140,20.0,0.3786,0.1357,9,1.218
+gbp_crosses,bullish,premium,SL_ATR_1_5,h04+5h,"[4, 5, 6, 7, 8]",171,24.4,0.3743,0.1228,12,1.196
+commodity,bullish,premium,SL_ATR_0_5,h22+3h,"[22, 23, 0]",167,23.9,0.3713,0.1138,7,1.181
+gbp_crosses,bullish,premium,SL_ATR_1_5,h12+4h,"[12, 13, 14, 15]",151,21.6,0.3709,0.141,7,1.229
+gbp_crosses,bullish,premium,SL_ATR_2_0,h12+5h,"[12, 13, 14, 15, 16]",174,24.9,0.3678,0.1944,13,1.336
+commodity,bullish,premium,SL_ATR_0_5,h04+4h,"[4, 5, 6, 7]",145,20.7,0.3655,0.0966,9,1.152
+commodity,bullish,premium,SL_ATR_0_5,h04+5h,"[4, 5, 6, 7, 8]",170,24.3,0.3647,0.0941,11,1.148
+commodity,bullish,premium,SL_ATR_0_5,h21+4h,"[21, 22, 23, 0]",193,27.6,0.3627,0.0881,7,1.138
+commodity,bullish,premium,SL_AOI_NEAR_PLUS_0_5,h21+3h,"[21, 22, 23]",160,22.9,0.3625,0.0951,8,1.151
