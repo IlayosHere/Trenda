@@ -22,11 +22,12 @@ GET_SIGNAL_ID = f"""
     WHERE symbol = %s AND signal_time = %s AND sl_model_version = %s AND tp_model_version = %s
 """
 
-# Find trade_id from a signal 1 hour earlier (for grouping break + after-break signals)
+# Find trade_id from the previous entry-TF candle (for grouping break + after-break signals).
+# The caller passes the previous candle open time directly (profile-relative interval).
 GET_RELATED_SIGNAL_TRADE_ID = f"""
     SELECT trade_id FROM {SCHEMA_NAME}.entry_signal
-    WHERE symbol = %s 
-    AND signal_time = %s - INTERVAL '1 hour'
+    WHERE symbol = %s
+    AND signal_time = %s
     AND trade_id IS NOT NULL
     LIMIT 1
 """

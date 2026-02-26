@@ -6,7 +6,7 @@ then persists to the replay schema with idempotency checks.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 
 import pandas as pd
@@ -34,8 +34,8 @@ from .pre_entry_context_v2 import PreEntryContextV2Calculator, PreEntryContextV2
 class ReplaySignalDetector:
     """Detects entry signals during replay using production logic.
     
-    For each 1H candle close:
-    1. Gets current 1H candles (up to lookback)
+    For each entry-TF candle close:
+    1. Gets current entry-TF candles (up to lookback)
     2. Gets tradable AOIs from current market state
     3. Finds entry patterns for each AOI
     4. Evaluates quality and computes SL/TP distances
@@ -57,7 +57,7 @@ class ReplaySignalDetector:
         are skipped entirely (no AOI loop).
         
         Args:
-            current_time: Current simulation time (1H candle close)
+            current_time: Current simulation time (entry-TF candle close)
             state: Current market state (trends + AOIs)
             
         Returns:
@@ -74,8 +74,8 @@ class ReplaySignalDetector:
         entry_candles = self._store.get_entry_candles().get_candles_up_to(current_time)
         if entry_candles is None or entry_candles.empty:
             return inserted_ids
-        
-        # Limit to lookback
+
+        # Limit to profile lookback
         entry_candles = entry_candles.tail(ACTIVE_PROFILE.lookback_entry)
         
         # Calculate entry-TF ATR (stored in DB, used for SL geometry and exit simulation)
@@ -154,7 +154,7 @@ class ReplaySignalDetector:
         # === AOI LOOP (only pattern finding and signal creation) ===
         for aoi in tradable_aois:
             signal_id = self._scan_aoi_for_entry(
-                candles_1h=entry_candles,
+                entry_candles=entry_candles,
                 aoi=aoi,
                 direction=direction,
                 trend_snapshot=trend_snapshot,
@@ -171,7 +171,7 @@ class ReplaySignalDetector:
     
     def _scan_aoi_for_entry(
         self,
-        candles_1h: pd.DataFrame,
+        entry_candles: pd.DataFrame,
         aoi: AOIZone,
         direction: TrendDirection,
         trend_snapshot: dict,
@@ -188,7 +188,7 @@ class ReplaySignalDetector:
         Also computes and stores pre_entry_context_v2 for comprehensive data.
         """
         # Find entry pattern (AOI-specific)
-        pattern = find_entry_pattern(candles_1h, aoi, direction)
+        pattern = find_entry_pattern(entry_candles, aoi, direction)
         if not pattern:
             return None
         
@@ -628,23 +628,29 @@ class ReplaySignalDetector:
         return touch_count
     
     def _get_or_generate_trade_id(self, signal_time: datetime) -> str:
-        """Get existing trade_id from a related signal 1 hour ago, or generate new one.
+        """Get existing trade_id from the previous entry-TF candle, or generate new one.
         
         Groups break + after-break signals together with the same trade_id.
+        The lookback interval is profile-relative (15M for LOWER, 1H for DEFAULT).
         Format: {symbol}_{timestamp} where timestamp is the first signal's time.
         """
         from database.executor import DBExecutor
-        
-        # Check if there's a signal from 1 hour ago with a trade_id
+
+        # Compute the previous entry-TF candle's open time (profile-relative interval)
+        from .config import TIMEFRAME_HOURS
+        interval_hours = TIMEFRAME_HOURS[ACTIVE_PROFILE.entry_tf]
+        prev_signal_time = signal_time - timedelta(hours=interval_hours)
+
+        # Check if there's a signal from the previous entry-TF bar with a trade_id
         row = DBExecutor.fetch_one(
             GET_RELATED_SIGNAL_TRADE_ID,
-            (self._symbol, signal_time),
+            (self._symbol, prev_signal_time),
             context="get_related_trade_id",
         )
-        
+
         if row and row[0]:
             return row[0]  # Use existing trade_id
-        
+
         # Generate new trade_id: symbol_timestamp
         timestamp_str = signal_time.strftime("%Y%m%d_%H%M")
         return f"{self._symbol}_{timestamp_str}"
