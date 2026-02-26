@@ -42,7 +42,7 @@ FETCH_SIGNALS_SQL = f"""
         es.signal_time, 
         es.direction, 
         es.entry_price, 
-        es.atr_1h,
+        es.atr_tf,
         es.aoi_low, 
         es.aoi_high
     FROM {SCHEMA_NAME}.entry_signal es
@@ -141,12 +141,12 @@ def process_signal(row, stats):
     signal_time_db = row[2]
     direction_str = row[3]
     entry_price = float(row[4])
-    atr_1h = float(row[5])
+    atr_tf = float(row[5])
     aoi_low = float(row[6])
     aoi_high = float(row[7])
-    
+
     direction = TrendDirection.from_raw(direction_str)
-    
+
     # 1. UTC Conversion for consistency
     if signal_time_db.tzinfo is None:
         signal_time_utc = signal_time_db.replace(tzinfo=timezone.utc)
@@ -157,21 +157,21 @@ def process_signal(row, stats):
     # Increasing lookback to 1000 helps force MT5 to download more history.
     end_time = signal_time_utc + timedelta(hours=120)
     candles = fetch_data(symbol, 16385, lookback=1000, end_date=end_time)
-    
+
     if candles is None or candles.empty:
         stats.skip_no_data += 1
         return
 
     candles['time'] = pd.to_datetime(candles['time'], utc=True)
     candles.set_index('time', inplace=True)
-    
+
     # Identify Signal Candle (T)
     if signal_time_utc not in candles.index:
         stats.skip_time_match += 1
         return
-    
+
     signal_candle = candles.loc[signal_time_utc]
-    
+
     # 3. Calculate SL Geometry using Signal Candle (T)
     signal_candle_dict = {
         "open": float(signal_candle['open']),
@@ -179,10 +179,10 @@ def process_signal(row, stats):
         "low": float(signal_candle['low']),
         "close": float(signal_candle['close']),
     }
-    
+
     geo_calc = SLGeometryCalculator(
         entry_price=entry_price,
-        atr_at_entry=atr_1h,
+        atr_at_entry=atr_tf,
         direction=direction,
         aoi_low=aoi_low,
         aoi_high=aoi_high,
@@ -218,13 +218,13 @@ def process_signal(row, stats):
         c_low = float(c['low'])
         
         if direction == TrendDirection.BULLISH:
-            ret = (c_close - entry_price) / atr_1h
-            imax_mfe = (c_high - entry_price) / atr_1h
-            imax_mae = (c_low - entry_price) / atr_1h
+            ret = (c_close - entry_price) / atr_tf
+            imax_mfe = (c_high - entry_price) / atr_tf
+            imax_mae = (c_low - entry_price) / atr_tf
         else:
-            ret = (entry_price - c_close) / atr_1h
-            imax_mfe = (entry_price - c_low) / atr_1h
-            imax_mae = (entry_price - c_high) / atr_1h
+            ret = (entry_price - c_close) / atr_tf
+            imax_mfe = (entry_price - c_low) / atr_tf
+            imax_mae = (entry_price - c_high) / atr_tf
             
         running_mfe = max(running_mfe, ret)
         running_mae = min(running_mae, ret)

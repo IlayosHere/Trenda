@@ -37,7 +37,7 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         trend_low, trend_mid, trend_high, trend_alignment_strength,
         timeframe_profile,
         aoi_timeframe, aoi_low, aoi_high, aoi_classification,
-        entry_price, atr_1h,
+        entry_price, atr_tf,
         is_break_candle_last,
         sl_model_version, tp_model_version,
         conflicted_tf,
@@ -63,7 +63,7 @@ INSERT_REPLAY_ENTRY_SIGNAL_SCORE = f"""
 
 # Only fetch signals matching current model versions AND within time range
 FETCH_PENDING_REPLAY_SIGNALS = f"""
-    SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
+    SELECT id, symbol, signal_time, direction, entry_price, atr_tf,
            aoi_low, aoi_high
     FROM {SCHEMA_NAME}.entry_signal
     WHERE outcome_computed = FALSE
@@ -78,7 +78,7 @@ FETCH_PENDING_REPLAY_SIGNALS = f"""
 
 # Fetch ALL pending signals for a symbol (no time range - for final pass)
 FETCH_ALL_PENDING_REPLAY_SIGNALS = f"""
-    SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
+    SELECT id, symbol, signal_time, direction, entry_price, atr_tf,
            aoi_low, aoi_high
     FROM {SCHEMA_NAME}.entry_signal
     WHERE outcome_computed = FALSE
@@ -90,7 +90,7 @@ FETCH_ALL_PENDING_REPLAY_SIGNALS = f"""
 """
 
 FETCH_SIGNAL_BY_ID = f"""
-    SELECT id, symbol, signal_time, direction, entry_price, atr_1h,
+    SELECT id, symbol, signal_time, direction, entry_price, atr_tf,
            aoi_low, aoi_high
     FROM {SCHEMA_NAME}.entry_signal
     WHERE id = %s
@@ -143,7 +143,7 @@ CREATE_REPLAY_ENTRY_SIGNAL_TABLE = f"""
         aoi_high NUMERIC,
         aoi_classification VARCHAR(20),
         entry_price NUMERIC,
-        atr_1h NUMERIC,
+        atr_tf NUMERIC,
         is_break_candle_last BOOLEAN,
         sl_model_version TEXT NOT NULL,
         tp_model_version TEXT NOT NULL,

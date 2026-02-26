@@ -54,22 +54,22 @@ class PathExtremesCalculator:
         if self._atr <= 0:
             return []
         
-        # Get future candles after entry
-        candles_1h = self._store.get_1h_candles()
-        max_idx = len(candles_1h.candles) - 1
-        
+        # Get future candles after entry — use entry TF for all profiles
+        entry_candles = self._store.get_entry_candles()
+        max_idx = len(entry_candles.candles) - 1
+
         results = []
         running_mfe = float('-inf')
         running_mae = float('inf')
         running_mfe_hl = float('-inf')
         running_mae_hl = float('inf')
-        
+
         for bar_idx in range(1, OUTCOME_WINDOW_BARS + 1):
             candle_idx = self._entry_idx + bar_idx
             if candle_idx > max_idx:
                 break
-            
-            candle = candles_1h.get_candle_at_index(candle_idx)
+
+            candle = entry_candles.get_candle_at_index(candle_idx)
             if candle is None:
                 break
             

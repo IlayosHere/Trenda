@@ -41,7 +41,7 @@ _FETCH_SQL = f"""
         es.signal_time,
         es.direction,
         es.entry_price,
-        es.atr_1h,
+        es.atr_tf,
         sg.aoi_near_edge_atr,
         sg.aoi_far_edge_atr
     FROM {SCHEMA_NAME}.entry_signal        es
@@ -57,7 +57,7 @@ def validate(signal_id: int) -> None:
         return
 
     row = rows[0]
-    sid, symbol, signal_time_db, direction_str, entry_price_db, atr_1h_db, aoi_near_db, aoi_far_db = row
+    sid, symbol, signal_time_db, direction_str, entry_price_db, atr_tf_db, aoi_near_db, aoi_far_db = row
 
     if signal_time_db.tzinfo is None:
         signal_time = signal_time_db.replace(tzinfo=timezone.utc)
@@ -66,7 +66,7 @@ def validate(signal_id: int) -> None:
 
     direction = TrendDirection.from_raw(direction_str)
     entry_price = float(entry_price_db)
-    atr_1h = float(atr_1h_db)
+    atr_tf = float(atr_tf_db)
     aoi_near = float(aoi_near_db)
     aoi_far = float(aoi_far_db)
     is_bull = direction == TrendDirection.BULLISH
@@ -78,7 +78,7 @@ def validate(signal_id: int) -> None:
     logger.info("  direction   : %s  (is_bull=%s)", direction_str, is_bull)
     logger.info("  signal_time : %s  (this is T open time, 1H bar = [T, T+1h))", signal_time)
     logger.info("  entry_price : %.5f  (= close of signal bar T)", entry_price)
-    logger.info("  atr_1h      : %.5f", atr_1h)
+    logger.info("  atr_tf      : %.5f", atr_tf)
     logger.info("  aoi_near_atr: %.4f ATR  (dist entry -> AOI near edge)", aoi_near)
     logger.info("  aoi_far_atr : %.4f ATR  (dist entry -> AOI far edge)", aoi_far)
 
@@ -166,8 +166,8 @@ def validate(signal_id: int) -> None:
         logger.info("    close : %.5f  <- delayed entry price", delay_close)
 
         delay_return_atr = (
-            (delay_close - entry_price) / atr_1h if is_bull
-            else (entry_price - delay_close) / atr_1h
+            (delay_close - entry_price) / atr_tf if is_bull
+            else (entry_price - delay_close) / atr_tf
         )
         logger.info("  delay_return_atr: %.4f  (>0 = favorable, triggers entry)", delay_return_atr)
 
@@ -186,10 +186,10 @@ def validate(signal_id: int) -> None:
         logger.info("    bars available to scan: %d", len(future) - fwd_start_idx)
 
         # SL models
-        logger.info("  SL MODELS (entry=%.5f  atr=%.5f):", delay_close, atr_1h)
+        logger.info("  SL MODELS (entry=%.5f  atr=%.5f):", delay_close, atr_tf)
         sl_models = {
-            "CANDLE_LOW":          (delay_close - delay_low) / atr_1h if is_bull else (delay_high - delay_close) / atr_1h,
-            "CANDLE_LOW+0.25":     ((delay_close - delay_low) / atr_1h if is_bull else (delay_high - delay_close) / atr_1h) + 0.25,
+            "CANDLE_LOW":          (delay_close - delay_low) / atr_tf if is_bull else (delay_high - delay_close) / atr_tf,
+            "CANDLE_LOW+0.25":     ((delay_close - delay_low) / atr_tf if is_bull else (delay_high - delay_close) / atr_tf) + 0.25,
             "ATR_0_5":             0.5,
             "ATR_1_0":             1.0,
             "AOI_NEAR":            delay_return_atr + aoi_near,
@@ -199,14 +199,14 @@ def validate(signal_id: int) -> None:
             if dist < MIN_SL_ATR:
                 logger.info("    %-20s dist=%.4f ATR  SKIPPED (< MIN_SL_ATR)", name, dist)
                 continue
-            sl_price = delay_close - dist * atr_1h if is_bull else delay_close + dist * atr_1h
-            tp_price = delay_close + dist * 2.0 * atr_1h if is_bull else delay_close - dist * 2.0 * atr_1h
+            sl_price = delay_close - dist * atr_tf if is_bull else delay_close + dist * atr_tf
+            tp_price = delay_close + dist * 2.0 * atr_tf if is_bull else delay_close - dist * 2.0 * atr_tf
             logger.info("    %-20s dist=%.4f ATR  SL=%.5f  TP(2R)=%.5f",
                         name, dist, sl_price, tp_price)
 
         # AOI SL sanity check: should resolve to aoi_high/aoi_low
-        near_atr_abs = aoi_near * atr_1h
-        far_atr_abs  = aoi_far  * atr_1h
+        near_atr_abs = aoi_near * atr_tf
+        far_atr_abs  = aoi_far  * atr_tf
         if is_bull:
             aoi_high_implied = entry_price - near_atr_abs  # entry_price - (entry_price - aoi_high) = aoi_high
             aoi_low_implied  = entry_price - far_atr_abs
@@ -214,10 +214,10 @@ def validate(signal_id: int) -> None:
             aoi_high_implied = entry_price + far_atr_abs
             aoi_low_implied  = entry_price + near_atr_abs
 
-        aoi_near_sl = delay_close - (delay_return_atr + aoi_near) * atr_1h if is_bull \
-                      else delay_close + (delay_return_atr + aoi_near) * atr_1h
-        aoi_far_sl  = delay_close - (delay_return_atr + aoi_far) * atr_1h if is_bull \
-                      else delay_close + (delay_return_atr + aoi_far) * atr_1h
+        aoi_near_sl = delay_close - (delay_return_atr + aoi_near) * atr_tf if is_bull \
+                      else delay_close + (delay_return_atr + aoi_near) * atr_tf
+        aoi_far_sl  = delay_close - (delay_return_atr + aoi_far) * atr_tf if is_bull \
+                      else delay_close + (delay_return_atr + aoi_far) * atr_tf
 
         logger.info("  AOI geometry verification:")
         logger.info("    AOI_NEAR SL resolves to: %.5f  (should = aoi_high implied %.5f  match=%s)",

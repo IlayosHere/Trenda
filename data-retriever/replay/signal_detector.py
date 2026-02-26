@@ -78,14 +78,20 @@ class ReplaySignalDetector:
         # Limit to lookback
         entry_candles = entry_candles.tail(ACTIVE_PROFILE.lookback_entry)
         
-        # Calculate 1H ATR (always from 1H candles — normalization unit)
-        candles_1h = self._store.get_1h_candles().get_candles_up_to(current_time)
-        if candles_1h is None or candles_1h.empty:
+        # Calculate entry-TF ATR (stored in DB, used for SL geometry and exit simulation)
+        entry_tf_for_atr = self._store.get_entry_candles().get_candles_up_to(current_time)
+        if entry_tf_for_atr is None or entry_tf_for_atr.empty:
             return inserted_ids
-        candles_1h = candles_1h.tail(25)  # short window for ATR
-        atr_1h = calculate_atr(candles_1h)
-        if atr_1h <= 0:
+        entry_tf_for_atr = entry_tf_for_atr.tail(25)
+        atr_tf = calculate_atr(entry_tf_for_atr)
+        if atr_tf <= 0:
             return inserted_ids
+
+        # Calculate 1H ATR separately (used only for pre_entry_context_v2 normalization)
+        candles_1h_for_atr = self._store.get_1h_candles().get_candles_up_to(current_time)
+        if candles_1h_for_atr is None or candles_1h_for_atr.empty:
+            return inserted_ids
+        atr_1h = calculate_atr(candles_1h_for_atr.tail(25))
         
         # Build trend snapshot
         trend_snapshot = state.get_trend_snapshot()
@@ -153,6 +159,7 @@ class ReplaySignalDetector:
                 direction=direction,
                 trend_snapshot=trend_snapshot,
                 trend_alignment=trend_alignment,
+                atr_tf=atr_tf,
                 atr_1h=atr_1h,
                 conflicted_tf=conflicted_tf,
                 state=state,
@@ -169,6 +176,7 @@ class ReplaySignalDetector:
         direction: TrendDirection,
         trend_snapshot: dict,
         trend_alignment: int,
+        atr_tf: float,
         atr_1h: float,
         conflicted_tf: Optional[str],
         state: SymbolState,
@@ -203,7 +211,7 @@ class ReplaySignalDetector:
         # Compute minimal entry_signal fields (fast)
         retest_idx = 0  # First candle is retest
         max_retest_penetration_atr = self._compute_max_retest_penetration(
-            pattern.candles, retest_idx, break_index, aoi, direction, atr_1h
+            pattern.candles, retest_idx, break_index, aoi, direction, atr_tf
         )
         bars_between_retest_and_break = break_index - retest_idx - 1 if break_index > retest_idx else 0
         hour_of_day_utc = signal_time.hour
@@ -220,7 +228,7 @@ class ReplaySignalDetector:
             trend_alignment=trend_alignment,
             aoi=aoi,
             entry_price=entry_price,
-            atr_1h=atr_1h,
+            atr_tf=atr_tf,
             is_break_candle_last=pattern.is_break_candle_last,
             sl_model_version=SL_MODEL_VERSION,
             tp_model_version=TP_MODEL_VERSION,
@@ -255,7 +263,7 @@ class ReplaySignalDetector:
                     retest_time=retest_time,
                     direction=direction,
                     entry_price=entry_price,
-                    atr_1h=atr_1h,
+                    atr_1h=atr_1h,  # intentionally 1H ATR — context_v2 uses 1H-based metrics
                     aoi_low=aoi.lower,
                     aoi_high=aoi.upper,
                     aoi_timeframe=aoi.timeframe or ACTIVE_PROFILE.aoi_tf_low,
@@ -304,7 +312,7 @@ class ReplaySignalDetector:
         trend_alignment: int,
         aoi: AOIZone,
         entry_price: float,
-        atr_1h: float,
+        atr_tf: float,
         is_break_candle_last: bool,
         sl_model_version: str,
         tp_model_version: str,
@@ -342,7 +350,7 @@ class ReplaySignalDetector:
                     aoi.upper,
                     aoi.classification or "",
                     entry_price,
-                    atr_1h,
+                    atr_tf,
                     is_break_candle_last,
                     # Model versions
                     sl_model_version,
@@ -563,10 +571,10 @@ class ReplaySignalDetector:
         break_idx: int,
         aoi: AOIZone,
         direction: TrendDirection,
-        atr_1h: float,
+        atr_tf: float,
     ) -> Optional[float]:
         """Compute max penetration into AOI during retest phase."""
-        if atr_1h <= 0 or retest_idx >= break_idx:
+        if atr_tf <= 0 or retest_idx >= break_idx:
             return None
         
         max_penetration = 0.0
@@ -583,7 +591,7 @@ class ReplaySignalDetector:
             
             max_penetration = max(max_penetration, penetration)
         
-        return max_penetration / atr_1h if max_penetration > 0 else 0.0
+        return max_penetration / atr_tf if max_penetration > 0 else 0.0
     
     def _get_session_bucket(self, hour: int) -> str:
         """Get session bucket from UTC hour."""

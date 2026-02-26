@@ -71,7 +71,7 @@ _FETCH_SQL = f"""
         es.signal_time,
         es.direction,
         es.entry_price,
-        es.atr_1h,
+        es.atr_tf,
         sg.aoi_near_edge_atr,
         sg.aoi_far_edge_atr
     FROM {SCHEMA_NAME}.entry_signal        es
@@ -100,7 +100,7 @@ class SignalRow:
     signal_time: object
     direction: TrendDirection
     entry_price: float
-    atr_1h: float
+    atr_tf: float
     aoi_near_edge_atr: float
     aoi_far_edge_atr: float
 
@@ -127,7 +127,7 @@ def fetch_signals(
 
     result: list[SignalRow] = []
     for row in rows:
-        sid, symbol, signal_time_db, direction_str, entry_price, atr_1h, aoi_near, aoi_far = row
+        sid, symbol, signal_time_db, direction_str, entry_price, atr_tf, aoi_near, aoi_far = row
 
         if signal_time_db.tzinfo is None:
             signal_time_utc = signal_time_db.replace(tzinfo=timezone.utc)
@@ -145,7 +145,7 @@ def fetch_signals(
             signal_time=signal_time_utc,
             direction=direction,
             entry_price=float(entry_price),
-            atr_1h=float(atr_1h),
+            atr_tf=float(atr_tf),
             aoi_near_edge_atr=float(aoi_near),
             aoi_far_edge_atr=float(aoi_far),
         ))
@@ -278,8 +278,8 @@ def process_signal(s: SignalRow, stats: Stats) -> list[tuple]:
         delay_high  = float(dc["high"])
 
         delay_return_atr = (
-            (delay_close - s.entry_price) / s.atr_1h if is_bull
-            else (s.entry_price - delay_close) / s.atr_1h
+            (delay_close - s.entry_price) / s.atr_tf if is_bull
+            else (s.entry_price - delay_close) / s.atr_tf
         )
 
         if delay_return_atr <= 0.0:
@@ -297,7 +297,7 @@ def process_signal(s: SignalRow, stats: Stats) -> list[tuple]:
             sl_dist = _sl_dist(
                 sl_model, s.direction,
                 delay_close, delay_low, delay_high,
-                s.atr_1h, delay_return_atr,
+                s.atr_tf, delay_return_atr,
                 s.aoi_near_edge_atr, s.aoi_far_edge_atr,
             )
             if sl_dist is None:
@@ -306,7 +306,7 @@ def process_signal(s: SignalRow, stats: Stats) -> list[tuple]:
             for rr in RR_MULTIPLES:
                 exit_reason, bars_to_exit, return_r = _scan(
                     fwd_highs, fwd_lows, fwd_closes,
-                    delay_close, sl_dist, rr, s.atr_1h, is_bull,
+                    delay_close, sl_dist, rr, s.atr_tf, is_bull,
                 )
                 rows.append((
                     int(s.signal_id), int(delay), str(sl_model), float(rr),

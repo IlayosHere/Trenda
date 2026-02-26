@@ -49,8 +49,8 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2024,1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2019,1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2021, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid terminal candle limits (typically 5000)
 # 120 days * 24 hours = 2880 1H candles (safe margin)
@@ -60,7 +60,7 @@ MAX_CHUNK_DAYS: Final[int] = 120
 # SL/TP Model Versions
 # =============================================================================
 # Production model configuration (must match entry/gates/config.py)
-SL_MODEL_VERSION: Final[str] = 'CHECK_1H'
+SL_MODEL_VERSION: Final[str] = 'LOWER_TF_CHECK'
 TP_MODEL_VERSION: Final[str] = 'NO_BIAS'
 
 # =============================================================================

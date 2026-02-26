@@ -32,16 +32,16 @@ from .exit_simulator import ExitSimulator, persist_exit_simulations
 @dataclass
 class ReplayPendingSignal:
     """Signal awaiting outcome computation in replay."""
-    
+
     id: int
     symbol: str
     signal_time: datetime
     direction: str
     entry_price: float
-    atr_1h: float
+    atr_tf: float
     aoi_low: float
     aoi_high: float
-    signal_1h_index: Optional[int] = None
+    signal_entry_index: Optional[int] = None
 
 
 @dataclass
@@ -81,70 +81,64 @@ class ReplayOutcomeCalculator:
         self._store = candle_store
         self._start_date = start_date
         self._end_date = end_date
-        self._signal_indices: dict[int, int] = {}  # signal_id -> 1H candle index
-    
+        self._signal_indices: dict[int, int] = {}  # signal_id -> entry_tf candle index
+
     def register_signal(self, signal_id: int, signal_time: datetime) -> None:
-        """Register a signal with its 1H candle index for later outcome computation.
-        
-        Called when a signal is inserted so we can track its position in the candle store.
+        """Register a signal with its entry-TF candle index for later outcome computation.
+
+        Uses an exact match on the entry-TF store. For all profiles the signal_time IS
+        the open time of the entry-TF candle, so the match is always found.
         """
-        idx = self._store.get_1h_candles().find_index_by_time(signal_time)
+        idx = self._store.get_entry_candles().find_index_by_time(signal_time)
         if idx is not None:
             self._signal_indices[signal_id] = idx
     
     def compute_eligible_outcomes(self, current_time: datetime) -> int:
         """Compute outcomes for signals that are now eligible.
-        
-        A signal is eligible when 72 1H candles have passed since its signal time.
-        Outcomes are always computed on 1H candles regardless of entry TF.
-        
+
+        A signal is eligible when OUTCOME_WINDOW_BARS entry-TF candles have passed.
+        All computations use entry-TF candles so the window is profile-relative.
+
         Args:
-            current_time: Current replay time (from whatever entry TF candle)
-            
+            current_time: Current replay time (entry-TF candle open time)
+
         Returns:
             Number of outcomes computed
         """
-        # Resolve current time to a 1H candle index
-        current_1h_index = self._store.get_1h_candles().find_index_by_time(current_time)
-        if current_1h_index is None:
+        current_entry_index = self._store.get_entry_candles().find_index_by_time(current_time)
+        if current_entry_index is None:
             return 0
+
         computed_count = 0
-        
-        # Fetch pending signals from replay DB (filtered by symbol and time range)
+
         pending_signals = self._fetch_pending_signals()
-        
+
         for signal in pending_signals:
-            # Get signal's 1H index
             signal_idx = self._signal_indices.get(signal.id)
             if signal_idx is None:
-                # Try to find it
-                signal_idx = self._store.get_1h_candles().find_index_by_time(
+                signal_idx = self._store.get_entry_candles().find_index_by_time(
                     signal.signal_time
                 )
                 if signal_idx is not None:
                     self._signal_indices[signal.id] = signal_idx
-            
+
             if signal_idx is None:
                 continue
-            
-            # Check if eligible (72 candles have passed)
-            if current_1h_index < signal_idx + OUTCOME_WINDOW_BARS:
+
+            if current_entry_index < signal_idx + OUTCOME_WINDOW_BARS:
                 continue
-            
-            # Get future candles from store
-            future_candles = self._store.get_1h_candles().get_candles_after_index(
+
+            future_candles = self._store.get_entry_candles().get_candles_after_index(
                 signal_idx, OUTCOME_WINDOW_BARS
             )
-            
+
             if len(future_candles) < OUTCOME_WINDOW_BARS:
                 continue
-            
-            # Compute and persist outcome
+
             if self._compute_and_persist_outcome(signal, future_candles):
                 computed_count += 1
-                # Remove from tracking
                 self._signal_indices.pop(signal.id, None)
-        
+
         return computed_count
     
     def _fetch_pending_signals(self) -> List[ReplayPendingSignal]:
@@ -167,7 +161,7 @@ class ReplayOutcomeCalculator:
                 signal_time=row["signal_time"],
                 direction=row["direction"],
                 entry_price=float(row["entry_price"]),
-                atr_1h=float(row["atr_1h"]),
+                atr_tf=float(row["atr_tf"]),
                 aoi_low=float(row["aoi_low"]),
                 aoi_high=float(row["aoi_high"]),
             ))
@@ -187,28 +181,28 @@ class ReplayOutcomeCalculator:
             far_edge_distance = signal.entry_price - signal.aoi_low
         else:
             far_edge_distance = signal.aoi_high - signal.entry_price
-        
-        sl_distance_atr = (far_edge_distance / signal.atr_1h) + 0.25  # SL_BUFFER_ATR = 0.25
-        
+
+        sl_distance_atr = (far_edge_distance / signal.atr_tf) + 0.25  # SL_BUFFER_ATR = 0.25
+
         pending = PendingSignal(
             id=signal.id,
             symbol=signal.symbol,
             signal_time=signal.signal_time,
             direction=signal.direction,
             entry_price=signal.entry_price,
-            atr_1h=signal.atr_1h,
+            atr_1h=signal.atr_tf,  # shared model uses atr_1h field; entry_tf ATR passed here
             aoi_low=signal.aoi_low,
             aoi_high=signal.aoi_high,
             sl_distance_atr=sl_distance_atr,
         )
-        
+
         outcome = compute_outcome(pending, candles)
-        
+
         # Compute checkpoint returns at bars 3, 6, 12, 24, 48, 72
         checkpoint_returns = self._compute_checkpoint_returns(
             candles=candles,
             entry_price=signal.entry_price,
-            atr_1h=signal.atr_1h,
+            atr_tf=signal.atr_tf,
             direction=direction,
         )
         
@@ -241,41 +235,41 @@ class ReplayOutcomeCalculator:
         self,
         candles: pd.DataFrame,
         entry_price: float,
-        atr_1h: float,
+        atr_tf: float,
         direction: TrendDirection,
     ) -> List[CheckpointReturn]:
         """Compute return at each checkpoint bar.
-        
+
         Returns signed return in ATR units:
         - Positive = favorable (in direction of trade)
         - Negative = adverse (against direction)
         """
         checkpoint_returns = []
-        
-        if candles.empty or atr_1h <= 0:
+
+        if candles.empty or atr_tf <= 0:
             return checkpoint_returns
-        
+
         for bar_idx in CHECKPOINT_BARS:
             if bar_idx > len(candles):
                 break
-            
+
             # Get close at checkpoint bar (bar_idx is 1-indexed, candles are 0-indexed)
             bar_close = float(candles.iloc[bar_idx - 1]["close"])
-            
+
             # Calculate return in ATR
             raw_return = bar_close - entry_price
-            
+
             # Sign based on direction (positive = favorable)
             if direction == TrendDirection.BEARISH:
                 raw_return = -raw_return
-            
-            return_atr = raw_return / atr_1h
-            
+
+            return_atr = raw_return / atr_tf
+
             checkpoint_returns.append(CheckpointReturn(
                 bars_after=bar_idx,
                 return_atr=return_atr,
             ))
-        
+
         return checkpoint_returns
     
     def _compute_exit_simulation_data(
@@ -286,39 +280,41 @@ class ReplayOutcomeCalculator:
         direction: TrendDirection,
     ) -> None:
         """Compute and persist exit simulation data (path, geometry, simulations)."""
-        # Get signal candle index
+        # Get entry-TF signal candle index (exact match — signal_time IS entry_tf bar open)
         signal_idx = self._signal_indices.get(signal_id)
         if signal_idx is None:
+            signal_idx = self._store.get_entry_candles().find_index_by_time(signal.signal_time)
+        if signal_idx is None:
             return
-        
-        # Get the signal candle (last candle at signal time)
-        signal_candle_data = self._store.get_1h_candles().get_candle_at_index(signal_idx)
+
+        # Get the signal candle from entry_tf store (avoids 1H lookahead for sub-hourly entries)
+        signal_candle_data = self._store.get_entry_candles().get_candle_at_index(signal_idx)
         if signal_candle_data is None:
             return
-        
+
         signal_candle = {
             "open": float(signal_candle_data["open"]),
             "high": float(signal_candle_data["high"]),
             "low": float(signal_candle_data["low"]),
             "close": float(signal_candle_data["close"]),
         }
-        
-        # 1. Compute path extremes (bars 1-72)
+
+        # 1. Compute path extremes (bars 1-N in entry_tf)
         path_calc = PathExtremesCalculator(
             candle_store=self._store,
             entry_candle_idx=signal_idx,
             entry_price=signal.entry_price,
-            atr_at_entry=signal.atr_1h,
+            atr_at_entry=signal.atr_tf,
             direction=direction,
         )
         path_rows = path_calc.compute()
         if path_rows:
             persist_path_extremes(signal_id, path_rows)
-        
+
         # 2. Compute SL geometry
         geometry_calc = SLGeometryCalculator(
             entry_price=signal.entry_price,
-            atr_at_entry=signal.atr_1h,
+            atr_at_entry=signal.atr_tf,
             direction=direction,
             aoi_low=signal.aoi_low,
             aoi_high=signal.aoi_high,

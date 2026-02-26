@@ -276,42 +276,42 @@ def _compute_remaining_outcomes(
     
     for row in rows:
         signal_time = row["signal_time"]
-        signal_idx = candle_store.get_1h_candles().find_index_by_time(signal_time)
-        
+        signal_idx = candle_store.get_entry_candles().find_index_by_time(signal_time)
+
         if signal_idx is None:
             skipped_no_idx += 1
             continue
-        
-        # Get future candles
-        future_candles = candle_store.get_1h_candles().get_candles_after_index(
+
+        # Get future candles from entry_tf store
+        future_candles = candle_store.get_entry_candles().get_candles_after_index(
             signal_idx, OUTCOME_WINDOW_BARS
         )
-        
+
         if future_candles is None or len(future_candles) < OUTCOME_WINDOW_BARS:
             skipped_no_candles += 1
             continue
-        
-        # Calculate sl_distance_atr
+
+        # Calculate sl_distance_atr using entry_tf ATR
         direction = TrendDirection.from_raw(row["direction"])
         entry_price = float(row["entry_price"])
-        atr_1h = float(row["atr_1h"])
+        atr_tf = float(row["atr_tf"])
         aoi_low = float(row["aoi_low"])
         aoi_high = float(row["aoi_high"])
-        
+
         if direction == TrendDirection.BULLISH:
             far_edge_distance = entry_price - aoi_low
         else:
             far_edge_distance = aoi_high - entry_price
-        
-        sl_distance_atr = (far_edge_distance / atr_1h) + 0.25  # SL_BUFFER_ATR
-        
+
+        sl_distance_atr = (far_edge_distance / atr_tf) + 0.25  # SL_BUFFER_ATR
+
         pending = PendingSignal(
             id=row["id"],
             symbol=row["symbol"],
             signal_time=signal_time,
             direction=row["direction"],
             entry_price=entry_price,
-            atr_1h=atr_1h,
+            atr_1h=atr_tf,  # shared model field; entry_tf ATR passed here
             aoi_low=aoi_low,
             aoi_high=aoi_high,
             sl_distance_atr=sl_distance_atr,

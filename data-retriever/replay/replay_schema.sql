@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS trenda_replay.entry_signal (
     
     -- Entry data
     entry_price NUMERIC,
-    atr_1h NUMERIC,
+    atr_tf NUMERIC,
     
     -- Quality score
     final_score NUMERIC,
@@ -167,8 +167,8 @@ CREATE TABLE IF NOT EXISTS trenda_replay.pre_entry_context_v2 (
     aoi_midpoint_range_position_high NUMERIC,  -- same for weekly
     
     -- Break Candle Metrics
-    break_impulse_range_atr NUMERIC,            -- (high - low) / atr_1h
-    break_impulse_body_atr NUMERIC,             -- abs(close - open) / atr_1h
+    break_impulse_range_atr NUMERIC,            -- (high - low) / atr_tf
+    break_impulse_body_atr NUMERIC,             -- abs(close - open) / atr_tf
     break_close_location NUMERIC,               -- bullish: (close-low)/(high-low), bearish: (high-close)/(high-low)
     
     -- Retest Candle Metrics
