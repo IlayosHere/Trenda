@@ -190,9 +190,6 @@ class ReplaySignalDetector:
         else:
             break_index = len(pattern.candles) - 2
         
-        # Scoring disabled - use defaults
-        final_score = 0.0
-        tier = "unscored"
         
         # Get entry price (close of last candle)
         entry_price = pattern.candles[-1].close
@@ -224,8 +221,6 @@ class ReplaySignalDetector:
             aoi=aoi,
             entry_price=entry_price,
             atr_1h=atr_1h,
-            final_score=final_score,
-            tier=tier,
             is_break_candle_last=pattern.is_break_candle_last,
             sl_model_version=SL_MODEL_VERSION,
             tp_model_version=TP_MODEL_VERSION,
@@ -310,8 +305,6 @@ class ReplaySignalDetector:
         aoi: AOIZone,
         entry_price: float,
         atr_1h: float,
-        final_score,
-        tier,
         is_break_candle_last: bool,
         sl_model_version: str,
         tp_model_version: str,
@@ -350,8 +343,6 @@ class ReplaySignalDetector:
                     aoi.classification or "",
                     entry_price,
                     atr_1h,
-                    final_score,
-                    tier,
                     is_break_candle_last,
                     # Model versions
                     sl_model_version,

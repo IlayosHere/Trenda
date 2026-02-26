@@ -49,8 +49,8 @@ REPLAY_SYMBOLS: Final[list[str]] = [
 # =============================================================================
 # Replay Window
 # =============================================================================
-REPLAY_START_DATE: Final[datetime] = datetime(2023,1, 1, 0, 0, 0, tzinfo=timezone.utc)
-REPLAY_END_DATE: Final[datetime] = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_START_DATE: Final[datetime] = datetime(2024,1, 1, 0, 0, 0, tzinfo=timezone.utc)
+REPLAY_END_DATE: Final[datetime] = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 
 # Maximum days per chunk to avoid terminal candle limits (typically 5000)
 # 120 days * 24 hours = 2880 1H candles (safe margin)
@@ -60,7 +60,7 @@ MAX_CHUNK_DAYS: Final[int] = 120
 # SL/TP Model Versions
 # =============================================================================
 # Production model configuration (must match entry/gates/config.py)
-SL_MODEL_VERSION: Final[str] = 'CHECK_GEO'
+SL_MODEL_VERSION: Final[str] = 'CHECK_1H'
 TP_MODEL_VERSION: Final[str] = 'NO_BIAS'
 
 # =============================================================================
@@ -109,7 +109,7 @@ SL_MODELS: Final[list[str]] = [
 ]
 
 # RR multiples: clean numbers from 1.0 to 4.0
-RR_MULTIPLES: Final[list[float]] = [2.0, 2.5, 3.0, 3.5, 4.0]
+RR_MULTIPLES: Final[list[float]] = [1.2, 1.5, 2.0, 2.2, 2.5, 3.0]
 
 # =============================================================================
 # Database Configuration
@@ -236,7 +236,21 @@ PROFILE_LOWER = TimeframeProfile(
     lookback_entry=100,  # 100 × 15M = 25 hours
 )
 
-_PROFILES = {"DEFAULT": PROFILE_DEFAULT, "LOWER": PROFILE_LOWER}
+PROFILE_DEFAULT_1H = TimeframeProfile(
+    name="DEFAULT_1H",
+    trend_tf_low=TIMEFRAME_1H, trend_tf_mid=TIMEFRAME_4H, trend_tf_high=TIMEFRAME_1D,
+    aoi_tf_low=TIMEFRAME_4H, aoi_tf_high=TIMEFRAME_1D,
+    entry_tf=TIMEFRAME_1H,
+    lookback_trend_low=LOOKBACK_1H, lookback_trend_mid=LOOKBACK_4H, lookback_trend_high=LOOKBACK_1D,
+    lookback_aoi_low=LOOKBACK_AOI_4H, lookback_aoi_high=LOOKBACK_AOI_1D,
+    lookback_entry=LOOKBACK_1H,
+)
+
+_PROFILES = {
+    "DEFAULT": PROFILE_DEFAULT,
+    "LOWER": PROFILE_LOWER,
+    "DEFAULT_1H": PROFILE_DEFAULT_1H
+}
 _profile_name = os.environ.get("REPLAY_TF_PROFILE", "DEFAULT").upper()
 ACTIVE_PROFILE: TimeframeProfile = _PROFILES.get(_profile_name, PROFILE_DEFAULT)
 

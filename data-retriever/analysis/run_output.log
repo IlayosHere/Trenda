@@ -1,0 +1,272 @@
+[32m18:31:15 | INFO     | __main__ | Loading data ...[0m
+C:\GIT-PROJECT\Trenda\data-retriever\analysis\portfolio_finder_v5.py:126: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  df = pd.read_sql_query(_SQL, conn)
+[32m18:31:35 | INFO     | __main__ | Loaded 292050 rows, 26550 signals[0m
+
+292050 rows | 26550 signals | 7 years: [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+SL models: ['SL_AOI_FAR', 'SL_AOI_FAR_PLUS_0_25', 'SL_AOI_NEAR', 'SL_AOI_NEAR_PLUS_0_25', 'SL_AOI_NEAR_PLUS_0_5', 'SL_ATR_0_5', 'SL_ATR_1_0', 'SL_ATR_1_5', 'SL_ATR_2_0', 'SL_SIGNAL_CANDLE', 'SL_SIGNAL_CANDLE_PLUS_0_25']
+LOO: 6/7 primary | exp > 0 per fold | n >= 10 per fold | no benefit of doubt
+Portfolio: avg TPY >= 100 | every year >= 100 trades | every year exp > 0 + win >= 40.0% | overall win >= 40.0%
+
+================================================================================
+STAGE 1: Top-3 SL per cell — all 7 years
+================================================================================
+
+  comm|bull:
+                        SL_ATR_0_5 | 2003 | 286.1 tpy |  31.3% | -0.0609 | contrib -17.43 <-
+                        SL_ATR_2_0 | 2003 | 286.1 tpy |  28.4% | -0.0847 | contrib -24.23 <-
+        SL_SIGNAL_CANDLE_PLUS_0_25 | 2003 | 286.1 tpy |  29.8% | -0.0921 | contrib -26.35 <-
+                  SL_SIGNAL_CANDLE | 2003 | 286.1 tpy |  29.9% | -0.0951 | contrib -27.22
+                        SL_AOI_FAR | 2003 | 286.1 tpy |  28.1% | -0.0977 | contrib -27.95
+
+  comm|bear:
+        SL_SIGNAL_CANDLE_PLUS_0_25 | 1753 | 250.4 tpy |  34.6% |  0.0522 | contrib  13.06 <-
+              SL_AOI_NEAR_PLUS_0_5 | 1753 | 250.4 tpy |  34.8% |  0.0505 | contrib  12.65 <-
+                  SL_SIGNAL_CANDLE | 1753 | 250.4 tpy |  34.1% |  0.0295 | contrib   7.38 <-
+                        SL_ATR_1_0 | 1753 | 250.4 tpy |  34.1% |  0.0217 | contrib   5.43
+             SL_AOI_NEAR_PLUS_0_25 | 1753 | 250.4 tpy |  33.4% |  0.0041 | contrib   1.03
+
+  eur|bull:
+                        SL_AOI_FAR | 3101 | 443.0 tpy |  30.8% | -0.0308 | contrib -13.64 <-
+                        SL_ATR_1_5 | 3101 | 443.0 tpy |  31.6% | -0.0390 | contrib -17.27 <-
+                        SL_ATR_2_0 | 3101 | 443.0 tpy |  30.0% | -0.0390 | contrib -17.26 <-
+              SL_AOI_FAR_PLUS_0_25 | 3101 | 443.0 tpy |  29.3% | -0.0397 | contrib -17.60
+                        SL_ATR_1_0 | 3101 | 443.0 tpy |  30.7% | -0.0790 | contrib -35.00
+
+  eur|bear:
+                        SL_AOI_FAR | 1888 | 269.7 tpy |  31.4% |  0.0017 | contrib   0.47 <-
+              SL_AOI_NEAR_PLUS_0_5 | 1888 | 269.7 tpy |  32.6% | -0.0106 | contrib  -2.86 <-
+        SL_SIGNAL_CANDLE_PLUS_0_25 | 1888 | 269.7 tpy |  32.0% | -0.0116 | contrib  -3.13 <-
+              SL_AOI_FAR_PLUS_0_25 | 1888 | 269.7 tpy |  29.2% | -0.0260 | contrib  -7.01
+             SL_AOI_NEAR_PLUS_0_25 | 1888 | 269.7 tpy |  32.3% | -0.0290 | contrib  -7.81
+
+  gbp|bull:
+                        SL_ATR_2_0 | 2381 | 340.1 tpy |  28.9% | -0.0735 | contrib -25.00 <-
+              SL_AOI_FAR_PLUS_0_25 | 2381 | 340.1 tpy |  28.0% | -0.0948 | contrib -32.24 <-
+                        SL_AOI_FAR | 2381 | 340.1 tpy |  28.9% | -0.0952 | contrib -32.38 <-
+                        SL_ATR_1_5 | 2381 | 340.1 tpy |  29.5% | -0.1058 | contrib -35.99
+                        SL_ATR_0_5 | 2381 | 340.1 tpy |  29.2% | -0.1243 | contrib -42.29
+
+  gbp|bear:
+                        SL_ATR_2_0 | 2045 | 292.1 tpy |  31.1% |  0.0178 | contrib   5.21 <-
+              SL_AOI_FAR_PLUS_0_25 | 2045 | 292.1 tpy |  30.7% |  0.0138 | contrib   4.03 <-
+                        SL_AOI_FAR | 2045 | 292.1 tpy |  32.0% |  0.0042 | contrib   1.22 <-
+                        SL_ATR_0_5 | 2045 | 292.1 tpy |  33.4% |  0.0020 | contrib   0.57
+                        SL_ATR_1_5 | 2045 | 292.1 tpy |  32.9% |  0.0013 | contrib   0.39
+
+  jpy|bull:
+                        SL_ATR_2_0 | 4518 | 645.4 tpy |  33.0% |  0.0649 | contrib  41.86 <-
+              SL_AOI_FAR_PLUS_0_25 | 4518 | 645.4 tpy |  32.0% |  0.0599 | contrib  38.66 <-
+                        SL_AOI_FAR | 4518 | 645.4 tpy |  32.5% |  0.0353 | contrib  22.79 <-
+                        SL_ATR_1_5 | 4518 | 645.4 tpy |  33.5% |  0.0190 | contrib  12.26
+        SL_SIGNAL_CANDLE_PLUS_0_25 | 4518 | 645.4 tpy |  32.4% | -0.0058 | contrib  -3.74
+
+  jpy|bear:
+                        SL_ATR_0_5 | 2908 | 415.4 tpy |  33.8% |  0.0141 | contrib   5.86 <-
+                        SL_ATR_1_0 | 2908 | 415.4 tpy |  33.6% |  0.0069 | contrib   2.86 <-
+                  SL_SIGNAL_CANDLE | 2908 | 415.4 tpy |  33.0% |  0.0056 | contrib   2.32 <-
+             SL_AOI_NEAR_PLUS_0_25 | 2908 | 415.4 tpy |  33.2% |  0.0029 | contrib   1.22
+              SL_AOI_NEAR_PLUS_0_5 | 2908 | 415.4 tpy |  33.0% |  0.0008 | contrib   0.34
+
+  usd|bull:
+              SL_AOI_FAR_PLUS_0_25 | 3075 | 439.3 tpy |  32.9% |  0.0587 | contrib  25.79 <-
+                        SL_ATR_2_0 | 3075 | 439.3 tpy |  32.3% |  0.0248 | contrib  10.87 <-
+                        SL_AOI_FAR | 3075 | 439.3 tpy |  32.4% |  0.0146 | contrib   6.40 <-
+                        SL_ATR_1_5 | 3075 | 439.3 tpy |  33.3% |  0.0091 | contrib   4.00
+                        SL_ATR_1_0 | 3075 | 439.3 tpy |  33.3% |  0.0000 | contrib   0.00
+
+  usd|bear:
+                        SL_ATR_2_0 | 2555 | 365.0 tpy |  31.3% |  0.0008 | contrib   0.30 <-
+              SL_AOI_FAR_PLUS_0_25 | 2555 | 365.0 tpy |  30.1% | -0.0186 | contrib  -6.80 <-
+              SL_AOI_NEAR_PLUS_0_5 | 2555 | 365.0 tpy |  31.8% | -0.0325 | contrib -11.87 <-
+                        SL_AOI_FAR | 2555 | 365.0 tpy |  30.4% | -0.0354 | contrib -12.92
+        SL_SIGNAL_CANDLE_PLUS_0_25 | 2555 | 365.0 tpy |  31.3% | -0.0387 | contrib -14.11
+
+================================================================================
+STAGE 2: Gate sweep depth 0-2 | sensitivity filter | all 7 years
+================================================================================
+    [comm|bull|SL_ATR_0_5] isolated gates (skip combos): ['bcl>=0.5', 'obs>=2.0', 'rp<=0.7', 'age<=80', 'last_t>=50', 'hph<=0.3']
+    [comm|bull|SL_ATR_2_0] isolated gates (skip combos): ['tc<=2', 'ah<=1.0', 'obs>=1.0', 'rp<=0.7', 'last_t>=10', 'amid<=0.3']
+    [comm|bull|SL_SIGNAL_CANDLE_PLUS_0_25] isolated gates (skip combos): ['obs>=1.0', 'rp<=0.3', 'br>=0.7', 'imp_b>=0.8']
+
+  comm|bull (248 configs):
+                        SL_ATR_2_0 |                                     zone=disc | d1 |  62.7 tpy |  34.6% |  0.1076 | adj_c   5.74
+                        SL_ATR_2_0 |                            zone=disc+bcl>=0.5 | d2 |  57.6 tpy |  35.2% |  0.1258 | adj_c   5.07
+                        SL_ATR_2_0 |                          zone=disc+zone!=prem | d2 |  62.7 tpy |  34.6% |  0.1076 | adj_c   4.72
+                        SL_ATR_2_0 |                             zone=disc+hp<=0.3 | d2 |  62.7 tpy |  34.6% |  0.1076 | adj_c   4.72
+                        SL_ATR_2_0 |                             zone=disc+hp<=0.5 | d2 |  62.7 tpy |  34.6% |  0.1076 | adj_c   4.72
+                        SL_ATR_2_0 |                          zone=disc+bars_rb<=2 | d2 |  49.4 tpy |  34.7% |  0.1150 | adj_c   3.98
+    [comm|bear|SL_SIGNAL_CANDLE_PLUS_0_25] isolated gates (skip combos): ['imp>=1.0', 'd_imp<=2.0', 'age<=30', 'hph>=0.5', 'amid>=0.5']
+    [comm|bear|SL_AOI_NEAR_PLUS_0_5] isolated gates (skip combos): ['tc<=2', 'sb>=0.2', 'rp<=0.3', 'age<=30', 'near>=0.8']
+    [comm|bear|SL_SIGNAL_CANDLE] isolated gates (skip combos): ['opp<=1.0', 'imp>=1.0', 'bcl>=0.7', 'rp<=0.3', 'br>=0.7', 'age<=30', 'retest_p<=0.5']
+
+  comm|bear (281 configs):
+              SL_AOI_NEAR_PLUS_0_5 |                                       age<=30 | d1 | 225.7 tpy |  36.3% |  0.0947 | adj_c  18.16
+        SL_SIGNAL_CANDLE_PLUS_0_25 |                                       age<=30 | d1 | 225.7 tpy |  36.0% |  0.0924 | adj_c  17.73
+              SL_AOI_NEAR_PLUS_0_5 |                                    zone!=disc | d1 | 172.0 tpy |  37.0% |  0.1180 | adj_c  17.25
+        SL_SIGNAL_CANDLE_PLUS_0_25 |                                    zone!=disc | d1 | 172.0 tpy |  36.5% |  0.1125 | adj_c  16.45
+        SL_SIGNAL_CANDLE_PLUS_0_25 |                                       xh21-23 | d1 | 229.0 tpy |  35.6% |  0.0823 | adj_c  16.02
+                  SL_SIGNAL_CANDLE |                                    zone!=disc | d1 | 172.0 tpy |  36.5% |  0.1028 | adj_c  15.03
+    [eur|bull|SL_AOI_FAR] isolated gates (skip combos): ['imp>=2.0', 'ah<=1.0', 'rp<=0.7', 'last_t>=50', 'amid<=0.5']
+    [eur|bull|SL_ATR_1_5] isolated gates (skip combos): ['tc<=2', 'imp>=2.0', 'rp<=0.7', 'amid<=0.5']
+    [eur|bull|SL_ATR_2_0] isolated gates (skip combos): ['sb>=-0.5', 'sb>=0.0', 'imp>=0.5', 'imp>=2.0', 'rp<=0.7', 'imp_b>=0.8', 'amid<=0.5', 't_imp<=5', 'sc_rng<=1.0', 'near>=0.8']
+
+  eur|bull (309 configs):
+                        SL_AOI_FAR |                           zone!=prem+opp<=0.7 | d2 | 115.7 tpy |  35.8% |  0.1004 | adj_c   8.13
+                        SL_ATR_1_5 |                           zone!=prem+opp<=0.7 | d2 | 115.7 tpy |  36.2% |  0.0923 | adj_c   7.48
+                        SL_AOI_FAR |                                      opp<=0.7 | d1 | 171.3 tpy |  34.1% |  0.0485 | adj_c   7.06
+                        SL_AOI_FAR |                             opp<=0.7+opp<=1.0 | d2 | 171.3 tpy |  34.1% |  0.0485 | adj_c   5.82
+                        SL_AOI_FAR |                                   sc_rng<=1.0 | d1 | 203.6 tpy |  33.5% |  0.0330 | adj_c   5.71
+                        SL_AOI_FAR |                           opp<=0.7+bars_rb<=2 | d2 | 133.7 tpy |  34.6% |  0.0602 | adj_c   5.63
+    [eur|bear|SL_AOI_FAR] isolated gates (skip combos): ['sb>=-0.5', 'br>=0.5', 'age<=80', 'retest_p<=1.0', 'amid>=0.7']
+    [eur|bear|SL_AOI_NEAR_PLUS_0_5] isolated gates (skip combos): ['tc<=5', 'sb>=-0.5', 'opp<=0.4', 'opp<=1.0', 'imp>=2.0', 'bcl>=0.5', 'rp<=0.3', 'd_imp<=2.0', 'age<=80', 'amid>=0.7']
+    [eur|bear|SL_SIGNAL_CANDLE_PLUS_0_25] isolated gates (skip combos): ['imp>=2.0', 'bcl>=0.5', 'pay24>=0.0', 'd_imp<=2.0', 'age<=80', 'imp_b>=0.8', 'amid>=0.7']
+
+  eur|bear (308 configs):
+                        SL_AOI_FAR |                                          al=3 | d1 |  70.4 tpy |  35.3% |  0.1005 | adj_c   6.02
+                        SL_AOI_FAR |                                       no_conf | d1 |  70.4 tpy |  35.3% |  0.1005 | adj_c   6.02
+                        SL_AOI_FAR |                                       hp>=0.5 | d1 | 106.7 tpy |  33.9% |  0.0656 | adj_c   5.95
+              SL_AOI_NEAR_PLUS_0_5 |                         xh21-23+retest_p<=1.0 | d2 | 164.6 tpy |  34.5% |  0.0490 | adj_c   5.64
+              SL_AOI_NEAR_PLUS_0_5 |                      bars_rb<=2+retest_p<=1.0 | d2 | 163.3 tpy |  34.6% |  0.0485 | adj_c   5.54
+                        SL_AOI_FAR |                                    tc<=5+al=3 | d2 |  46.4 tpy |  37.2% |  0.1595 | adj_c   5.19
+    [gbp|bull|SL_ATR_2_0] isolated gates (skip combos): ['tc<=5', 'bcl>=0.7', 'pay48>=1.0', 'br>=0.7', 'bars_rb<=5', 'hph<=0.3', 'amid<=0.5', 't_imp<=2']
+    [gbp|bull|SL_AOI_FAR_PLUS_0_25] isolated gates (skip combos): ['pay48>=-0.5', 'pay48>=1.0', 'd_imp<=2.0', 'bars_rb<=5', 'retest_p<=1.0', 'last_t>=10', 'sc_rng<=0.5']
+    [gbp|bull|SL_AOI_FAR] isolated gates (skip combos): ['tc<=5', 'bcl>=0.7', 'obs>=2.0', 'react>=0.5', 'd_imp<=2.0', 'br>=0.7', 'bars_rb<=5', 'last_t>=10', 'hph<=0.3', 't_imp<=2']
+
+  gbp|bull (334 configs):
+                        SL_AOI_FAR |                                     near>=0.8 | d1 |  45.9 tpy |  30.2% |  0.0929 | adj_c   3.62
+                        SL_ATR_2_0 |                                     near>=0.8 | d1 |  45.9 tpy |  33.0% |  0.0875 | adj_c   3.41
+              SL_AOI_FAR_PLUS_0_25 |                              sb>=-0.2+br>=0.7 | d2 |  37.0 tpy |  33.6% |  0.1201 | adj_c   3.11
+              SL_AOI_FAR_PLUS_0_25 |                                     near>=0.8 | d1 |  45.9 tpy |  27.1% |  0.0645 | adj_c   2.52
+                        SL_ATR_2_0 |                                  sb>=0.0+al=3 | d2 |  27.6 tpy |  35.2% |  0.1177 | adj_c   2.27
+                        SL_ATR_2_0 |                               sb>=0.0+no_conf | d2 |  27.6 tpy |  35.2% |  0.1177 | adj_c   2.27
+    [gbp|bear|SL_ATR_2_0] isolated gates (skip combos): ['tc<=2', 'rp<=0.3', 'retest_p<=0.5', 'hph>=0.7']
+    [gbp|bear|SL_AOI_FAR_PLUS_0_25] isolated gates (skip combos): ['tc<=2', 'obs>=1.0', 'rp<=0.3', 'hph>=0.7', 'amid>=0.5']
+    [gbp|bear|SL_AOI_FAR] isolated gates (skip combos): ['tc<=2', 'ah<=1.0', 'obs>=1.0', 'rp<=0.3', 'br>=0.7']
+
+  gbp|bear (311 configs):
+                        SL_ATR_2_0 |                                     zone=prem | d1 |  69.3 tpy |  38.6% |  0.2516 | adj_c  14.82
+                        SL_ATR_2_0 |                                    zone!=disc | d1 | 192.6 tpy |  33.2% |  0.0872 | adj_c  14.27
+                        SL_ATR_2_0 |                                       hp>=0.7 | d1 |  81.9 tpy |  37.0% |  0.1968 | adj_c  13.69
+                        SL_ATR_2_0 |                            zone!=disc+xh21-23 | d2 | 179.7 tpy |  33.6% |  0.1049 | adj_c  13.20
+                        SL_ATR_2_0 |                           zone!=disc+opp<=1.0 | d2 | 128.0 tpy |  35.6% |  0.1432 | adj_c  12.82
+              SL_AOI_FAR_PLUS_0_25 |                                      opp<=1.0 | d1 | 184.3 tpy |  34.3% |  0.0814 | adj_c  12.75
+    [jpy|bull|SL_ATR_2_0] isolated gates (skip combos): ['bcl>=0.7', 'ah<=1.0', 'br>=0.7', 'retest_p<=0.5', 'imp_b>=0.3', 'last_t>=50']
+    [jpy|bull|SL_AOI_FAR_PLUS_0_25] isolated gates (skip combos): ['hp<=0.5', 'imp>=0.5', 'imp>=2.0', 'bcl>=0.7', 'ah<=1.0', 'd_imp<=2.0', 't_imp<=2', 'sc_rng<=1.0']
+    [jpy|bull|SL_AOI_FAR] isolated gates (skip combos): ['hp<=0.5', 'tc<=5', 'obs>=2.0', 'd_imp<=2.0', 't_imp<=2']
+
+  jpy|bull (344 configs):
+                        SL_ATR_2_0 |                                          none | d0 | 645.4 tpy |  33.0% |  0.0649 | adj_c  41.86
+              SL_AOI_FAR_PLUS_0_25 |                                    imp_b>=0.3 | d1 | 527.0 tpy |  32.5% |  0.0906 | adj_c  40.57
+              SL_AOI_FAR_PLUS_0_25 |                                          none | d0 | 645.4 tpy |  32.0% |  0.0599 | adj_c  38.66
+                        SL_ATR_2_0 |                                    imp_b>=0.3 | d1 | 527.0 tpy |  33.6% |  0.0862 | adj_c  38.61
+                        SL_ATR_2_0 |                                      imp>=0.5 | d1 | 615.0 tpy |  33.3% |  0.0728 | adj_c  38.06
+                        SL_ATR_2_0 |                                       xh21-23 | d1 | 553.9 tpy |  33.3% |  0.0770 | adj_c  36.24
+    [jpy|bear|SL_ATR_0_5] isolated gates (skip combos): ['tc<=5', 'ah<=1.0', 'obs>=2.0', 'react>=0.5', 'd_imp<=2.0', 'age<=80', 'last_t>=50']
+    [jpy|bear|SL_ATR_1_0] isolated gates (skip combos): ['hp>=0.7', 'pay24>=1.0', 'bars_rb<=5', 'amid>=0.5', 't_imp<=5']
+    [jpy|bear|SL_SIGNAL_CANDLE] isolated gates (skip combos): ['hp>=0.5', 'tc<=5', 'd_imp<=2.0', 'retest_p<=0.5']
+
+  jpy|bear (339 configs):
+                        SL_ATR_0_5 |                                        LON+NY | d1 | 196.6 tpy |  37.0% |  0.1097 | adj_c  18.33
+                        SL_ATR_0_5 |                                      bcl>=0.7 | d1 | 292.9 tpy |  35.2% |  0.0566 | adj_c  14.08
+                        SL_ATR_1_0 |                                        LON+NY | d1 | 196.6 tpy |  36.1% |  0.0836 | adj_c  13.97
+                        SL_ATR_0_5 |                             imp>=0.5+bcl>=0.7 | d2 | 281.3 tpy |  35.5% |  0.0635 | adj_c  12.50
+                        SL_ATR_0_5 |                                       xh21-23 | d1 | 376.4 tpy |  34.6% |  0.0383 | adj_c  12.27
+                        SL_ATR_1_0 |                              imp>=0.5+br>=0.5 | d2 | 267.6 tpy |  35.5% |  0.0651 | adj_c  12.20
+    [usd|bull|SL_AOI_FAR_PLUS_0_25] isolated gates (skip combos): ['hp<=0.5', 'opp<=0.4', 'opp<=1.0', 'imp>=2.0', 'ah<=1.0', 'obs>=1.0', 'bars_rb<=2', 'retest_p<=0.5', 'amid<=0.5']
+    [usd|bull|SL_ATR_2_0] isolated gates (skip combos): ['hp<=0.5', 'opp<=0.4', 'opp<=1.0', 'imp>=2.0', 'ah<=1.0', 'obs>=1.0', 'd_imp<=2.0', 'age<=80', 'bars_rb<=2', 'imp_b>=0.3', 'last_t>=10', 'hph<=0.5', 'amid<=0.5']
+    [usd|bull|SL_AOI_FAR] isolated gates (skip combos): ['hp<=0.5', 'sb>=0.0', 'bcl>=0.5', 'ah<=1.0', 'obs>=1.0', 'pay24>=-0.5', 'pay48>=-0.5', 'bars_rb<=2', 'retest_p<=0.5', 'amid<=0.5', 't_imp<=5', 'sc_rng<=0.5']
+
+  usd|bull (300 configs):
+              SL_AOI_FAR_PLUS_0_25 |                                          none | d0 | 439.3 tpy |  32.9% |  0.0587 | adj_c  25.79
+              SL_AOI_FAR_PLUS_0_25 |                                       age<=80 | d1 | 437.1 tpy |  32.9% |  0.0594 | adj_c  22.07
+              SL_AOI_FAR_PLUS_0_25 |                                       age<=30 | d1 | 409.4 tpy |  33.0% |  0.0599 | adj_c  20.84
+              SL_AOI_FAR_PLUS_0_25 |                                   pay48>=-0.5 | d1 | 247.9 tpy |  34.0% |  0.0898 | adj_c  18.91
+              SL_AOI_FAR_PLUS_0_25 |                                    zone!=prem | d1 | 274.9 tpy |  34.0% |  0.0796 | adj_c  18.60
+              SL_AOI_FAR_PLUS_0_25 |                                     near>=0.3 | d1 | 226.3 tpy |  32.3% |  0.0914 | adj_c  17.58
+    [usd|bear|SL_ATR_2_0] isolated gates (skip combos): ['obs>=2.0', 'retest_p<=0.5', 'last_t>=10', 'amid>=0.7']
+    [usd|bear|SL_AOI_FAR_PLUS_0_25] isolated gates (skip combos): ['retest_p<=0.5', 'imp_b>=0.3', 'amid>=0.7']
+    [usd|bear|SL_AOI_NEAR_PLUS_0_5] isolated gates (skip combos): ['tc<=5', 'pay24>=-0.5', 'pay24>=1.0', 'br>=0.5', 'amid>=0.7', 'near>=0.3']
+
+  usd|bear (346 configs):
+                        SL_ATR_2_0 |                                   pay48>=-0.5 | d1 | 203.7 tpy |  33.7% |  0.0763 | adj_c  13.22
+                        SL_ATR_2_0 |                                    pay48>=0.0 | d1 | 182.6 tpy |  33.9% |  0.0842 | adj_c  13.07
+                        SL_ATR_2_0 |                                   sc_rng<=1.0 | d1 | 154.7 tpy |  33.9% |  0.0865 | adj_c  11.37
+                        SL_ATR_2_0 |                              al=3+pay48>=-0.5 | d2 |  99.6 tpy |  36.9% |  0.1537 | adj_c  10.71
+                        SL_ATR_2_0 |                           no_conf+pay48>=-0.5 | d2 |  99.6 tpy |  36.9% |  0.1537 | adj_c  10.71
+              SL_AOI_NEAR_PLUS_0_5 |                           opp<=1.0+pay48>=0.0 | d2 | 114.9 tpy |  37.7% |  0.1306 | adj_c  10.50
+
+================================================================================
+STAGE 3: Nested 7-fold LOO — gate selected on 6 years, tested on held-out year
+         exp > 0 + n >= 10 on held-out year | Primary: 6/7 | Fallback: 5/7 + TPY >= 25
+================================================================================
+
+  comm|bear: 1 primary (6/7) | 3 at fallback level (5/7)
+    d1 |                                       age<=30 | 225.7 tpy |  36.0% |  0.0924 | LOO 6/7 | [- + + + + + +]
+         gates/fold: age<=30 | age<=30 | age<=30 | age<=30 | hp>=0.5 | age<=30 | age<=30
+
+  comm|bull: 1 primary (6/7) | 1 at fallback level (5/7)
+    d1 |                                     zone=disc |  62.7 tpy |  34.6% |  0.1076 | LOO 6/7 | [+ + + + + - +]
+         gates/fold: zone=disc | zone=disc | zone=disc | zone=disc | zone=disc+bcl>=0.5 | hp<=0.3 | zone=disc
+
+  eur|bear: 0 primary (6/7) | 0 at fallback level (5/7)
+
+  eur|bull: 0 primary (6/7) | 1 at fallback level (5/7)
+
+  gbp|bear: 0 primary (6/7) | 1 at fallback level (5/7)
+
+  gbp|bull: 0 primary (6/7) | 0 at fallback level (5/7)
+
+  jpy|bear: 1 primary (6/7) | 1 at fallback level (5/7)
+    d1 |                                        LON+NY | 196.6 tpy |  37.0% |  0.1097 | LOO 6/7 | [+ + + + - + +]
+         gates/fold: LON+NY | bcl>=0.7+xh21-23 | LON+NY | LON+NY | LON+NY | LON+NY | LON+NY
+
+  jpy|bull: 2 primary (6/7) | 2 at fallback level (5/7)
+    d0 |                                          none | 645.4 tpy |  33.0% |  0.0649 | LOO 6/7 | [+ - + + + + +]
+         gates/fold: none | none | none | imp_b>=0.3 | none | imp_b>=0.3 | none
+    d1 |                                    imp_b>=0.3 | 527.0 tpy |  32.5% |  0.0906 | LOO 6/7 | [+ - + + + + +]
+         gates/fold: imp_b>=0.3 | none | imp_b>=0.3 | imp_b>=0.3 | none | imp_b>=0.3 | imp_b>=0.3
+
+  usd|bear: 0 primary (6/7) | 2 at fallback level (5/7)
+
+  usd|bull: 0 primary (6/7) | 1 at fallback level (5/7)
+
+================================================================================
+STAGE 4: Portfolio Assembly — combinatorial search
+         Every year >= 100 trades | exp > 0 | win >= 40.0% | avg TPY >= 100
+================================================================================
+
+  LOO fallback (5/7) cells: ['usd|bull', 'gbp|bear', 'usd|bear', 'eur|bull']
+
+Cells with valid configs: ['comm|bear', 'comm|bull', 'eur|bull', 'gbp|bear', 'jpy|bear', 'jpy|bull', 'usd|bear', 'usd|bull']
+  comm|bear: 1 valid
+        SL_SIGNAL_CANDLE_PLUS_0_25 |                                       age<=30 | 225.7 tpy |  36.0% |  0.0924 | LOO 6/7
+  comm|bull: 1 valid
+                        SL_ATR_2_0 |                                     zone=disc |  62.7 tpy |  34.6% |  0.1076 | LOO 6/7
+  eur|bull: 1 valid
+                        SL_AOI_FAR |                           zone!=prem+opp<=0.7 | 115.7 tpy |  35.8% |  0.1004 | LOO 5/7
+  gbp|bear: 1 valid
+                        SL_ATR_2_0 |                                     zone=prem |  69.3 tpy |  38.6% |  0.2516 | LOO 5/7
+  jpy|bear: 1 valid
+                        SL_ATR_0_5 |                                        LON+NY | 196.6 tpy |  37.0% |  0.1097 | LOO 6/7
+  jpy|bull: 2 valid
+              SL_AOI_FAR_PLUS_0_25 |                                    imp_b>=0.3 | 527.0 tpy |  32.5% |  0.0906 | LOO 6/7
+                        SL_ATR_2_0 |                                          none | 645.4 tpy |  33.0% |  0.0649 | LOO 6/7
+  usd|bear: 1 valid
+                        SL_ATR_2_0 |                                   pay48>=-0.5 | 203.7 tpy |  33.7% |  0.0763 | LOO 5/7
+  usd|bull: 1 valid
+              SL_AOI_FAR_PLUS_0_25 |                                          none | 439.3 tpy |  32.9% |  0.0587 | LOO 5/7
+
+  Pre-computing cell stats (all 7 years) ...
+
+  Search: 8 cells ª [2, 2, 2, 2, 2, 3, 2, 2] opts = 384 combos
+
+  0 portfolios pass all constraints
+
+================================================================================
+STAGE 5: Final Summary — 7-year LOO validated portfolios
+================================================================================
+
+  Saved -> C:\GIT-PROJECT\Trenda\data-retriever\analysis\robust_configs_v5.csv
+
+Done.

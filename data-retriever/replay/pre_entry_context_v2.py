@@ -98,49 +98,8 @@ class PreEntryContextV2Data:
     # Retest Candle Metrics
     retest_candle_body_penetration: Optional[float] = None  # combined body ratio and penetration depth
 
-    # HTF Trend Quality Metrics
-    htf_slope_strength_low: Optional[float] = None
-    htf_slope_strength_mid: Optional[float] = None
-    htf_slope_strength_high: Optional[float] = None
-    
-    htf_impulse_ratio_low: Optional[float] = None
-    htf_impulse_ratio_mid: Optional[float] = None
-    htf_impulse_ratio_high: Optional[float] = None
-    
-    htf_struct_eff_low: Optional[float] = None
-    htf_struct_eff_mid: Optional[float] = None
-    htf_struct_eff_high: Optional[float] = None
-
     # AOI Geometry Metrics
     aoi_height_atr: Optional[float] = None
-    aoi_entry_depth: Optional[float] = None
-    aoi_compression_ratio: Optional[float] = None
-
-    # Break Candle Metrics
-    break_def_dist_from_balance_atr: Optional[float] = None
-    break_def_liquidity_sweep: Optional[bool] = None
-
-    # After-Break Candle Metrics
-    after_break_pullback_depth_atr: Optional[float] = None
-    after_break_close_dist_edge_atr: Optional[float] = None
-    after_break_range_compress_ratio: Optional[float] = None
-    after_break_range_compress_ratio: Optional[float] = None
-    after_break_retest_fail_flag: Optional[bool] = None
-
-    # Session Dynamics
-    session_transition_prox_flag: Optional[bool] = None
-    session_align_break_low: Optional[bool] = None
-    session_align_break_mid: Optional[bool] = None
-    session_align_break_mid: Optional[bool] = None
-    session_align_break_high: Optional[bool] = None
-
-    # Path-Risk Context
-    dist_nearest_opposing_liq_atr: Optional[float] = None
-    structure_density_behind_entry: Optional[float] = None
-    
-    # New Features
-    day_range_atr: Optional[float] = None
-    opposing_wick_ratio: Optional[float] = None
 
 
 
@@ -278,48 +237,8 @@ class PreEntryContextV2Calculator:
             # Retest Candle Metrics
             retest_candle_body_penetration=_to_python_float(self._compute_retest_body_penetration()),
             
-            # HTF Trend Quality Metrics
-            htf_slope_strength_low=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_low, self._state.trend_low).get("slope")),
-            htf_slope_strength_mid=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_mid, self._state.trend_mid).get("slope")),
-            htf_slope_strength_high=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_high, self._state.trend_high).get("slope")),
-            
-            htf_impulse_ratio_low=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_low, self._state.trend_low).get("impulse_ratio")),
-            htf_impulse_ratio_mid=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_mid, self._state.trend_mid).get("impulse_ratio")),
-            htf_impulse_ratio_high=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_high, self._state.trend_high).get("impulse_ratio")),
-            
-            htf_struct_eff_low=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_low, self._state.trend_low).get("struct_eff")),
-            htf_struct_eff_mid=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_mid, self._state.trend_mid).get("struct_eff")),
-            htf_struct_eff_high=_to_python_float(self._compute_htf_quality_metrics(ACTIVE_PROFILE.trend_tf_high, self._state.trend_high).get("struct_eff")),
-            
             # AOI Geometry
             aoi_height_atr=_to_python_float(self._compute_aoi_height_atr()),
-            aoi_entry_depth=_to_python_float(self._compute_aoi_entry_depth()),
-            aoi_compression_ratio=_to_python_float(self._compute_aoi_compression_ratio()),
-            
-            # Break Candle Metrics (Only if is_break_candle_last=True)
-            break_def_dist_from_balance_atr=_to_python_float(self._compute_break_metrics().get("dist_balance")) if self._is_break_candle_last else None,
-            break_def_liquidity_sweep=_to_python_bool(self._compute_break_metrics().get("sweep")) if self._is_break_candle_last else None,
-            
-            # After-Break Metrics (Only if is_break_candle_last=False)
-            after_break_pullback_depth_atr=_to_python_float(self._compute_after_break_metrics().get("pullback_depth")) if not self._is_break_candle_last else None,
-            after_break_close_dist_edge_atr=_to_python_float(self._compute_after_break_metrics().get("dist_edge")) if not self._is_break_candle_last else None,
-            after_break_range_compress_ratio=_to_python_float(self._compute_after_break_metrics().get("compression_ratio")) if not self._is_break_candle_last else None,
-
-            after_break_retest_fail_flag=_to_python_bool(self._compute_after_break_metrics().get("retest_fail")) if not self._is_break_candle_last else None,
-
-            # Session Dynamics
-            session_transition_prox_flag=_to_python_bool(self._compute_session_transition_flag()),
-            session_align_break_low=_to_python_bool(self._compute_session_alignment(ACTIVE_PROFILE.trend_tf_low)),
-            session_align_break_mid=_to_python_bool(self._compute_session_alignment(ACTIVE_PROFILE.trend_tf_mid)),
-            session_align_break_high=_to_python_bool(self._compute_session_alignment(ACTIVE_PROFILE.trend_tf_high)),
-            
-            # Path-Risk Context
-            dist_nearest_opposing_liq_atr=_to_python_float(self._compute_path_risk_metrics().get("dist_liq")),
-            structure_density_behind_entry=_to_python_float(self._compute_path_risk_metrics().get("density")),
-            
-            # New Features
-            day_range_atr=_to_python_float(self._compute_day_range_atr()),
-            opposing_wick_ratio=_to_python_float(self._compute_opposing_wick_ratio()),
         )
     
     def _compute_aoi_height_atr(self) -> Optional[float]:

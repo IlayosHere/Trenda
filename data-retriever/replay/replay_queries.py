@@ -38,7 +38,6 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         timeframe_profile,
         aoi_timeframe, aoi_low, aoi_high, aoi_classification,
         entry_price, atr_1h,
-        final_score, tier,
         is_break_candle_last,
         sl_model_version, tp_model_version,
         conflicted_tf,
@@ -47,7 +46,7 @@ INSERT_REPLAY_ENTRY_SIGNAL = f"""
         aoi_touch_count_since_creation,
         trade_id
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -145,8 +144,6 @@ CREATE_REPLAY_ENTRY_SIGNAL_TABLE = f"""
         aoi_classification VARCHAR(20),
         entry_price NUMERIC,
         atr_1h NUMERIC,
-        final_score NUMERIC,
-        tier VARCHAR(20),
         is_break_candle_last BOOLEAN,
         sl_model_version TEXT NOT NULL,
         tp_model_version TEXT NOT NULL,

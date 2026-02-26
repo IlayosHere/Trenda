@@ -46,8 +46,9 @@ FETCH_SIGNALS_SQL = f"""
         es.aoi_low, 
         es.aoi_high
     FROM {SCHEMA_NAME}.entry_signal es
-    WHERE es.is_break_candle_last = FALSE
+    WHERE es.is_break_candle_last = TRUE
     AND es.sl_model_version = 'CHECK_GEO'
+          AND EXTRACT(YEAR FROM es.signal_time) = 2023
     ORDER BY es.signal_time ASC
 """
 

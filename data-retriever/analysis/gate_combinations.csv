@@ -1,0 +1,10 @@
+cell,p1,d1,p2,d2,single_avg_win,single_avg_exp,single_above_be,combo_avg_n,combo_avg_win,combo_avg_exp,combo_above_be,combo_exp_pos,vs_single_pp
+comm|bearish,htf_range_position_high,mostly_up,htf_range_position_mid,mostly_up,35.6,0.0689,5,820.0,36.1,0.0832,4,4,0.5
+comm|bearish,htf_range_position_high,mostly_up,break_close_location,mostly_down,35.6,0.0689,5,650.0,37.2,0.1171,5,5,1.6
+comm|bearish,htf_range_position_high,mostly_up,recent_trend_payoff_atr_24h,mostly_down,35.6,0.0689,5,806.0,36.3,0.0891,4,4,0.7
+comm|bearish,htf_range_position_high,mostly_up,aoi_time_since_last_touch,mostly_up,35.6,0.0689,5,559.0,38.3,0.1473,4,4,2.7
+jpy|bullish,aoi_last_reaction_strength,mostly_down,htf_range_position_high,mostly_down,34.9,0.0464,5,544.0,36.9,0.1065,5,5,2.0
+jpy|bullish,aoi_last_reaction_strength,mostly_down,trend_age_impulses,mostly_up,34.9,0.0464,5,617.0,36.3,0.0876,5,5,1.4
+usd|bullish,aoi_time_since_last_touch,mostly_up,session_directional_bias,mostly_down,34.3,0.0288,5,1057.0,35.4,0.0625,4,4,1.1
+usd|bullish,aoi_time_since_last_touch,mostly_up,distance_from_last_impulse_atr,mostly_down,34.3,0.0288,5,790.0,34.8,0.0431,4,4,0.5
+usd|bullish,aoi_time_since_last_touch,mostly_up,aoi_last_reaction_strength,mostly_up,34.3,0.0288,5,731.0,33.9,0.0158,4,4,-0.4
